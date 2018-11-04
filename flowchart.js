@@ -33,7 +33,17 @@ class FlowchartBox {
     this.text = "";
     this.wrappedText = [];
 
-    this.editor = this.createEditor();
+    this.createEditor();
+    this.addAnchors();
+
+    this.addSelfToCanvas();
+
+    // add clickable point for resizing
+    this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
+  }
+
+  getParent() {
+    return this;
   }
 
   getToolbar() {
@@ -53,35 +63,38 @@ class FlowchartBox {
    *    (perhaps shift+enter)
    */
   createEditor() {
-    var editor = document.createElement("textarea");
-    editor.style.width = this.width + "px";
-    editor.style.height = this.height + "px";
-    editor.style.background = this.fill;
-    editor.style.position = "absolute"; 
-    editor.style.border = "0";
+    this.editor = document.createElement("textarea");
+    this.editor.style.background = this.fill;
+    this.editor.style.position = "absolute"; 
+    this.editor.style.border = "0";
 
-    // set position
-    editor.style.top = this.y1 + "px";
-    editor.style.left = this.x1 + "px";
+    this.positionEditor();
 
     // disable resize
-    editor.style.resize = "none";
+    this.editor.style.resize = "none";
 
     // hide until flowchart box clicked
-    editor.hidden = true;
+    this.editor.hidden = true;
 
     // add to document body
-    document.body.appendChild(editor);
+    document.body.appendChild(this.editor);
   
     // end editing with enter key
     var self = this;
-    editor.onkeydown = function(event) {
+    this.editor.onkeydown = function(event) {
       if (event.keyCode == ENTER) {
         self.deactivate();
       }
     };
+  }
 
-    return editor;
+  positionEditor() {
+    // set size
+    this.editor.style.width = this.width + "px";
+    this.editor.style.height = this.height + "px";
+    // set position
+    this.editor.style.top = this.y1 + "px";
+    this.editor.style.left = this.x1 + "px";
   }
 
   configureOptions() {
@@ -110,6 +123,35 @@ class FlowchartBox {
       this.textX = Math.floor((this.x1 + this.x2) / 2);
 
     this.hitCtx.fillStyle = this.hashColor;
+  }
+  
+  addAnchors() {
+    // add anchors at midpoint of each side
+    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0));
+    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+
+    this.setAnchors();
+  }
+
+  /*  setAnchors
+   *    reset coordinates of anchor points after box coordinates get updated
+   */
+  setAnchors() {
+    // add anchors at midpoint of each side
+    var left = this.anchors[0];
+    var right = this.anchors[1];
+    var top = this.anchors[2];
+    var bottom = this.anchors[3];
+
+    var xMid = Math.floor((this.x2 + this.x1) / 2);
+    var yMid = Math.floor((this.y2 + this.y1) / 2);
+
+    left.x = this.x1; left.y = yMid;
+    right.x = this.x2; right.y = yMid;
+    top.x = xMid; top.y = this.y1;
+    bottom.x = xMid; bottom.y = this.y2;
   }
 
   /* draw
@@ -166,14 +208,50 @@ class FlowchartBox {
     this.y2 += deltaY; 
 
     // move editor with box
-    this.editor.style.left = this.x1 + "px";
-    this.editor.style.top = this.y1 + "px";
+    this.positionEditor();
 
     // move anchor points with box
     this.anchors.forEach(function(point) {
       point.x += deltaX;
       point.y += deltaY;
     });
+
+    // move resize point with box
+    this.resizePoint.x += deltaX;      
+    this.resizePoint.y += deltaY;
+  }
+
+  /*  resize
+   *    cause box to change width by deltaX, height by deltaY,
+   *    with top left corner staying in same position. 
+   *    Gets called by child resizePoint.
+   *
+   *    If resize would invert box, don't allow it.
+   */
+  resize(deltaX, deltaY) {
+    this.x2 += deltaX;
+    this.y2 += deltaY;
+
+    if (this.x2 < this.x1)
+      this.x2 = this.x1;
+    if (this.y2 < this.y1)
+      this.y2 = this.y1;
+
+    this.width = this.x2 - this.x1;
+    this.height = this.y2 - this.y1;
+
+    // resize editor as well
+    this.positionEditor();
+
+    // re-render text
+    this.textEntered();
+    
+    // move anchor points
+    this.setAnchors();
+      
+    // move resize point
+    this.resizePoint.x = this.x2;
+    this.resizePoint.y = this.y2;
   }
 
   /*  click(event)
@@ -231,8 +309,9 @@ class FlowchartBox {
       }
       line += words[i] + " ";
     }
-    // add final line
-    wrappedText.push(line);
+    // add final line if total string was nonempty
+    if (this.editor.value != "")
+      wrappedText.push(line);
     
     this.wrappedText = wrappedText;
   }
@@ -246,21 +325,12 @@ class RectBox extends FlowchartBox {
     // set borderThickness lower for rect command
     this.borderThickness = 2;
 
+
+  }
+  
+  addSelfToCanvas() {
     // add self to list of canvas objects
     this.cState.addCanvasObj("rectBox", this);
-
-    this.addAnchors();
-  }
-
-  addAnchors() {
-    // add anchors at midpoint of each side
-    var xMid = Math.floor((this.x2 + this.x1) / 2);
-    var yMid = Math.floor((this.y2 + this.y1) / 2);
-
-    this.anchors.push(new AnchorPoint(this.cState, this, this.x1, yMid));
-    this.anchors.push(new AnchorPoint(this.cState, this, this.x2, yMid));
-    this.anchors.push(new AnchorPoint(this.cState, this, xMid, this.y1));
-    this.anchors.push(new AnchorPoint(this.cState, this, xMid, this.y2));
   }
 
   static outline(cState) {
@@ -278,8 +348,6 @@ class RoundBox extends FlowchartBox {
   constructor(canvasState) {
     super(canvasState);
 
-    // add self to list of canvas objects
-    this.cState.addCanvasObj("roundBox", this);
 
     this.radius = 10;
 
@@ -287,6 +355,11 @@ class RoundBox extends FlowchartBox {
     // because using custom path instead of ctx.rect()
     this.borderThickness = 2;
   } 
+
+  addSelfToCanvas() {
+    // add self to list of canvas objects
+    this.cState.addCanvasObj("roundBox", this);
+  }
 
   configureOptions() {
     super.configureOptions();
@@ -334,17 +407,47 @@ class DiamondBox extends FlowchartBox {
   constructor(canvasState) {
     super(canvasState);
 
-    // add self to list of canvas objects
-    this.cState.addCanvasObj("diamondBox", this);
 
     // need extra border thickness parameter
     // because using custom path instead of ctx.rect()
     this.borderThickness = 2;
   } 
 
+  addSelfToCanvas() {
+    // add self to list of canvas objects
+    this.cState.addCanvasObj("diamondBox", this);
+  }
+
+  /*  configureOptions  
+   *    set style options for drawing and redefine edge points
+   */
   configureOptions() {
     super.configureOptions();
     this.ctx.lineWidth = this.borderThickness;
+
+    var hw = Math.floor(this.width / 2);
+    var hh = Math.floor(this.height / 2);
+    
+    this.leftX = this.x1 - hw;
+    this.rightX = this.x2 + hw;
+    this.midX = this.x1 + hw;
+    this.topY = this.y1 - hh;
+    this.bottomY = this.y2 + hh;
+    this.midY = this.y1 + hh;
+  }
+
+  setAnchors() {
+    this.configureOptions();
+
+    var left = this.anchors[0];
+    var right = this.anchors[1];
+    var top = this.anchors[2];
+    var bottom = this.anchors[3];
+
+    left.x = this.leftX; left.y = this.midY;
+    right.x = this.rightX; right.y = this.midY;
+    top.x = this.midX; top.y = this.topY;
+    bottom.x = this.midX; bottom.y = this.bottomY;
   }
   
   /*  draw
@@ -354,15 +457,12 @@ class DiamondBox extends FlowchartBox {
   draw() {
     this.configureOptions();
     this.ctx.beginPath();
-    
-    var hw = Math.floor(this.width / 2);
-    var hh = Math.floor(this.height / 2);
-      
-    this.ctx.moveTo(this.x1 - hw, this.y1 + hh);
-    this.ctx.lineTo(this.x1 + hw, this.y1 - hh);
-    this.ctx.lineTo(this.x2 + hw, this.y1 + hh);
-    this.ctx.lineTo(this.x1 + hw, this.y2 + hh);
-    this.ctx.lineTo(this.x1 - hw, this.y1 + hh);
+
+    this.ctx.moveTo(this.leftX, this.midY);
+    this.ctx.lineTo(this.midX, this.topY);
+    this.ctx.lineTo(this.rightX, this.midY);
+    this.ctx.lineTo(this.midX, this.bottomY);
+    this.ctx.lineTo(this.leftX, this.midY);
 
     this.ctx.closePath();
     this.ctx.stroke();
@@ -372,11 +472,13 @@ class DiamondBox extends FlowchartBox {
     this.drawText();
 
     this.hitCtx.beginPath();
-    this.hitCtx.moveTo(this.x1 - hw, this.y1 + hh);
-    this.hitCtx.lineTo(this.x1 + hw, this.y1 - hh);
-    this.hitCtx.lineTo(this.x2 + hw, this.y1 + hh);
-    this.hitCtx.lineTo(this.x1 + hw, this.y2 + hh);
-    this.hitCtx.lineTo(this.x1 - hw, this.y1 + hh);
+    this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.strokeStyle = this.hashColor;
+    this.hitCtx.moveTo(this.leftX, this.midY);
+    this.hitCtx.lineTo(this.midX, this.topY);
+    this.hitCtx.lineTo(this.rightX, this.midY);
+    this.hitCtx.lineTo(this.midX, this.bottomY);
+    this.hitCtx.lineTo(this.leftX, this.midY);
 
     this.hitCtx.closePath();
     this.hitCtx.stroke();
@@ -435,6 +537,12 @@ class Arrow {
 
     // default hit thickness
     this.hitThickness = 8;
+
+    this.addSelfToCanvas();
+  }
+
+  getParent() {
+    return this;
   }
 
   deactivate() {
@@ -468,11 +576,13 @@ class RightAngleArrow extends Arrow {
     this.anglePoints = [];
     this.addedNewAngle = false;
 
-    this.cState.addCanvasObj("RAArrow", this);
-
     // create ArrowHead
     // (handled here because of forced alignment)
     this.head = new ArrowHead(canvasState, this);
+  }
+
+  addSelfToCanvas() {
+    this.cState.addCanvasObj("RAArrow", this);
   }
 
   /*  endingOrientation()
@@ -607,6 +717,14 @@ class ArrowHead {
     this.width = 20;
     this.height = 20;
 
+    this.addSelfToCanvas();
+  }
+
+  getParent() {
+    return this.arrow.getParent();
+  }
+  
+  addSelfToCanvas() {
     this.cState.addCanvasObj("arrowHead", this);
   }
 
@@ -742,7 +860,6 @@ class ArrowHead {
       var ori = this.arrow.endingOrientation();
       var x = this.arrow.endX;
       var y = this.arrow.endY;
-      console.log("ori = ", ori);
       if (ori == "L")
           x -= (this.height + 1);
       if (ori == "R")
@@ -753,7 +870,6 @@ class ArrowHead {
           y += (this.height + 1);
 
       var hoverObj = this.cState.getClickedObject(x, y);
-      console.log("ho=" , hoverObj);
       var newX = this.arrow.endX;
       var newY = this.arrow.endY;
           
@@ -804,6 +920,14 @@ class AnchorPoint {
     // (snap to this anchor if within radius)
     this.radius = 30;
 
+    this.addSelfToCanvas();
+  }
+
+  getParent() {
+    return this.parentBox.getParent();
+  }   
+
+  addSelfToCanvas() {
     this.cState.addCanvasObj("anchor", this);
   }
 
@@ -841,5 +965,62 @@ class AnchorPoint {
   click(event) {
     this.parentBox.click(event);
   }
+}
 
+class ResizePoint {
+  constructor(canvasState, parentBox, x, y) {
+    this.cState = canvasState;
+    this.ctx = canvasState.ctx;
+    this.hitCtx = canvasState.hitCtx;
+    this.hashColor = null;
+    
+    this.parentBox = parentBox;
+
+    this.x = x;
+    this.y = y;
+
+    // default radius 
+    this.radius = 15;
+
+    this.addSelfToCanvas();
+  }
+
+  getParent() {
+    return this.parentBox.getParent();
+  }
+
+  addSelfToCanvas() {
+    this.cState.addCanvasObj("anchor", this);
+  }
+    
+  draw() {
+    // only draw to hit detect canvas
+    this,hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.beginPath();
+    this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+    this.hitCtx.fill();
+  }
+
+  click(event) {
+
+  }
+
+  deactivate() {
+
+  }
+
+  /*  drag
+   *    should cause parent to resize
+   */
+  drag(deltaX, deltaY) {
+    this.parentBox.resize(deltaX, deltaY);
+  }
+
+  /*  hover
+   *    change mouse pointer to resize shape
+   */
+  hover() {
+    console.log("hovering");
+    document.body.style.cursor = "nwse-resize";     
+  }
 }
