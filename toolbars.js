@@ -80,29 +80,22 @@ class ArrowOptions extends ToolOptions {
     var arrowWidth = $("#arrowWidth");
     arrowWidth.on("change", function(event) {
       var active = self.cState.activeObj;
-      active.thickness = arrowWidth.val();
+      var arrow = active.getParent();
+      arrow.thickness = arrowWidth.val();
     });
 
     var arrowHeadFill = $("#arrowHeadFill");
     arrowHeadFill.on("change", function(event) {
       var active = self.cState.activeObj;
-      var head;
-      if (active instanceof Arrow)
-        head = active.head;
-      else 
-        head = active;
+      var arrow = active.getParent();
 
-      head.hollow = arrowHeadFill.val() == "hollow";
+      arrow.head.hollow = arrowHeadFill.val() == "hollow";
     });
   }
 
   setSelectOptions() {
     var active = this.cState.activeObj;
-    var arrow;
-    if (active.head)
-      arrow = active;
-    else  
-      arrow = active.arrow;
+    var arrow = active.getParent();
     $("#arrowWidth").val(arrow.thickness);
     $("#arrowHeadFill").val(arrow.head.hollow ? "hollow" : "filled");
   }
@@ -132,37 +125,42 @@ class FlowchartBoxOptions extends ToolOptions {
 
     fontSize.on("change", function(event) {
       var active = self.cState.activeObj;
-      active.fontSize = fontSize.val();
+      var textbox = active.getParent();
+      textbox.fontSize = fontSize.val();
 
       // re-render text with new size
-      active.textEntered();
+      textbox.textEntered();
     });
 
     fontFamily.on("change", function(event) {
       var active = self.cState.activeObj;
-      active.fontFamily = fontFamily.val();
+      var textbox = active.getParent();
+      textbox.fontFamily = fontFamily.val();
     });
 
     leftAlign.on("click", function(event) {
       var active = self.cState.activeObj;
-      active.textAlign = "left";
-      active.editor.style.textAlign = "left";
+      var textbox = active.getParent();
+      textbox.textAlign = "left";
+      textbox.editor.style.textAlign = "left";
     });
     rightAlign.on("click", function(event) {
       var active = self.cState.activeObj;
-      active.textAlign = "right";
-      active.editor.style.textAlign = "right";
+      var textbox = active.getParent();
+      textbox.textAlign = "right";
+      textbox.editor.style.textAlign = "right";
     });
     centerAlign.on("click", function(event) {
       var active = self.cState.activeObj;
-      active.textAlign = "center";
-      active.editor.style.textAlign = "center";
+      var textbox = active.getParent();
+      textbox.textAlign = "center";
+      textbox.editor.style.textAlign = "center";
     });
   }
 
   setSelectOptions() {
-    $("#fontSize").val(this.cState.activeObj.fontSize);
-    $("#fontFamily").val(this.cState.activeObj.fontFamily);
+    $("#fontSize").val(this.cState.activeObj.getParent().fontSize);
+    $("#fontFamily").val(this.cState.activeObj.getParent().fontFamily);
   }
 
 }
