@@ -8,6 +8,7 @@ class CommandConsole {
     this.cmdConsole = document.getElementById("commandConsole");
     this.commandLine = document.getElementById("commandLine");
     this.history = document.getElementById("commandHistory");
+
     this.cmdConsole.appendChild(commandLine);
 
     this.history.value = "";
@@ -26,6 +27,7 @@ class CommandConsole {
 
     this.initStyle();
     this.bindKeys();
+    this.bindActions();
   }
 
   initStyle() {
@@ -48,6 +50,63 @@ class CommandConsole {
     
     this.cmdConsole.hidden = hidden;
     this.commandLine.focus();
+  }
+
+  bindActions() {
+    this.cmdConsole.onmousedown = (event) => {
+      // dont drag if clicking input (prevents drag/resize happening simultaneously)
+      if (!this.clickingInput(event))  {
+        this.dragStart = {x: event.clientX, y: event.clientY};
+
+        // pass focus to input
+        event.preventDefault();
+        this.commandLine.select();
+      }
+
+    };
+    this.cmdConsole.onmouseup = (event) => this.dragStart = null;
+    this.cmdConsole.onmousemove = (event) => this.dragConsole(event);
+
+    // do scrolling action on history
+    var scrollSpeed = 6;
+    this.cmdConsole.onwheel = (event) => {
+      var newScrollTop = this.history.scrollTop + (scrollSpeed * event.deltaY);
+      this.history.scrollTo(0, newScrollTop);
+    };
+  }
+
+
+  /*  clickingResize
+   *    helper method for determining when to allow dragging of console.
+   *    Resize corner doesn't register clicks with the input element (commandLine)
+   *    so some math is needed.
+   */
+  clickingInput(event) {
+    // if y coordinate is beyond textarea (history) element, then 
+    // input is being clicked
+    var consoleY = parseInt(this.cmdConsole.style.top.split("px")[0]);
+
+    var consoleHeight = parseInt(this.cmdConsole.style.height.split("px")[0]);
+    // input takes up last 10% of console
+    var inputY = consoleY + (.9 * consoleHeight);
+
+    return event.clientY > inputY;
+  }
+
+  dragConsole(event) {
+    if (this.dragStart) {
+      var deltaX = event.clientX - this.dragStart.x;
+      var deltaY = event.clientY - this.dragStart.y;
+
+      // convert "..px" string to int
+      var left = parseInt(this.cmdConsole.style.left.split("px")[0]);
+      var top = parseInt(this.cmdConsole.style.top.split("px")[0]);
+
+      this.cmdConsole.style.left = (left + deltaX) + "px";
+      this.cmdConsole.style.top = (top + deltaY) + "px";
+
+      this.dragStart = {x: event.clientX, y: event.clientY};
+    }
   }
 
   bindKeys() {
@@ -73,7 +132,6 @@ class CommandConsole {
    *    command objects
    */
   commandEntered(event) {
-    console.log("enter key pressed"); 
     console.log("command was", this.commandLine.value);
 
     var splitCmd = this.commandLine.value.split(" ");
@@ -89,6 +147,9 @@ class CommandConsole {
 
     // redraw command history
     this.showHistory();
+
+    // keep history scrolled to bottom
+    this.history.scrollTop = this.history.scrollHeight; 
   }
 
   showHistory() {
