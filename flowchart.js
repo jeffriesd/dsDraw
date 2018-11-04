@@ -739,16 +739,37 @@ class ArrowHead {
       //  need to consider case where arrow is created later
       //  and thus its color is on top
       //  -> easy fix: just check color 1 pixel ahead of arrow
-      var hoverObj = this.cState.getClickedObject(
-          this.arrow.endX + this.arrow.head.height + 1, this.arrow.endY
-      );
+      var ori = this.arrow.endingOrientation();
+      var x = this.arrow.endX;
+      var y = this.arrow.endY;
+      console.log("ori = ", ori);
+      if (ori == "L")
+          x -= (this.height + 1);
+      if (ori == "R")
+          x += (this.height + 1);
+      if (ori == "U")
+          y -= (this.height + 1);
+      if (ori == "D")
+          y += (this.height + 1);
+
+      var hoverObj = this.cState.getClickedObject(x, y);
+      console.log("ho=" , hoverObj);
+      var newX = this.arrow.endX;
+      var newY = this.arrow.endY;
+          
       if (hoverObj instanceof AnchorPoint) {
         // set arrow end to center of anchor - arrow tip height
-        var ori = this.arrow.endingOrientation();
-        if (ori == "L" || ori == "R")
-          this.arrow.endX = hoverObj.x - this.height;
-        else
-          this.arrow.endY = hoverObj.y - this.height;
+        if (ori == "L")
+          newX = hoverObj.x + this.height;
+        if (ori == "R")
+          newX = hoverObj.x - this.height;
+        if (ori == "U")
+          newY = hoverObj.y + this.height;
+        if (ori == "D")
+          newY = hoverObj.y - this.height;
+        
+        this.arrow.endX = newX;
+        this.arrow.endY = newY;
         hoverObj.anchoredArrow = this.arrow;
       }
     }
