@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>sigma.js example</title>
+  <style type="text/css">
+    body {
+      margin: 0;
+    }
+    #myCanvas {
+      border: 1px solid #000;
+      background: rgba(0, 255, 255, 0.1);
+      # margin: 10px;
+    }
+
+    #hitCanvas {
+      border: 1px solid #000;
+      background: rgba(255, 0, 255, 0.1);
+      # margin: 10px;
+    }
+
+    button {
+      height: 5%;
+      width: 80%;
+      margin: 10%;
+    }
+
+    #commandConsole {
+      position: absolute;
+      border: 3px solid rgba(0, 0, 0, .1);
+      resize: both;
+      overflow: auto;
+    }
+
+    #commandLine {
+      position: absolute;
+      bottom: 0px;
+      height: 10%;
+      width: 100%;
+      font-size: 12px;
+      padding: 0px;
+      background: rgba(1, 1, 1, .1);
+      border: 0;
+    }
+
+    #commandHistory {
+      position: absolute;
+      padding: 0;
+      font-size: 12px;
+      width: 100%;
+      height: 90%;
+      background: rgba(1, 1, 1, .1);
+      color: black;
+      border: 0;
+      resize: none;
+    }
+
+    .toolbar {
+      width: 800px;
+      height: 3%;
+      position: absolute;
+      background: rgba(200, 200, 200, 1);
+      border: 1px solid black;
+    }
+
+    .subToolbar {
+      height: 100%;
+      float: left;
+    }
+
+    .toolbarButton {
+      position: relative;
+      display: block;
+      float: left;
+      width: 30px;
+      height: 100%;
+      background: #ddd;
+      border: 1px solid black;
+      margin-top: 0;
+      margin-bottom: 0;
+      margin-left: 2px;
+      margin-right: 2px;
+    }
+
+    .toolbarSelect {
+      position: relative;
+      display: block;
+      float: left;
+      width: 50px;
+      height: 100%;
+      background: #ddd;
+      border: 1px solid black;
+      margin-top: 0;
+      margin-bottom: 0;
+      margin-left: 2px;
+      margin-right: 2px;
+      font-size: 6pt;
+    }
+
+    optgroup {
+      font-size: 6pt;
+    }
+
+    .toolbarLabel {
+      margin: 5px;
+      float: left;
+    }
+
+    textarea {
+      vertical-align: middle;
+    }
+
+
+  </style>
+</head>
+<body>
+  <div class="toolbar" id="flowchartToolbar" >
+    <label class="toolbarLabel" id="drawMode">Draw mode: arrow </label>
+    <button class="toolbarButton" id="rectBox"></button> 
+    <button class="toolbarButton" id="roundBox"></button> 
+    <button class="toolbarButton" id="diamondBox"></button> 
+
+    <!--Arrow options -->
+    <div hidden class="subToolbar" id="arrowOptions">
+      <select class="toolbarSelect" id="arrowWidth">
+        <optgroup label="Line width:">
+          <option value="1">1px</option>
+          <option value="2">2px</option>
+          <option value="3">3px</option>
+        </optgroup>
+      </select>
+      <select class="toolbarSelect" id="arrowHeadFill">
+        <optgroup label="Arrow head:">
+          <option value="filled">filled</option>
+          <option value="hollow">hollow</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <!--Text options for flowchart boxes-->
+    <div hidden class="subToolbar" id="textOptions">
+      <select class="toolbarSelect" id="fontSize">
+        <optgroup label="Font size:">
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px">16px</option>
+          <option value="18px">18px</option>
+        </optgroup>
+      </select>
+      <select class="toolbarSelect" id="fontFamily">
+        <optgroup label="Font family:">
+          <option value="Arial">Arial</option>
+          <option value="Garamond">Garamond</option>
+          <option value="Purisa">Purisa</option>
+        </optgroup>
+      </select>
+      <button class="toolbarButton" id="leftAlign"></button>
+      <button class="toolbarButton" id="centerAlign"></button>
+      <button class="toolbarButton" id="rightAlign"></button>
+    </div>
+  </div>
+  <div id="commandConsole">
+    <input id="commandLine" type=text>
+    <textarea id="commandHistory" readonly disabled></textarea>
+  </div>
+
+  <!--Canvases and jsDraw scripts-->
+  <canvas id="myCanvas" height=600 width=800> </canvas>
+  <canvas id="hitCanvas" height=600 width=800> </canvas>
+  <script src="toolbars.js"></script>
+  <script src="canvas-util.js"></script>
+  <script src="flowchart.js"></script>
+  <script src="ds.js"></script>
+  <script src="console.js"></script>
+  <!--External library scripts -->
+  <script src="lib/jquery-3.3.1.min.js"></script>
+  <script src="lib/mousetrap.min.js"></script>
+
+  <script>
+
+    var canvas = document.getElementById("myCanvas");
+    const ctx = canvas.getContext("2d");
+    ctx.font = "10pt Calibri";
+
+    var hitCanvas = document.getElementById("hitCanvas");
+    const hitCtx = hitCanvas.getContext("2d");
+
+    console.log(canvas);
+
+    // initialize
+    const cState = new CanvasState(canvas);
+
+
+    // start animation loop
+    function main() {
+      requestAnimationFrame(main);
+
+      cState.repaint();
+    }
+    main();
+
+    const commandConsole = new CommandConsole(cState);    
+
+    // add eventListeners for mouse actions
+    
+    /**
+     *  MOUSE CLICK PRESSED
+     */
+    canvas.addEventListener("mousedown", function(event) {
+      cState.mouseDown = {x: event.offsetX, y: event.offsetY};
+      // console.log("mouseDown at (", event.offsetX, ", ", event.offsetY, ")");
+      cState.mouseUp = null;
+
+      var canvasObj = cState.getClickedObject(event.offsetX, event.offsetY);
+
+      console.log("clicked on:", canvasObj);
+
+      if (canvasObj) {
+        // don't try to create new
+        // object/textbox/etc
+        // if click starts on another
+        // object
+        cState.clickedBare = false;   
+        cState.activeObj = canvasObj;
+        
+        // set offset for dragging
+        cState.dragOffsetX = event.offsetX;
+        cState.dragOffsetY = event.offsetY;
+
+        // show toolbar
+        cState.showToolbar();
+      } else {
+        // hide object options in current toolbar
+        if (cState.activeToolbar) {
+          cState.activeToolbar.hidden = true;
+          cState.activeToolbar = null;
+        }
+
+        // end editing for textboxes or other updates
+        if (cState.activeObj) {
+          cState.activeObj.deactivate();
+        }
+
+        cState.clickedBare = true;   
+        cState.activeObj = null;
+      }   
+    });
+
+
+    /**
+     *  MOUSE MOVED
+     */
+
+    canvas.addEventListener("mousemove", function(event) {
+      cState.mouseMove = {x: event.offsetX, y: event.offsetY};
+
+      if (cState.mouseDown && !cState.mouseUp) {
+
+        var deltaX = event.offsetX - cState.dragOffsetX;
+        var deltaY = event.offsetY - cState.dragOffsetY;
+        
+        if (cState.activeObj) {
+          cState.activeObj.drag(deltaX, deltaY); 
+
+          // reset dragOffset
+          cState.dragOffsetX += deltaX;
+          cState.dragOffsetY += deltaY;
+        }
+      }
+    });
+
+
+    /**
+     *  MOUSE CLICK RELEASED
+     */
+
+    canvas.addEventListener("mouseup", function(event) {
+      cState.mouseUp = {x: event.offsetX, y: event.offsetY};
+      
+      // only create new canvas object if actually dragged to new location
+      if (cState.mouseUp.x !== cState.mouseDown.x 
+          && cState.mouseDown.y !== cState.mouseUp.y
+          && cState.clickedBare) {
+
+        // draw array
+        switch (cState.drawMode) {
+          case "array":
+            new MyArray(cState);
+            break;
+          case "rectBox":
+            new RectBox(cState);
+            break;
+          case "roundBox":
+            new RoundBox(cState);
+            break;
+          case "diamondBox":
+            new DiamondBox(cState);
+            break;
+          case "arrow":
+            new RightAngleArrow(cState);
+            break;
+        }
+      }
+
+      // mouse release happens same place as press
+      else if (cState.mouseUp.x == cState.mouseDown.x 
+                && cState.mouseUp.y == cState.mouseDown.y) {
+
+        // get clicked object from colorHash map
+        var canvasObj = cState.getClickedObject(cState.mouseUp.x, cState.mouseUp.y);
+        if (canvasObj) {
+          canvasObj.click(event);
+        } 
+      }
+
+      // release active object
+      if (cState.activeObj) {
+        cState.activeObj.release();
+      } 
+
+      cState.mouseDown = null;
+    });
+
+    // global key bindings
+    Mousetrap.bind("t", function(event) {
+      commandConsole.toggleVisible(); 
+    });
+
+    Mousetrap.bind("esc", function(event) {
+      commandConsole.toggleVisible("off");
+    });
+
+    Mousetrap.bind("ctrl+z", function(event) {
+      cState.undo();
+    });
+
+
+    // bind buttons
+    var rectButton = document.getElementById("rectBox");
+    var roundButton = document.getElementById("roundBox");
+    var diamondButton = document.getElementById("diamondBox");
+
+    rectButton.onclick = function(e) {
+      cState.setMode("rectBox");
+    }
+    roundButton.onclick = function(e) {
+      cState.setMode("roundBox");
+    }
+    diamondButton.onclick = function(e) {
+      cState.setMode("diamondBox");
+    }
+
+  </script>
+</body>
+</html>

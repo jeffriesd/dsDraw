@@ -1,0 +1,281 @@
+\documentclass{article}
+
+\newcommand{\bs}{\textbackslash}
+
+\usepackage{geometry}
+\usepackage{tikz}
+\usetikzlibrary{backgrounds, calc, graphs, graphdrawing}
+\usegdlibrary{trees, force}
+
+\title{\vspace{-4em}\textbf{Tikz Package}}
+
+\date{}
+\begin{document}
+\maketitle
+
+\section*{Paths}
+A path is a series of straight lines and curves that are connected.
+
+\subsection*{Straight Paths}
+Straight paths can be drawn using the \bs draw, \bs fill, or \bs clip commands. They can be ``extended" using the \verb|--| operation. 
+~\\~\\
+e.g. \verb|\draw (0, 0) -- (1, 1) -- (1, 0);| \\
+\begin{tikzpicture}[
+background rectangle/.style={fill=yellow!20},
+show background rectangle
+]
+\draw (0, 0) -- (1, 1) -- (1, 0);
+\end{tikzpicture}
+~\\~\\
+Polygons can be completed with the cycle command \\
+e.g. \verb|\draw (0, 0) -- (1, 1) -- (1, 0) -- cycle;| \\
+\begin{tikzpicture}[
+background rectangle/.style={fill=yellow!20},
+show background rectangle
+]
+\draw (0, 0) -- (1, 1) -- (1, 0) -- cycle;
+\end{tikzpicture}
+
+\subsection*{Curved Paths}
+Curved paths can be specified using ``w .. controls x and y .. z'' syntax, where w and z are the endpoints of the path and x and y are the ``control points.'' The basic idea is that the tangent of the curve at w will point at x and the tangent at z will point at y. One can also specify a single control point to be used twice.
+\subsubsection*{Example}
+
+	\begin{verbatim}
+	
+	\coordinate (A) at (0, 0);
+	\coordinate (B) at (0, 1);
+	\coordinate (C) at (1, 1);
+	\coordinate (D) at (0, 2);
+
+	\node[label=left:$A$, circle, draw]at (A)  {};
+	\node[label=left:$B$, circle, draw]at (B)  {};
+	\node[label=right:$C$, circle, draw]at (C)  {};
+	\node[label=left:$D$, circle, draw]at (D)  {};
+	
+	\draw[dotted] (A) -- (B);
+	\draw[dotted] (D) -- (C);
+
+	\draw (A) .. controls (B) and (C) .. (D);
+	\end{verbatim}
+
+	\begin{tikzpicture}
+	\coordinate (A) at (0, 0);
+	\coordinate (B) at (0, 1);
+	\coordinate (C) at (1, 1);
+	\coordinate (D) at (0, 2);
+
+	\node[label=left:$A$, circle, draw]at (A)  {};
+	\node[label=left:$B$, circle, draw]at (B)  {};
+	\node[label=right:$C$, circle, draw]at (C)  {};
+	\node[label=left:$D$, circle, draw]at (D)  {};
+	
+	\draw[dotted] (A) -- (B);
+	\draw[dotted] (D) -- (C);
+
+	\draw (A) .. controls (B) and (C) .. (D);
+	\end{tikzpicture}
+	
+
+\section*{Nodes}
+\begin{itemize}
+	\item Drawn in \bs tikzpicture environment using the \bs node command
+	\item Nodes can be named and have text inside them \\
+	e.g. \textbf{\bs node (root) \{3\};}  \\
+	where root is the name and 3 is the node text
+
+
+	\item Can also specify coordinates \\
+	e.g. \textbf{\bs node at (1, 1) \{3\};} \\
+	or \textbf{\bs node at (A, B) \{text\};}
+
+\end{itemize}
+
+\subsubsection*{Options}
+\begin{itemize}
+\setlength\itemsep{0cm}
+	\item draw=color
+	\item text=color
+	\item fill=color 
+	\item minimum size=size
+	\item font=\bs fontsize\{size\}\{baseline skip\}\bs selectfont
+	\item Inner sep=size
+	\item xshift=size
+	\item yshift=size
+	\item Text width=size
+	\item Anchor=point
+\end{itemize}
+
+\subsubsection*{Examples}
+
+\begin{verbatim}\node[draw=red!50, fill=blue!50,text=white!50] at (0, 0) {5};
+\node[draw=red!50, fill=blue!50,text=white!50, minimum size=1cm] at +(1, 0) {6};
+	\node[draw=red!50, fill=blue!50,text=white!50, inner sep=0.5cm] at +(2.5, 0) {5};
+\end{verbatim}
+\begin{tikzpicture}
+\node[draw=red!50, fill=blue!50,text=white!50] at (0, 0) (A) {5};
+\node[draw=red!50, fill=blue!50,text=white!50,
+	minimum size=1cm] at +(1, 0) (B) {6};
+	\node[draw=red!50, fill=blue!50,text=white!50,
+	inner sep=0.5cm] at +(2.5, 0) (C) {5};
+\draw (A) -- (B) -- (C);
+\draw[->] (C) .. controls (2.5, 2) and (0, 2) .. (A);
+\end{tikzpicture}
+
+\subsubsection*{Relative node placement}
+\begin{verbatim}
+\usetikzlibrary{calc}  % for ($ coordinate + (x, y) $) syntax
+
+\tikzstyle{myNode}=[fill=red, text=white]
+\node[myNode, label={above:$(0, 0)$}] (A) at (0, 0) {node a};
+\node[myNode, label={above:$(1, -2)$}] (B) at ($ (A) + (1, -2) $) {node b};
+\end{verbatim}
+\begin{tikzpicture}
+\tikzstyle{myNode}=[fill=red, text=white]
+\node[myNode, label={above:$(0, 0)$}] (A) at (0, 0) {node a};
+\node[myNode, label={above:$(1, -2)$}] (B) at ($ (A) + (1, -2) $) {node b};
+
+\end{tikzpicture}
+
+
+\section*{Data Structures}
+Drawing data structures in tikz usually requires a \verb|\usetikzlibrary{...}| command. 
+Some of these libraries are \texttt{graphdrawing}, \texttt{graphs} and \texttt{trees}. 
+Using the \texttt{graphdrawing} library requires Lua and thus the LuaLatex 
+or LuaTex compiler.
+
+The \texttt{graphs} library can be used to enable the \verb|\graph| command, 
+which allows for the use of a simpler syntax for specifying graphs. 
+
+  \begin{tikzpicture}
+    \graph[spring layout, horizontal=3 to 2] {
+      10 -> {5 -> {2, 4}, 
+             6 -> {1, 3} 
+            }
+    };
+  \end{tikzpicture}
+
+Where the above graph is given by
+\begin{verbatim}
+    \graph[spring layout, horizontal=3 to 2] {
+      10 -> {5 -> {2, 4}, 
+             6 -> {1, 3} 
+            }
+    };
+\end{verbatim}
+
+The use of the layout option requires some \verb|\usegdlibrary{...}| command 
+(`force' for the spring layout). The horizontal option is used to orient the graph
+(there is a similar vertical option).
+
+Nodes in a graph can also be given a specified position using several methods. 
+The first method is using the `desired~at' key.
+
+The value for the `desired-at' key is some coordinate, and that is where the graph
+node will be placed. One can also use the `x' and `y' keys to specify this coordinate.
+\begin{verbatim}
+    \draw[draw=black!25](0, 0) grid (3, 3);
+    \node[fill=red!20, thick, circle, label=below:$A$, inner sep=1.1mm] (A) at (1, 1) {};
+    \node[fill=blue!20, thick, circle, label=above:$B$, inner sep=1.1mm] (B) at (2, 2) {};
+    \graph[spring layout,level/.style={sibling distance=2cm/#1}, level distance=5mm] {
+      10 -> { 5[desired at={(A)}] -> 
+                {2[desired at={(B)}], 4},  6 -> {1, 3}}
+    };
+\end{verbatim}
+
+  % tree example with desired at key
+  \begin{tikzpicture}
+  \begin{scope}[every node/.style={draw, circle, inner sep=0.1mm}]
+    \draw[draw=black!25](0, 0) grid (3, 3);
+    \node[fill=red!20, thick, circle, label=below:$A$, inner sep=1.1mm] (A) at (1, 1) {};
+    \node[fill=blue!20, thick, circle, label=above:$B$, inner sep=1.1mm] (B) at (2, 2) {};
+    \graph[spring layout,level/.style={sibling distance=2cm/#1}, level distance=5mm] {
+      10 -> { 5[desired at={(A)}] -> 
+                {2[desired at={(B)}], 4},  6 -> {1, 3}}
+    };
+  \end{scope}
+  \end{tikzpicture}
+  \begin{verbatim}
+  \begin{tikzpicture}
+    \draw[draw=black!25](0, 0) grid (3, 3);
+    \graph[spring layout, horizontal=3 to 2] {
+      10[x=2, y=2] -> {5 -> {2, 4}, 
+             6 -> {1, 3} 
+            }
+    };
+  \end{tikzpicture}
+  \end{verbatim}
+  \begin{tikzpicture}
+    \draw[draw=black!25](0, 0) grid (3, 3);
+    \graph[spring layout, horizontal=3 to 2] {
+      10[x=2, y=2] -> {5 -> {2, 4}, 
+             6 -> {1, 3} 
+            }
+    };
+  \end{tikzpicture}
+
+  A graph can also be `anchored' using the `anchor node <node>' or `anchor at <coordinate>'
+  keys in graph, or the `anchor here' key in some node inside the graph.
+
+  \begin{verbatim}
+    \draw[draw=black!25] (0, 0) grid (3, 3);
+    \graph[tree layout, anchor at={(1.2, 1.2)}] {
+    5 -- {1 -- 3, 2 -- {4[anchor here, draw, circle], 6}}
+    };
+  \end{verbatim}
+  
+  \begin{tikzpicture}
+    \draw[draw=black!25] (0, 0) grid (3, 3);
+    \graph[tree layout, anchor at={(1.2, 1.2)}] {
+    5 -- {1 -- 3, 2 -- {4[anchor here, draw, circle], 6}}
+    };
+  \end{tikzpicture}
+
+
+\section*{Concerns and Limitations}
+
+\subsection*{Clickable elements}
+We may know the x and y offsets or anchor positions of nodes and other tikzpicture
+elements, but we do not know their size. It is possible to set a minimum size
+for nodes, but it isn't possible to fix the size of a node. The situation
+is even worse for graphs and trees, where the size can't be known until the
+.tex file is compiled. 
+
+The pressing issue is that, without size information, how can we map click events to
+the proper TikZ objects? Possible workarounds could be to require all objects
+to be initialized with an x and y coordinate, so at least the coordinates
+for the center/corner are known. We could then always map to the closest center/corner,
+although I can imagine problematic cases.
+
+We could also leave out click functionality and do everything through a
+command line interface.
+
+\subsection*{Automatic Node Positioning}
+If we are using TikZ to blackbox our graph drawing, I am not sure it will be
+possible to click and drag nodes to new positions. In order to bind events
+to particular nodes, we must know the position of that node on the canvas.
+If graph drawing libraries are used, then we don't know the position of the nodes.
+
+There could be some kind of key-value specification to change the positioning
+of individual nodes, but it wouldn't be pretty. Perhaps clicking on a graph can
+bring up a menu of these key-value options.
+
+If one wishes to position all nodes in a graph absolutely, this could certainly be
+done, even if just with \verb|\node -- \node| syntax.
+
+\subsection*{Rendering \LaTeX~ and TikZ objects}
+Another potential issue is how to handle re-rendering a frame when an update is made.
+I see two possibilities: \\
+
+One option would be to have each frame be a single pdf (single tikzpicture) and to re-compile the
+entire pdf for each update that is made. The biggest issue I see with this is if
+there is some computationally-expensive object (graph with force layout perhaps),
+it will be included in the re-compilation even if it hasn't been changed.
+
+Another option would be to compose each frame with several pdfs that get rendered
+individually. This would save time in compilation but would be messier. What if someone
+renders their expensive graph on the left part of the screen and some text on the
+right side? It would be much faster to edit the text and see the updates, but then
+it would be impossible to draw elements that appear across both sections. 
+
+
+\end{document}
