@@ -179,8 +179,10 @@ class CanvasState {
    *    TODO:
    */
   showToolbar() {
-    var activeToolbar = this.activeObj.getToolbar();
-    activeToolbar.show();
+    if (this.activeObj.getToolbar) {
+      var activeToolbar = this.activeObj.getToolbar();
+      activeToolbar.show();
+    }
   }
 
 }
