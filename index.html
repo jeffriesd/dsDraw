@@ -266,7 +266,23 @@
           cState.dragOffsetX += deltaX;
           cState.dragOffsetY += deltaY;
         }
+      } 
+      else if (!cState.mouseDown) {
+        // hover actions
+        var hoverObj = cState.getClickedObject(cState.mouseMove.x, cState.mouseMove.y);
+        if (hoverObj) {
+          if (hoverObj.hover)
+            hoverObj.hover();
+          else
+            document.body.style.cursor = "default";    
+        }
+        else {
+          // make sure mouse pointer goes back to default
+          document.body.style.cursor = "default";    
+        }
       }
+
+
     });
 
 
@@ -315,7 +331,8 @@
 
       // release active object
       if (cState.activeObj) {
-        cState.activeObj.release();
+        if (cState.activeObj.release)
+          cState.activeObj.release();
       } 
 
       cState.mouseDown = null;
