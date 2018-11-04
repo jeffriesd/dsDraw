@@ -26,6 +26,10 @@ class FlowchartBox {
     this.textAlign = "left";
     this.textX = this.x1;
 
+    // attribute to allow for slight space between edge
+    // of text box and text itself
+    this.textMargin = 8;
+
     this.text = "";
     this.wrappedText = [];
 
@@ -99,9 +103,9 @@ class FlowchartBox {
 
     // change x coordinate for diff alignments
     if (this.textAlign == "left")
-      this.textX = this.x1;
+      this.textX = this.x1 + this.textMargin;
     else if (this.textAlign == "right")
-      this.textX = this.x2;
+      this.textX = this.x2 - this.textMargin;
     else if (this.textAlign == "center")
       this.textX = Math.floor((this.x1 + this.x2) / 2);
 
@@ -210,8 +214,8 @@ class FlowchartBox {
     var wrappedText = [];
 
     // check that no words are too long to fit in container
-     
-    
+    // TODO
+      
     var line = "";
     var curWidth = 0;
     var lineWidth = 0;
@@ -219,7 +223,7 @@ class FlowchartBox {
       curWidth = this.ctx.measureText(words[i] + " ").width;
       
       lineWidth += curWidth;
-      if (lineWidth > this.width) {
+      if (lineWidth > this.width - (2 * this.textMargin)) {
         // draw current line and reset
         wrappedText.push(line);
         lineWidth = curWidth;
