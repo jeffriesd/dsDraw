@@ -52,7 +52,7 @@ class CanvasState {
     this.mouseDown = null;
     this.mouseUp = null;
     this.mouseMove = null;
-    this.drawMode = "arrow";
+    this.drawMode = "carrow";
     this.objects = [];
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -157,6 +157,9 @@ class CanvasState {
           break;
         case "arrow":
           RightAngleArrow.outline(this);
+          break;
+        case "carrow":
+          CurvedArrow.outline(this);
           break;
       }
     }
