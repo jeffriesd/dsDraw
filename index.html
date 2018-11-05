@@ -223,6 +223,11 @@
         // object
         cState.clickedBare = false;   
         cState.activeObj = canvasObj;
+
+        // mouse down event for some objects
+        if (canvasObj.mouseDown) {
+          canvasObj.mouseDown();
+        }
         
         // set offset for dragging
         cState.dragOffsetX = event.offsetX;
@@ -315,6 +320,9 @@
             break;
           case "arrow":
             new RightAngleArrow(cState);
+            break;
+          case "carrow":
+            new CurvedArrow(cState);
             break;
         }
       }
