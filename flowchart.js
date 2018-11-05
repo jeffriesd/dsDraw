@@ -1,3 +1,12 @@
+
+/*  TODO:
+ *    - remove anchor point class -- really just need to look ahead 
+ *    for flowchart box and handle anchored arrows within FcBox classest 
+ *    - - need like box.getLeftEdge() for differing functionality between
+ *        diamonds and rectangles
+ */
+
+
 ENTER = 13;
 CTRL = 17;
 
@@ -127,12 +136,12 @@ class FlowchartBox {
   
   addAnchors() {
     // add anchors at midpoint of each side
-    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0));
-    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
-    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
-    this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0));
+    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
+    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
 
-    this.setAnchors();
+    // this.setAnchors();
   }
 
   /*  setAnchors
@@ -140,18 +149,18 @@ class FlowchartBox {
    */
   setAnchors() {
     // add anchors at midpoint of each side
-    var left = this.anchors[0];
-    var right = this.anchors[1];
-    var top = this.anchors[2];
-    var bottom = this.anchors[3];
+    // var left = this.anchors[0];
+    // var right = this.anchors[1];
+    // var top = this.anchors[2];
+    // var bottom = this.anchors[3];
 
-    var xMid = Math.floor((this.x2 + this.x1) / 2);
-    var yMid = Math.floor((this.y2 + this.y1) / 2);
+    // var xMid = Math.floor((this.x2 + this.x1) / 2);
+    // var yMid = Math.floor((this.y2 + this.y1) / 2);
 
-    left.x = this.x1; left.y = yMid;
-    right.x = this.x2; right.y = yMid;
-    top.x = xMid; top.y = this.y1;
-    bottom.x = xMid; bottom.y = this.y2;
+    // left.x = this.x1; left.y = yMid;
+    // right.x = this.x2; right.y = yMid;
+    // top.x = xMid; top.y = this.y1;
+    // bottom.x = xMid; bottom.y = this.y2;
   }
 
   /* draw
@@ -299,7 +308,7 @@ class FlowchartBox {
     var lineWidth = 0;
     for (var i = 0; i < words.length; i++) {
       curWidth = this.ctx.measureText(words[i] + " ").width;
-      
+       
       lineWidth += curWidth;
       if (lineWidth > this.width - (2 * this.textMargin)) {
         // draw current line and reset
@@ -437,17 +446,17 @@ class DiamondBox extends FlowchartBox {
   }
 
   setAnchors() {
-    this.configureOptions();
+    // this.configureOptions();
 
-    var left = this.anchors[0];
-    var right = this.anchors[1];
-    var top = this.anchors[2];
-    var bottom = this.anchors[3];
+    // var left = this.anchors[0];
+    // var right = this.anchors[1];
+    // var top = this.anchors[2];
+    // var bottom = this.anchors[3];
 
-    left.x = this.leftX; left.y = this.midY;
-    right.x = this.rightX; right.y = this.midY;
-    top.x = this.midX; top.y = this.topY;
-    bottom.x = this.midX; bottom.y = this.bottomY;
+    // left.x = this.leftX; left.y = this.midY;
+    // right.x = this.rightX; right.y = this.midY;
+    // top.x = this.midX; top.y = this.topY;
+    // bottom.x = this.midX; bottom.y = this.bottomY;
   }
   
   /*  draw
@@ -559,10 +568,20 @@ class Arrow {
 
 }
 
-/*  RightAngleArrow class to handle
+
+class CurvedArrow extends Arrow {
+  constructor(canvasState) {
+    super(canvasState);
+  }
+
+}
+
+
+/*  RightAngleArrow to handle
  *  arrow composed of solely right angles.
  *
- *  To add a new right angle, click on arrow head
+ *  To add a new right angle: hold ctrl,
+ *  click on arrow head,
  *  and drag in new direction.
  *
  */
@@ -860,29 +879,32 @@ class ArrowHead {
       var ori = this.arrow.endingOrientation();
       var x = this.arrow.endX;
       var y = this.arrow.endY;
+
+      var anchorRadius = 10;
+
       if (ori == "L")
-          x -= (this.height + 1);
+          x -= (this.height + anchorRadius);
       if (ori == "R")
-          x += (this.height + 1);
+          x += (this.height + anchorRadius);
       if (ori == "U")
-          y -= (this.height + 1);
+          y -= (this.height + anchorRadius);
       if (ori == "D")
-          y += (this.height + 1);
+          y += (this.height + anchorRadius);
 
       var hoverObj = this.cState.getClickedObject(x, y);
       var newX = this.arrow.endX;
       var newY = this.arrow.endY;
           
-      if (hoverObj instanceof AnchorPoint) {
+      if (hoverObj instanceof FlowchartBox) {
         // set arrow end to center of anchor - arrow tip height
         if (ori == "L")
-          newX = hoverObj.x + this.height;
+          newX = hoverObj.x2 + this.height;
         if (ori == "R")
-          newX = hoverObj.x - this.height;
+          newX = hoverObj.x1 - this.height;
         if (ori == "U")
-          newY = hoverObj.y + this.height;
+          newY = hoverObj.y2 + this.height;
         if (ori == "D")
-          newY = hoverObj.y - this.height;
+          newY = hoverObj.y1 - this.height;
         
         this.arrow.endX = newX;
         this.arrow.endY = newY;
@@ -955,16 +977,17 @@ class AnchorPoint {
    *    pass click event to parent text box
    */
   click(event) {
-    this.parentBox.click(event);
+    // this.parentBox.click(event);
   }
 
   drag(deltaX, deltaY) {
-    this.parentBox.drag(deltaX, deltaY);
+    // this.parentBox.drag(deltaX, deltaY);
   }
 
-  click(event) {
-    this.parentBox.click(event);
+  deactivate() {
+
   }
+
 }
 
 class ResizePoint {
