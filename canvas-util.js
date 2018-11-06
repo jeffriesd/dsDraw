@@ -148,6 +148,9 @@ class CanvasState {
     // draw box for creating text/array/etc 
     if (this.clickedBare && this.mouseDown && this.mouseMove
         && !this.activeObj) {
+
+      // reset lineWidth for outline
+      this.ctx.lineWidth = 1;
       
       switch (this.drawMode) {
         case "array":
