@@ -91,6 +91,13 @@ class ArrowOptions extends ToolOptions {
 
       arrow.head.hollow = arrowHeadFill.val() == "hollow";
     });
+
+    var arrowDash = $("#arrowDash");
+    arrowDash.on("change", function(event) {
+      var active = self.cState.activeObj;
+      var arrow = active.getParent();
+      arrow.dashed = arrowDash.val() == "dashed";
+    });
   }
 
   setSelectOptions() {
@@ -98,6 +105,7 @@ class ArrowOptions extends ToolOptions {
     var arrow = active.getParent();
     $("#arrowWidth").val(arrow.thickness);
     $("#arrowHeadFill").val(arrow.head.hollow ? "hollow" : "filled");
+    $("#arrowDash").val(arrow.dashed ? "dashed" : "solid");
   }
 }
 
