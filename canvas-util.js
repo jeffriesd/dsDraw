@@ -53,7 +53,7 @@ class CanvasState {
     this.mouseDown = null;
     this.mouseUp = null;
     this.mouseMove = null;
-    this.drawMode = "carrow";
+    this.drawMode = "angleArrow";
     this.objects = [];
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -78,6 +78,7 @@ class CanvasState {
     this.bindKeys();
     this.toolbars = {};
     this.initToolbars();
+    this.initButtons();
   }
 
   setMode(mode) {
@@ -159,10 +160,10 @@ class CanvasState {
         case "diamondBox":
           DiamondBox.outline(this);
           break;
-        case "arrow":
+        case "angleArrow":
           RightAngleArrow.outline(this);
           break;
-        case "carrow":
+        case "curvedArrow":
           CurvedArrow.outline(this);
           break;
       }
@@ -172,6 +173,22 @@ class CanvasState {
     //  add some bbox or highlighting to show active object
     this.objects.forEach(function(obj) {
         obj.canvasObj.draw();
+    });
+  }
+
+  initButtons() {
+    this.buttons = [
+      "rectBox",
+      "roundBox",
+      "diamondBox",
+      "angleArrow",
+      "curvedArrow"
+    ];
+
+    var self = this;
+    this.buttons.forEach(function(buttonName) {
+      var button = document.getElementById(buttonName);
+      button.onclick = () => self.setMode(buttonName);
     });
   }
 
