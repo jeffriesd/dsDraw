@@ -3,116 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <title>sigma.js example</title>
-  <style type="text/css">
-    body {
-      margin: 0;
-    }
-    #myCanvas {
-      border: 1px solid #000;
-      background: rgba(0, 255, 255, 0.1);
-      # margin: 10px;
-    }
-
-    #hitCanvas {
-      border: 1px solid #000;
-      background: rgba(255, 0, 255, 0.1);
-      # margin: 10px;
-    }
-
-    button {
-      height: 5%;
-      width: 80%;
-      margin: 10%;
-    }
-
-    #commandConsole {
-      position: absolute;
-      border: 3px solid rgba(0, 0, 0, .3);
-      resize: both;
-      overflow: auto;
-    }
-
-    #commandLine {
-      position: absolute;
-      bottom: 0px;
-      height: 10%;
-      width: 100%;
-      font-size: 12px;
-      padding: 0px;
-      background: rgba(1, 1, 1, .1);
-      border: 0;
-    }
-
-    #commandHistory {
-      position: absolute;
-      padding: 0;
-      font-size: 12px;
-      width: 100%;
-      height: 90%;
-      background: rgba(1, 1, 1, .05);
-      color: black;
-      border: 0;
-      resize: none;
-      pointer-events: none;
-    }
-
-    .toolbar {
-      width: 800px;
-      height: 3%;
-      position: absolute;
-      background: rgba(200, 200, 200, 1);
-      border: 1px solid black;
-    }
-
-    .subToolbar {
-      height: 100%;
-      float: left;
-    }
-
-    .toolbarButton {
-      position: relative;
-      display: block;
-      float: left;
-      width: 30px;
-      height: 100%;
-      background: #ddd;
-      border: 1px solid black;
-      margin-top: 0;
-      margin-bottom: 0;
-      margin-left: 2px;
-      margin-right: 2px;
-    }
-
-    .toolbarSelect {
-      position: relative;
-      display: block;
-      float: left;
-      width: 50px;
-      height: 100%;
-      background: #ddd;
-      border: 1px solid black;
-      margin-top: 0;
-      margin-bottom: 0;
-      margin-left: 2px;
-      margin-right: 2px;
-      font-size: 6pt;
-    }
-
-    optgroup {
-      font-size: 6pt;
-    }
-
-    .toolbarLabel {
-      margin: 5px;
-      float: left;
-    }
-
-    textarea {
-      vertical-align: middle;
-    }
-
-
-  </style>
+  <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 <body>
   <div class="toolbar" id="flowchartToolbar" >
@@ -128,6 +19,12 @@
           <option value="1">1px</option>
           <option value="2">2px</option>
           <option value="3">3px</option>
+        </optgroup>
+      </select>
+      <select class="toolbarSelect" id="arrowDash">
+        <optgroup label="Line dash:">
+          <option value="solid">solid</option>
+          <option value="dashed">dashed</option>
         </optgroup>
       </select>
       <select class="toolbarSelect" id="arrowHeadFill">
@@ -178,6 +75,8 @@
   <script src="lib/mousetrap.min.js"></script>
 
   <script>
+
+    CTRL = 17;
 
     var canvas = document.getElementById("myCanvas");
     const ctx = canvas.getContext("2d");
@@ -236,11 +135,6 @@
         // show toolbar
         cState.showToolbar();
       } else {
-        // hide object options in current toolbar
-        if (cState.activeToolbar) {
-          cState.activeToolbar.hidden = true;
-          cState.activeToolbar = null;
-        }
 
         // end editing for textboxes or other updates
         if (cState.activeObj) {
@@ -266,7 +160,10 @@
         var deltaY = event.offsetY - cState.dragOffsetY;
         
         if (cState.activeObj) {
-          cState.activeObj.drag(deltaX, deltaY); 
+          if (cState.hotkeys[CTRL])
+            cState.activeObj.move(deltaX, deltaY); 
+          else
+            cState.activeObj.drag(deltaX, deltaY);
 
           // reset dragOffset
           cState.dragOffsetX += deltaX;
@@ -307,22 +204,22 @@
         // draw array
         switch (cState.drawMode) {
           case "array":
-            new MyArray(cState);
+            cState.activeObj = new MyArray(cState);
             break;
           case "rectBox":
-            new RectBox(cState);
+            cState.activeObj = new RectBox(cState);
             break;
           case "roundBox":
-            new RoundBox(cState);
+            cState.activeObj = new RoundBox(cState);
             break;
           case "diamondBox":
-            new DiamondBox(cState);
+            cState.activeObj = new DiamondBox(cState);
             break;
           case "arrow":
-            new RightAngleArrow(cState);
+            cState.activeObj = new RightAngleArrow(cState);
             break;
           case "carrow":
-            new CurvedArrow(cState);
+            cState.activeObj = new CurvedArrow(cState);
             break;
         }
       }
@@ -342,6 +239,8 @@
       if (cState.activeObj) {
         if (cState.activeObj.release)
           cState.activeObj.release();
+        if (cState.activeObj.getToolbar)
+          cState.showToolbar();
       } 
 
       cState.mouseDown = null;
