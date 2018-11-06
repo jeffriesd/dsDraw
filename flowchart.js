@@ -9,6 +9,7 @@
 
 ENTER = 13;
 CTRL = 17;
+SHIFT = 16;
 
 class FlowchartBox {
   constructor(canvasState) {
@@ -21,8 +22,6 @@ class FlowchartBox {
     this.y1 = this.cState.mouseDown.y;
     this.x2 = this.cState.mouseUp.x;
     this.y2 = this.cState.mouseUp.y;
-
-    this.anchors = [];
 
     this.width = this.x2 - this.x1;
     this.height = this.y2 - this.y1;
@@ -43,7 +42,6 @@ class FlowchartBox {
     this.wrappedText = [];
 
     this.createEditor();
-    this.addAnchors();
 
     this.addSelfToCanvas();
 
@@ -134,45 +132,9 @@ class FlowchartBox {
     this.hitCtx.fillStyle = this.hashColor;
   }
   
-  addAnchors() {
-    // add anchors at midpoint of each side
-    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0));
-    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
-    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
-    // this.anchors.push(new AnchorPoint(this.cState, this, 0, 0)); 
-
-    // this.setAnchors();
-  }
-
-  /*  setAnchors
-   *    reset coordinates of anchor points after box coordinates get updated
-   */
-  setAnchors() {
-    // add anchors at midpoint of each side
-    // var left = this.anchors[0];
-    // var right = this.anchors[1];
-    // var top = this.anchors[2];
-    // var bottom = this.anchors[3];
-
-    // var xMid = Math.floor((this.x2 + this.x1) / 2);
-    // var yMid = Math.floor((this.y2 + this.y1) / 2);
-
-    // left.x = this.x1; left.y = yMid;
-    // right.x = this.x2; right.y = yMid;
-    // top.x = xMid; top.y = this.y1;
-    // bottom.x = xMid; bottom.y = this.y2;
-  }
-
-  /* draw
+  /* FlowchartBox.draw
    * renders rectangular box on main canvas
    * and hitCanvas and draws wrapped words
-   *
-   * TODO:
-   *  - check for overflow in y direction
-   *
-   *  - add some margin options
-   *
-   *  - add anchor points
    */
   draw() {
     this.configureOptions();
@@ -190,6 +152,7 @@ class FlowchartBox {
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
 
+    this.resizePoint.draw();
   }
 
   drawText() {
@@ -210,7 +173,7 @@ class FlowchartBox {
     this.ctx.stroke();
   }
 
-  drag(deltaX, deltaY) {
+  move(deltaX, deltaY) {
     this.x1 += deltaX;
     this.x2 += deltaX;
     this.y1 += deltaY;
@@ -218,12 +181,6 @@ class FlowchartBox {
 
     // move editor with box
     this.positionEditor();
-
-    // move anchor points with box
-    this.anchors.forEach(function(point) {
-      point.x += deltaX;
-      point.y += deltaY;
-    });
 
     // move resize point with box
     this.resizePoint.x += deltaX;      
@@ -255,9 +212,6 @@ class FlowchartBox {
     // re-render text
     this.textEntered();
     
-    // move anchor points
-    this.setAnchors();
-      
     // move resize point
     this.resizePoint.x = this.x2;
     this.resizePoint.y = this.y2;
@@ -375,6 +329,8 @@ class RoundBox extends FlowchartBox {
     this.ctx.lineWidth = this.borderThickness;
   }
 
+  /*  RoundBox.draw
+   */
   draw() {
     this.configureOptions();
     // draw rounded box
@@ -401,6 +357,8 @@ class RoundBox extends FlowchartBox {
     this.hitCtx.beginPath();
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
+
+    this.resizePoint.draw();
   }
 
   /*
@@ -445,21 +403,8 @@ class DiamondBox extends FlowchartBox {
     this.midY = this.y1 + hh;
   }
 
-  setAnchors() {
-    // this.configureOptions();
-
-    // var left = this.anchors[0];
-    // var right = this.anchors[1];
-    // var top = this.anchors[2];
-    // var bottom = this.anchors[3];
-
-    // left.x = this.leftX; left.y = this.midY;
-    // right.x = this.rightX; right.y = this.midY;
-    // top.x = this.midX; top.y = this.topY;
-    // bottom.x = this.midX; bottom.y = this.bottomY;
-  }
   
-  /*  draw
+  /*  DiamondBox.draw
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
    */
@@ -492,6 +437,8 @@ class DiamondBox extends FlowchartBox {
     this.hitCtx.closePath();
     this.hitCtx.stroke();
     this.hitCtx.fill();
+
+    this.resizePoint.draw();
   }
 
   static outline(cState) {
@@ -543,6 +490,9 @@ class Arrow {
     // default options
     this.thickness = 2;
     this.strokeColor = "#000";
+    this.dashed = false;
+    // default dash pattern
+    this.lineDash = [10, 10];
 
     // default hit thickness
     this.hitThickness = 8;
@@ -608,10 +558,16 @@ class CurvedArrow extends Arrow {
     this.ctx.lineWidth = this.thickness;
     this.ctx.strokeStyle = this.strokeColor;
 
+    if (this.dashed)
+      this.ctx.setLineDash(this.lineDash);
+
     this.hitCtx.strokeStyle = this.hashColor;
     this.hitCtx.lineWidth = this.hitThickness;
   }
 
+
+  /*  CurvedArrow.draw
+   */
   draw() {
     this.configureOptions();
 
@@ -633,6 +589,12 @@ class CurvedArrow extends Arrow {
       this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.endX, this.endY
     );
     hitCtx.stroke();
+
+    // undo linedash
+    if (this.dashed)
+      this.ctx.setLineDash([]);      
+
+    this.head.draw();
   }
 
   static outline(cState) {
@@ -697,6 +659,19 @@ class CurvedArrow extends Arrow {
   drag(deltaX, deltaY) {
     this.activePoint.x += deltaX;
     this.activePoint.y += deltaY;
+  }
+
+  /*  translate entire arrow by deltaX, deltaY
+   */
+  move(deltaX, deltaY) {
+    this.startX += deltaX;
+    this.cp1.x += deltaX;
+    this.cp2.x += deltaX;
+    this.endX += deltaX;
+    this.startY += deltaY;
+    this.cp1.y += deltaY;
+    this.cp2.y += deltaY;
+    this.endY += deltaY;
   }
 }
 
@@ -771,11 +746,14 @@ class RightAngleArrow extends Arrow {
     this.ctx.lineWidth = this.thickness;
     this.ctx.strokeStyle = this.strokeColor;
 
+    if (this.dashed)
+      this.ctx.setLineDash(this.lineDash);
+
     this.hitCtx.strokeStyle = this.hashColor;
     this.hitCtx.lineWidth = this.hitThickness;
   }
 
-  /*  draw()
+  /*  RightAngleArrow.draw()
    *    draw line segments to canvas
    *    (draw slightly thicker on hit canvas so
    *    arrow can be more easily clicked)
@@ -809,8 +787,13 @@ class RightAngleArrow extends Arrow {
     ctx.lineTo(this.endX, this.endY);
     ctx.stroke();
 
+    if (this.dashed)
+      this.ctx.setLineDash([]);
+
     hitCtx.lineTo(this.endX, this.endY);
     hitCtx.stroke();
+
+    this.head.draw();
   }
 
   /*  click(event)
@@ -821,7 +804,7 @@ class RightAngleArrow extends Arrow {
     // if click is on arrowhead 
   }
 
-  drag(deltaX, deltaY) {
+  move(deltaX, deltaY) {
     this.startX += deltaX;
     this.startY += deltaY;
 
@@ -850,8 +833,8 @@ class RightAngleArrow extends Arrow {
 }
 
 
-/*  TODO:
- *    - do drawing with simple rotation
+/*  Handles drawing of arrow head using
+ *  rotation and translation
  */
 class ArrowHead {
   constructor(canvasState, parentArrow) {
@@ -867,8 +850,8 @@ class ArrowHead {
     this.hollow = true;
     this.fill = "#fff";
 
-    this.width = 40;
-    this.height = 80;
+    this.width = 20;
+    this.height = 20;
 
     this.addSelfToCanvas();
   }
@@ -878,7 +861,7 @@ class ArrowHead {
   }
   
   addSelfToCanvas() {
-    this.cState.addCanvasObj("arrowHead", this);
+    this.cState.registerCanvasObj(this);
   }
 
   getToolbar() {
@@ -893,42 +876,15 @@ class ArrowHead {
 
   }
   
-  getPoints() {
-    // p1 and p2 form base, p3 is tip
-    var p1, p2, p3;
-
-    // check orientation of final arrow segment
-    var ori = this.arrow.endingOrientation();
-
-    var hw = Math.floor(this.width / 2);
-
-    if (ori == "U") {
-      p1 = {x: this.baseX - hw, y: this.baseY};
-      p2 = {x: this.baseX + hw, y: this.baseY};
-      p3 = {x: this.baseX, y: this.baseY - this.height};
-    } else if (ori == "D") {
-      p1 = {x: this.baseX - hw, y: this.baseY};
-      p2 = {x: this.baseX + hw, y: this.baseY};
-      p3 = {x: this.baseX, y: this.baseY + this.height};
-    } else if (ori == "L") {
-      p1 = {x: this.baseX, y: this.baseY + hw};
-      p2 = {x: this.baseX, y: this.baseY - hw};
-      p3 = {x: this.baseX - this.height, y: this.baseY};
-    } else if (ori == "R") {
-      p1 = {x: this.baseX, y: this.baseY + hw};
-      p2 = {x: this.baseX, y: this.baseY - hw};
-      p3 = {x: this.baseX + this.height, y: this.baseY};
-    }
-
-    return [p1, p2, p3];
-  }
-
   configureOptions() {
     this.ctx.strokeStyle = this.arrow.strokeColor;
     this.ctx.fillStyle = this.fill;
     this.hitCtx.fillStyle = this.hashColor;
   }
 
+
+  /*  ArrowHead.draw
+   */
   draw() {
     this.configureOptions();
     var ctx = this.ctx;
@@ -941,12 +897,21 @@ class ArrowHead {
 
     var hw = Math.floor(this.width / 2);
     ctx.moveTo(0, -hw);
-    ctx.lineTo(this.height, 0);
-    ctx.lineTo(0, hw);
-    ctx.lineTo(0, -hw);
-    ctx.stroke();
-    if (! this.hollow) 
+    if (this.hollow) {
+      ctx.lineTo(this.height, 0);
+      ctx.lineTo(0, hw);
+      ctx.moveTo(this.height, 0);
+      ctx.lineTo(0, -hw);
+      ctx.moveTo(this.height, 0);
+      ctx.lineTo(0, 0);
+    }
+    else {
+      ctx.lineTo(this.height, 0);
+      ctx.lineTo(0, hw);
+      ctx.lineTo(0, -hw);
       ctx.fill();
+    }
+    ctx.stroke();
     ctx.restore();
 
 
@@ -962,40 +927,6 @@ class ArrowHead {
     hitCtx.lineTo(0, -hw);
     hitCtx.fill();
     hitCtx.restore();
-
-    // parent arrow end may have changed 
-    // so update coordinates
-    // this.baseX = this.arrow.endX;
-    // this.baseY = this.arrow.endY;
-
-    // var p1, p2, p3;
-    // [p1, p2, p3] = this.getPoints();
-
-    // this.ctx.beginPath();
-
-    // this.hitCtx.moveTo(p1.x, p1.y);
-    // this.hitCtx.lineTo(p2.x, p2.y);
-    // this.hitCtx.lineTo(p3.x, p3.y);
-    // this.hitCtx.fill();
-
-    // if (this.hollow) {
-    //   this.ctx.moveTo(p1.x, p1.y);
-    //   this.ctx.lineTo(p3.x, p3.y);
-    //   this.ctx.moveTo(p2.x, p2.y);
-    //   this.ctx.lineTo(p3.x, p3.y);
-    //   // fill in arrow line where filled head would be
-    //   this.ctx.moveTo(this.arrow.endX, this.arrow.endY);
-    //   this.ctx.lineTo(p3.x, p3.y);
-    //   this.ctx.stroke();
-    // } 
-    // else {
-    //   this.ctx.moveTo(p1.x, p1.y);
-    //   this.ctx.lineTo(p2.x, p2.y);
-    //   this.ctx.lineTo(p3.x, p3.y);
-    //   this.ctx.closePath();
-    //   this.ctx.fill();
-    //   this.ctx.stroke();
-    // }
   }
 
   click(event) {
@@ -1016,7 +947,7 @@ class ArrowHead {
     if (this.arrow instanceof RightAngleArrow) {
       var ori = this.arrow.endingOrientation();
       
-      var addNew = this.cState.hotkeys[CTRL];
+      var addNew = this.cState.hotkeys[SHIFT];
 
       if (addNew && !this.arrow.addedNewAngle) {
         // dont allow user to add more than one angle per drag
@@ -1076,6 +1007,11 @@ class ArrowHead {
         hoverObj.anchoredArrow = this.arrow;
       }
     }
+    else if (this.arrow instanceof CurvedArrow) {
+      // just move end point to new location
+      this.arrow.endX += deltaX;
+      this.arrow.endY += deltaY;
+    }
   }
 }
 
@@ -1115,9 +1051,12 @@ class AnchorPoint {
   }   
 
   addSelfToCanvas() {
-    this.cState.addCanvasObj("anchor", this);
+    this.cState.registerCanvasObj(this);
   }
 
+  /*  AnchorPoint.draw
+   *
+   */
   draw() {
     // force anchored arrow to update position
     // if (this.anchoredArrow)
@@ -1145,8 +1084,8 @@ class AnchorPoint {
     // this.parentBox.click(event);
   }
 
-  drag(deltaX, deltaY) {
-    // this.parentBox.drag(deltaX, deltaY);
+  move(deltaX, deltaY) {
+    // this.parentBox.move(deltaX, deltaY);
   }
 
   deactivate() {
@@ -1177,10 +1116,15 @@ class ResizePoint {
     return this.parentBox.getParent();
   }
 
+  /*  ResizePoint.addSelfToCanvas
+   */
   addSelfToCanvas() {
-    this.cState.addCanvasObj("anchor", this);
+    console.log("adding rsp to canvas");
+    this.cState.registerCanvasObj(this);
   }
     
+  /*  ResizePoint.draw
+   */
   draw() {
     // only draw to hit detect canvas
     this,hitCtx.fillStyle = this.hashColor;
