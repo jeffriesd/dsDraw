@@ -53,7 +53,7 @@ button {
 
 .toolbar {
   width: 800px;
-  height: 3%;
+  height: 5%;
   position: absolute;
   background: rgba(200, 200, 200, 1);
   border: 1px solid black;
@@ -64,25 +64,36 @@ button {
   float: left;
 }
 
-.toolbarButton {
+.toolbarButton, .toolbarButton::-moz-focus-inner {
   position: relative;
   display: block;
   float: left;
   width: 30px;
   height: 100%;
-  background: #ddd;
-  border: 1px solid black;
+  background: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: none;
+  outline: 0;
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 2px;
   margin-right: 2px;
+}
+
+.toolbarButton:hover {
+  border: 1px solid black;
+}
+
+.toolbarButton:active {
+  opacity: 0.7;
 }
 
 .toolbarSelect {
   position: relative;
   display: block;
   float: left;
-  width: 50px;
+  width: 80px;
   height: 100%;
   background: #ddd;
   border: 1px solid black;
@@ -90,21 +101,61 @@ button {
   margin-bottom: 0;
   margin-left: 2px;
   margin-right: 2px;
-  font-size: 6pt;
+  font-size: 10pt;
+  -moz-appearance:none; /* Firefox */
+  -webkit-appearance:none; /* Safari and Chrome */
+  appearance:none;
 }
 
 optgroup {
-  font-size: 6pt;
+  font-size: 26pt;
 }
 
+
 .toolbarLabel {
-  margin: 5px;
-  float: left;
+  margin-top: 1%;
+  margin-bottom: 1%;
+  float: right;
 }
 
 textarea {
   vertical-align: middle;
 }
 
+#rectBox {
+  background-image: url("../images/rect.png");
+}
 
+#roundBox {
+  background-image: url("../images/rounded.png");
+}
 
+#diamondBox {
+  background-image: url("../images/diamond.png");
+}
+
+#angleArrow {
+  background-image: url("../images/RAarrow.png");
+}
+
+#curvedArrow {
+  background-image: url("../images/curvedarrowfilled.png");
+}
+
+#leftAlign {
+  background-image: url("../images/leftalign.png");
+  background-size: 60% 60%;
+  background-position: center;
+}
+
+#rightAlign {
+  background-image: url("../images/rightalign.png");
+  background-size: 60% 60%;
+  background-position: center;
+}
+
+#centerAlign {
+  background-image: url("../images/centeralign.png");
+  background-size: 60% 60%;
+  background-position: center;
+}
