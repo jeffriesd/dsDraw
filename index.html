@@ -7,7 +7,9 @@
 </head>
 <body>
   <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">Draw mode: arrow </label>
+    <label class="toolbarLabel" id="drawMode">Draw mode: angleArrow </label>
+    <button class="toolbarButton" id="angleArrow"></button>
+    <button class="toolbarButton" id="curvedArrow"></button>
     <button class="toolbarButton" id="rectBox"></button> 
     <button class="toolbarButton" id="roundBox"></button> 
     <button class="toolbarButton" id="diamondBox"></button> 
@@ -139,6 +141,8 @@
         // end editing for textboxes or other updates
         if (cState.activeObj) {
           cState.activeObj.deactivate();
+          if (cState.activeObj.getOptions)
+            cState.activeObj.getOptions().hide();
         }
 
         cState.clickedBare = true;   
@@ -215,10 +219,10 @@
           case "diamondBox":
             cState.activeObj = new DiamondBox(cState);
             break;
-          case "arrow":
+          case "angleArrow":
             cState.activeObj = new RightAngleArrow(cState);
             break;
-          case "carrow":
+          case "curvedArrow":
             cState.activeObj = new CurvedArrow(cState);
             break;
         }
@@ -258,22 +262,6 @@
     Mousetrap.bind("ctrl+z", function(event) {
       cState.undo();
     });
-
-
-    // bind buttons
-    var rectButton = document.getElementById("rectBox");
-    var roundButton = document.getElementById("roundBox");
-    var diamondButton = document.getElementById("diamondBox");
-
-    rectButton.onclick = function(e) {
-      cState.setMode("rectBox");
-    }
-    roundButton.onclick = function(e) {
-      cState.setMode("roundBox");
-    }
-    diamondButton.onclick = function(e) {
-      cState.setMode("diamondBox");
-    }
 
   </script>
 </body>
