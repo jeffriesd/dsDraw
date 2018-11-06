@@ -40,6 +40,7 @@ function newColor(uniqueColors) {
  *  keycodes for hotkeys
  */
 CTRL = 17;
+SHIFT = 16;
 
 /**
  * CanvasState
@@ -59,7 +60,6 @@ class CanvasState {
 
     this.clickedBare = true;
     this.activeObj = null;
-    this.activeToolbar = null;
     
     // starting coordinates of drag event
     this.dragOffsetX = 0;
@@ -72,6 +72,7 @@ class CanvasState {
 
     this.hotkeys = {
       [CTRL]: false,
+      [SHIFT]: false,
     };
 
     this.bindKeys();
@@ -106,10 +107,7 @@ class CanvasState {
     };
   }
 
-  /* addCanvasObj(str: objType, object: canvasObj)
-   *   add new canvas object to array for repainting, etc.
-   */
-  addCanvasObj(objType, canvasObj) {
+  registerCanvasObj(canvasObj) {
     // get unique color for hashing 
     // (newColor function adds to set for us)
     var rgbArr = newColor(this.uniqueColors);
@@ -118,7 +116,13 @@ class CanvasState {
     // map from rgbStr to object
     this.colorHash[rgbStr] = canvasObj;     
     canvasObj.hashColor = "rgb(" + rgbArr.join(", ") + ")";
+  }
 
+  /* addCanvasObj(str: objType, object: canvasObj)
+   *   add new canvas object to array for repainting, etc.
+   */
+  addCanvasObj(objType, canvasObj) {
+    this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
     this.objects.push({type: objType, canvasObj: canvasObj});
   }
