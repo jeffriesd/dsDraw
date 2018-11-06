@@ -287,8 +287,6 @@ class RectBox extends FlowchartBox {
 
     // set borderThickness lower for rect command
     this.borderThickness = 2;
-
-
   }
   
   addSelfToCanvas() {
@@ -639,9 +637,13 @@ class CurvedArrow extends Arrow {
     var mX = this.cState.mouseDown.x;
     var mY = this.cState.mouseDown.y;
 
-    var d1 = dist(mX, mY, this.cp1.x, this.cp1.y);
-    var d2 = dist(mX, mY, this.cp2.x, this.cp2.y);
+    // compare to control points
+    // var d1 = dist(mX, mY, this.cp1.x, this.cp1.y);
+    // var d2 = dist(mX, mY, this.cp2.x, this.cp2.y);
 
+    // compare to end points
+    var d1 = dist(mX, mY, this.startX, this.startY);
+    var d2 = dist(mX, mY, this.endX, this.endY);
 
     if (d1 <= d2)  
       this.activePoint = this.cp1;
@@ -700,7 +702,7 @@ class RightAngleArrow extends Arrow {
   }
 
   addSelfToCanvas() {
-    this.cState.addCanvasObj("RAArrow", this);
+    this.cState.addCanvasObj("angleArrow", this);
   }
 
   /*  endingOrientation()
@@ -940,7 +942,7 @@ class ArrowHead {
 
   /*  drag(deltaX, deltaY)
    *    shift arrow end point by deltaX, deltaY
-   *    and add a new anglePoint if RAArrow 
+   *    and add a new anglePoint if RightAngleArrow 
    *
    */
   drag(deltaX, deltaY) {
@@ -1012,6 +1014,12 @@ class ArrowHead {
       this.arrow.endX += deltaX;
       this.arrow.endY += deltaY;
     }
+  }
+
+  /* Arrowhead.move
+   */
+  move(deltaX, deltaY) {
+    this.arrow.move(deltaX, deltaY);
   }
 }
 
