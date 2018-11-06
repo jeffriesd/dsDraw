@@ -1,0 +1,110 @@
+body {
+  margin: 0;
+}
+
+#myCanvas {
+  border: 1px solid #000;
+  background: rgba(0, 255, 255, 0.1);
+  # margin: 10px;
+}
+
+#hitCanvas {
+  border: 1px solid #000;
+  background: rgba(255, 0, 255, 0.1);
+  # margin: 10px;
+}
+
+button {
+  height: 5%;
+  width: 80%;
+  margin: 10%;
+}
+
+#commandConsole {
+  position: absolute;
+  border: 3px solid rgba(0, 0, 0, .3);
+  resize: both;
+  overflow: auto;
+}
+
+#commandLine {
+  position: absolute;
+  bottom: 0px;
+  height: 10%;
+  width: 100%;
+  font-size: 12px;
+  padding: 0px;
+  background: rgba(1, 1, 1, .1);
+  border: 0;
+}
+
+#commandHistory {
+  position: absolute;
+  padding: 0;
+  font-size: 12px;
+  width: 100%;
+  height: 90%;
+  background: rgba(1, 1, 1, .05);
+  color: black;
+  border: 0;
+  resize: none;
+  pointer-events: none;
+}
+
+.toolbar {
+  width: 800px;
+  height: 3%;
+  position: absolute;
+  background: rgba(200, 200, 200, 1);
+  border: 1px solid black;
+}
+
+.subToolbar {
+  height: 100%;
+  float: left;
+}
+
+.toolbarButton {
+  position: relative;
+  display: block;
+  float: left;
+  width: 30px;
+  height: 100%;
+  background: #ddd;
+  border: 1px solid black;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 2px;
+  margin-right: 2px;
+}
+
+.toolbarSelect {
+  position: relative;
+  display: block;
+  float: left;
+  width: 50px;
+  height: 100%;
+  background: #ddd;
+  border: 1px solid black;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 2px;
+  margin-right: 2px;
+  font-size: 6pt;
+}
+
+optgroup {
+  font-size: 6pt;
+}
+
+.toolbarLabel {
+  margin: 5px;
+  float: left;
+}
+
+textarea {
+  vertical-align: middle;
+}
+
+
+
