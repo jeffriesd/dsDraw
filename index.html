@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>sigma.js example</title>
+  <title>dsDraw</title>
   <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 <body>
@@ -13,6 +13,7 @@
     <button class="toolbarButton" id="rectBox"></button> 
     <button class="toolbarButton" id="roundBox"></button> 
     <button class="toolbarButton" id="diamondBox"></button> 
+    <button class="toolbarButton" id="deleteButton"></button>
 
     <!--Arrow options -->
     <div hidden class="subToolbar" id="arrowOptions">
@@ -263,7 +264,12 @@
     });
 
     Mousetrap.bind("ctrl+z", function(event) {
-      cState.undo();
+      var last = cState.objects[cState.objects.length - 1];
+      cState.remove(last);
+    });
+
+    Mousetrap.bind("ctrl+y", function(event) {
+      cState.redo();
     });
 
   </script>
