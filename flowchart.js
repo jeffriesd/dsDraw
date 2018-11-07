@@ -655,7 +655,8 @@ class CurvedArrow extends Arrow {
 
   }
 
-  /*  get closer control point and
+  /*  CurvedArrow.drag
+   *  get closer control point and
    *  shift it by this much
    */
   drag(deltaX, deltaY) {
@@ -940,7 +941,7 @@ class ArrowHead {
       this.arrow.addedNewAngle = false;
   }
 
-  /*  drag(deltaX, deltaY)
+  /*  ArrowHead.drag
    *    shift arrow end point by deltaX, deltaY
    *    and add a new anglePoint if RightAngleArrow 
    *
@@ -974,40 +975,40 @@ class ArrowHead {
       //  need to consider case where arrow is created later
       //  and thus its color is on top
       //  -> easy fix: just check color 1 pixel ahead of arrow
-      var ori = this.arrow.endingOrientation();
-      var x = this.arrow.endX;
-      var y = this.arrow.endY;
+      // var ori = this.arrow.endingOrientation();
+      // var x = this.arrow.endX;
+      // var y = this.arrow.endY;
 
-      var anchorRadius = 10;
+      // var anchorRadius = 10;
 
-      if (ori == "L")
-          x -= (this.height + anchorRadius);
-      if (ori == "R")
-          x += (this.height + anchorRadius);
-      if (ori == "U")
-          y -= (this.height + anchorRadius);
-      if (ori == "D")
-          y += (this.height + anchorRadius);
+      // if (ori == "L")
+      //     x -= (this.height + anchorRadius);
+      // if (ori == "R")
+      //     x += (this.height + anchorRadius);
+      // if (ori == "U")
+      //     y -= (this.height + anchorRadius);
+      // if (ori == "D")
+      //     y += (this.height + anchorRadius);
 
-      var hoverObj = this.cState.getClickedObject(x, y);
-      var newX = this.arrow.endX;
-      var newY = this.arrow.endY;
-          
-      if (hoverObj instanceof FlowchartBox) {
-        // set arrow end to center of anchor - arrow tip height
-        if (ori == "L")
-          newX = hoverObj.x2 + this.height;
-        if (ori == "R")
-          newX = hoverObj.x1 - this.height;
-        if (ori == "U")
-          newY = hoverObj.y2 + this.height;
-        if (ori == "D")
-          newY = hoverObj.y1 - this.height;
-        
-        this.arrow.endX = newX;
-        this.arrow.endY = newY;
-        hoverObj.anchoredArrow = this.arrow;
-      }
+      // var hoverObj = this.cState.getClickedObject(x, y);
+      // var newX = this.arrow.endX;
+      // var newY = this.arrow.endY;
+      //     
+      // if (hoverObj instanceof FlowchartBox) {
+      //   // set arrow end to center of anchor - arrow tip height
+      //   if (ori == "L")
+      //     newX = hoverObj.x2 + this.height;
+      //   if (ori == "R")
+      //     newX = hoverObj.x1 - this.height;
+      //   if (ori == "U")
+      //     newY = hoverObj.y2 + this.height;
+      //   if (ori == "D")
+      //     newY = hoverObj.y1 - this.height;
+      //   
+      //   this.arrow.endX = newX;
+      //   this.arrow.endY = newY;
+      //   hoverObj.anchoredArrow = this.arrow;
+      // }
     }
     else if (this.arrow instanceof CurvedArrow) {
       // just move end point to new location
@@ -1149,7 +1150,7 @@ class ResizePoint {
 
   }
 
-  /*  drag
+  /*  ResizePoint.drag
    *    should cause parent to resize
    */
   drag(deltaX, deltaY) {
