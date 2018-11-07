@@ -55,6 +55,8 @@ class CanvasState {
     this.mouseMove = null;
     this.drawMode = "angleArrow";
     this.objects = [];
+    this.redoStack = [];
+
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
 
@@ -89,11 +91,6 @@ class CanvasState {
     this.drawMode = mode;
   }
 
-  undo () {
-    var removed = this.objects.pop();
-    console.log("removing: ", removed);
-  }
-
   bindKeys() {
     var self = this;
     document.onkeydown = function(event) {
@@ -121,12 +118,28 @@ class CanvasState {
 
   /* addCanvasObj(str: objType, object: canvasObj)
    *   add new canvas object to array for repainting, etc.
+   *
+   *   deprecating objType
    */
   addCanvasObj(objType, canvasObj) {
     this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
-    this.objects.push({type: objType, canvasObj: canvasObj});
+    this.objects.push(canvasObj);
   }
+
+  remove(removeObj) {
+    this.objects = this.objects.filter(function(item) {
+      return (item !== removeObj);
+    });
+
+    // push onto redo stack
+    this.redoStack.push(removeObj);       
+  }
+
+  redo() {
+    this.objects.push(this.redoStack.pop());
+  }
+
 
   /* getClickedObject
    *   get coordinates of mouse release
@@ -175,7 +188,7 @@ class CanvasState {
     // TODO:
     //  add some bbox or highlighting to show active object
     this.objects.forEach(function(obj) {
-        obj.canvasObj.draw();
+        obj.draw();
     });
   }
 
@@ -193,6 +206,17 @@ class CanvasState {
       var button = document.getElementById(buttonName);
       button.onclick = () => self.setMode(buttonName);
     });
+
+    // delete button
+    var deleteButton = document.getElementById("deleteButton");
+    deleteButton.onclick = () => {
+      if (this.activeObj) {
+        this.remove(this.activeObj);
+        this.activeObj.getOptions().hide();
+        this.activeObj.deactivate();
+        this.activeObj = null;
+      }
+    }
   }
 
   initToolbars() {
