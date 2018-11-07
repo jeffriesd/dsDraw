@@ -122,6 +122,13 @@ textarea {
   vertical-align: middle;
 }
 
+#deleteButton {
+  background-image: url("../images/delete.png");
+  background-size: 50% 50%;
+  background-position: center;
+  visibility: hidden;
+}
+
 #rectBox {
   background-image: url("../images/rect.png");
 }
@@ -159,3 +166,4 @@ textarea {
   background-size: 60% 60%;
   background-position: center;
 }
+
