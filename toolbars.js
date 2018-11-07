@@ -44,11 +44,15 @@ class ToolOptions {
   }
 
   show() {
+    // show delete button
+    $("#deleteButton").css("visibility", "visible");
+      
     this.element.attr("hidden", false);
     this.setSelectOptions();
   }
 
   hide() {
+    $("#deleteButton").css("visibility", "hidden");
     this.element.attr("hidden", true);
   }
 
