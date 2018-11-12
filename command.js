@@ -44,3 +44,83 @@
  *        remove from list of objects, put it on redo stack
  */
 
+class DrawCommand {
+  constructor(cState, receiver) {
+    this.cState = cState;
+    this.receiver = receiver;
+    this.state = this.getState();
+  }
+
+  /*  CanvasState class stores state of canvas when click starts
+   *    - hotkeys
+   *    - coordinates of receiver
+   */
+  getState() {
+    return {
+      hotkeys: this.cState.hotkeyStartState,
+      startPoint: this.cState.startPoint,
+      endPoint: this.receiver.getStartCoordinates(),
+    };
+  }
+
+  execute() {
+    console.log("Execute not implemented for ", this.constructor.name);
+  }
+
+  undo() {
+    console.log("Undo not implemented for ", this.constructor.name);
+  }
+}
+
+
+/**  Handles object instantiation and adding to canvas
+ */
+class CreateCommand extends DrawCommand {
+  constructor(cState, receiver) {
+    super(cState, receiver);
+  }
+
+  execute() {
+    this.cState.addCanvasObj(this.receiver);
+  }
+
+  undo() {
+    this.cState.remove(this.receiver);
+  }
+}
+
+
+class MoveCommand extends DrawCommand {
+  constructor(cState, receiver) {
+    super(cState, receiver);
+    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+  }
+
+  execute() {
+    this.receiver.move(this.deltaX, this.deltaY);
+  }
+
+  undo() {
+    // move (translate) back to initial point
+    this.receiver.move(-this.deltaX, -this.deltaY);
+  }
+}
+
+class DragCommand extends DrawCommand {
+  constructor(cState, receiver) {
+    super(cState, receiver);
+    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+  }
+
+  execute() {
+    this.receiver.drag(this.deltaX, this.deltaY);
+  }
+
+  undo() {
+    // drag back to initial point
+    this.receiver.drag(-this.deltaX, -this.deltaY);
+  }
+}
+
