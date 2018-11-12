@@ -43,7 +43,7 @@ class FlowchartBox {
 
     this.createEditor();
 
-    this.addSelfToCanvas();
+    this.cState.addCanvasObj(this);
 
     // add clickable point for resizing
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
@@ -59,6 +59,13 @@ class FlowchartBox {
 
   getOptions() {
     return FlowchartBoxOptions.getInstance(this.cState);
+  }
+
+  /*  FlowchartBox.getStartCoordinates
+   *    return x, y object for upper left corner
+   */
+  getStartCoordinates() {
+    return { x: this.x1, y: this.y1};
   }
 
   /* createEditor
@@ -289,10 +296,6 @@ class RectBox extends FlowchartBox {
     this.borderThickness = 2;
   }
   
-  addSelfToCanvas() {
-    // add self to list of canvas objects
-    this.cState.addCanvasObj("rectBox", this);
-  }
 
   static outline(cState) {
     cState.ctx.strokeStyle = "#000";
@@ -317,10 +320,6 @@ class RoundBox extends FlowchartBox {
     this.borderThickness = 2;
   } 
 
-  addSelfToCanvas() {
-    // add self to list of canvas objects
-    this.cState.addCanvasObj("roundBox", this);
-  }
 
   configureOptions() {
     super.configureOptions();
@@ -378,10 +377,6 @@ class DiamondBox extends FlowchartBox {
     this.borderThickness = 2;
   } 
 
-  addSelfToCanvas() {
-    // add self to list of canvas objects
-    this.cState.addCanvasObj("diamondBox", this);
-  }
 
   /*  configureOptions  
    *    set style options for drawing and redefine edge points
@@ -495,7 +490,7 @@ class Arrow {
     // default hit thickness
     this.hitThickness = 8;
 
-    this.addSelfToCanvas();
+    this.cState.addCanvasObj(this);
   }
 
   getParent() {
@@ -514,6 +509,10 @@ class Arrow {
     return ArrowOptions.getInstance(this.cState);
   }
 
+  getStartCoordinates() {
+    return {x: this.startX, y: this.startY};
+  }
+
 }
 
 
@@ -524,28 +523,23 @@ class CurvedArrow extends Arrow {
   constructor(canvasState) {
     super(canvasState);
 
-    // initialize control points as
-    // midpoint
+    // initialize control points at
+    // start and end points
     this.cp1 = {
-      // x: Math.floor((this.startX + this.endX) / 2),
-      // y: Math.floor((this.startY + this.endY) / 2),
       x: this.startX,
       y: this.startY,
     };
     this.cp2 = {
-      //x: Math.floor((this.startX + this.endX) / 2),
-      //y: Math.floor((this.startY + this.endY) / 2),
       x: this.endX,
       y: this.endY,
     };
+  
+    this.cp1 = new ControlPoint(this.cState, this, this.startX, this.startY);
+    this.cp2 = new ControlPoint(this.cState, this, this.endX, this.endY);
 
-    this.activePoint = this.cp1;
+    // this.activePoint = this.cp1;
 
     this.head = new ArrowHead(canvasState, this);
-  }
-
-  addSelfToCanvas() {
-    this.cState.addCanvasObj("curvedarrow", this);
   }
 
   getParent() {
@@ -579,6 +573,7 @@ class CurvedArrow extends Arrow {
     );
     ctx.stroke();
 
+
     this.head.draw();
 
     hitCtx.beginPath();
@@ -592,7 +587,11 @@ class CurvedArrow extends Arrow {
     if (this.dashed)
       this.ctx.setLineDash([]);      
 
-    this.head.draw();
+    // draw control points if active
+    if (this === this.cState.activeObj.getParent()) {
+      this.cp1.draw();
+      this.cp2.draw(); 
+    }
   }
 
   static outline(cState) {
@@ -624,44 +623,8 @@ class CurvedArrow extends Arrow {
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
   }
 
-  /*  
-   *  determine closer control point for clicking 
-   */
-  mouseDown() {
-    function dist(x1, y1, x2, y2) {
-      var d1 = x2 - x1;
-      var d2 = y2 - y1;
-      return Math.sqrt(Math.pow(d1, 2) + Math.pow(d2, 2));
-    };
-
-    var mX = this.cState.mouseDown.x;
-    var mY = this.cState.mouseDown.y;
-
-    // compare to control points
-    // var d1 = dist(mX, mY, this.cp1.x, this.cp1.y);
-    // var d2 = dist(mX, mY, this.cp2.x, this.cp2.y);
-
-    // compare to end points
-    var d1 = dist(mX, mY, this.startX, this.startY);
-    var d2 = dist(mX, mY, this.endX, this.endY);
-
-    if (d1 <= d2)  
-      this.activePoint = this.cp1;
-    else  
-      this.activePoint = this.cp2;
-  }
-
   click(event) {
 
-  }
-
-  /*  CurvedArrow.drag
-   *  get closer control point and
-   *  shift it by this much
-   */
-  drag(deltaX, deltaY) {
-    this.activePoint.x += deltaX;
-    this.activePoint.y += deltaY;
   }
 
   /*  translate entire arrow by deltaX, deltaY
@@ -702,9 +665,6 @@ class RightAngleArrow extends Arrow {
     this.head = new ArrowHead(canvasState, this);
   }
 
-  addSelfToCanvas() {
-    this.cState.addCanvasObj("angleArrow", this);
-  }
 
   /*  endingOrientation()
    *    return up/down/left/right
@@ -847,8 +807,6 @@ class ArrowHead {
     this.arrow = parentArrow;
 
     // center of fat end of arrowhead
-    this.baseX = this.arrow.endX;
-    this.baseY = this.arrow.endY;
 
     this.hollow = true;
     this.fill = "#fff";
@@ -856,15 +814,12 @@ class ArrowHead {
     this.width = 20;
     this.height = 20;
 
-    this.addSelfToCanvas();
+    // add to hidden canvas but dont actually draw
+    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
     return this.arrow.getParent();
-  }
-  
-  addSelfToCanvas() {
-    this.cState.registerCanvasObj(this);
   }
 
   getToolbar() {
@@ -877,6 +832,10 @@ class ArrowHead {
 
   deactivate() {
 
+  }
+
+  getStartCoordinates() {
+    return {x: this.arrow.endX, y: this.arrow.endY};
   }
   
   configureOptions() {
@@ -944,7 +903,6 @@ class ArrowHead {
   /*  ArrowHead.drag
    *    shift arrow end point by deltaX, deltaY
    *    and add a new anglePoint if RightAngleArrow 
-   *
    */
   drag(deltaX, deltaY) {
     if (this.arrow instanceof RightAngleArrow) {
@@ -1052,16 +1010,13 @@ class AnchorPoint {
     // (snap to this anchor if within radius)
     this.radius = 30;
 
-    this.addSelfToCanvas();
+    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
     return this.parentBox.getParent();
   }   
 
-  addSelfToCanvas() {
-    this.cState.registerCanvasObj(this);
-  }
 
   /*  AnchorPoint.draw
    *
@@ -1118,20 +1073,17 @@ class ResizePoint {
     // default radius 
     this.radius = 15;
 
-    this.addSelfToCanvas();
+    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
     return this.parentBox.getParent();
   }
 
-  /*  ResizePoint.addSelfToCanvas
-   */
-  addSelfToCanvas() {
-    console.log("adding rsp to canvas");
-    this.cState.registerCanvasObj(this);
+  getStartCoordinates() {
+    return {x: this.x, y: this.y};
   }
-    
+
   /*  ResizePoint.draw
    */
   draw() {
@@ -1163,4 +1115,65 @@ class ResizePoint {
   hover() {
     document.body.style.cursor = "nwse-resize";     
   }
+}
+
+
+/** ControlPoint
+ *    used to define curvature of CurvedArrow (bezier curve)
+ */
+class ControlPoint {
+  constructor(canvasState, parentArrow, x, y) {
+    this.cState = canvasState;
+    this.ctx = canvasState.ctx;
+    this.hitCtx = canvasState.hitCtx;
+    this.hashColor = null;
+    
+    this.parentArrow = parentArrow;
+
+    this.x = x;
+    this.y = y;
+
+    // default radius 
+    this.radius = 10;
+
+    // default fill
+    this.fill = "#00f8";
+
+    this.cState.registerCanvasObj(this);
+  }
+
+  getParent() {
+    return this.parentArrow.getParent();
+  }
+  
+  getStartCoordinates() {
+    return {x: this.x, y: this.y}; 
+  }
+
+  configureOptions() {
+    this.ctx.fillStyle = this.fill;
+    this.hitCtx.fillStyle = this.hashColor;
+  }
+
+  draw() {
+    this.configureOptions();
+    
+    this.ctx.beginPath();
+    this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
+    this.ctx.fill();
+
+    this.hitCtx.beginPath();
+    this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    this.hitCtx.fill();
+  }
+
+  deactivate() {
+    this.getParent().deactivate();
+  }
+
+  drag(deltaX, deltaY) {
+    this.x += deltaX;
+    this.y += deltaY;
+  }
+
 }
