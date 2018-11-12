@@ -5,7 +5,7 @@ function randInt(lo, hi) {
   return Math.floor(Math.random() * (hi - lo + 1)) + lo;
 }
 
-/*  newColor
+/**  newColor
  *    creates new rgb combination and adds
  *    to set of unique colors
  *
@@ -56,6 +56,8 @@ class CanvasState {
     this.drawMode = "angleArrow";
     this.objects = [];
     this.redoStack = [];
+    this.undoStack = [];
+    this.activeCommandType = null;
 
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -105,6 +107,10 @@ class CanvasState {
     };
   }
 
+  /** CanvasState.registerCanvasObj
+   *    assign a unique rgb color to canvasObj 
+   *    for event detection. 
+   */
   registerCanvasObj(canvasObj) {
     // get unique color for hashing 
     // (newColor function adds to set for us)
@@ -116,28 +122,86 @@ class CanvasState {
     canvasObj.hashColor = "rgb(" + rgbArr.join(", ") + ")";
   }
 
-  /* addCanvasObj(str: objType, object: canvasObj)
+  /** CanvasState.addCanvasObj
    *   add new canvas object to array for repainting, etc.
-   *
-   *   deprecating objType
+   *   Note: only register (assign unique color) if hashColor is null
+   *   (may have been previously assigned if this is being called
+   *   as an undo/redo)
    */
-  addCanvasObj(objType, canvasObj) {
-    this.registerCanvasObj(canvasObj);
+  addCanvasObj(canvasObj) {
+    if (canvasObj.hashColor == null)
+      this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
     this.objects.push(canvasObj);
   }
 
+
+  /** CanvasState.remove
+   *
+   */
   remove(removeObj) {
     this.objects = this.objects.filter(function(item) {
       return (item !== removeObj);
     });
 
-    // push onto redo stack
-    this.redoStack.push(removeObj);       
+    removeObj.deactivate();
+    if (removeObj.getOptions)
+      removeObj.getOptions().hide();
+
+  }
+
+
+  /**  set start state for DrawCommand
+   *  whenever mouse press happens
+   */
+  setCommandStartState() {
+    this.hotkeyStartState = Object.assign({}, this.hotkeys);
+    this.startPoint = this.activeObj.getStartCoordinates();
+  }
+
+  addDrawCommand() {
+    if (this.activeObj) {
+      var drawCommand = this.createDrawCommand();
+      if (drawCommand)
+        this.undoStack.push(drawCommand);
+    }
+    else
+      console.log("Cannot create DrawCommand: no active canvas object");
+  }
+
+  createDrawCommand() {
+    switch (this.activeCommandType) {
+        case "create":
+          return new CreateCommand(this, this.activeObj);
+        case "move":
+          return new MoveCommand(this, this.activeObj);
+        case "drag":
+          return new DragCommand(this, this.activeObj);
+    }
+    return null;
+  }
+
+  undo() {
+    if (this.undoStack.length) {
+      var lastCommand = this.undoStack.pop();
+      lastCommand.undo();
+      this.redoStack.push(lastCommand);
+    }
+    else
+      console.log("Nothing left to undo");
   }
 
   redo() {
-    this.objects.push(this.redoStack.pop());
+    // just redoing instantiation
+    // this.objects.push(this.redoStack.pop());
+    
+    if (this.redoStack.length) {
+      var lastCommand = this.redoStack.pop();
+      lastCommand.execute();
+      this.undoStack.push(lastCommand);
+    }
+    else 
+      console.log("Nothing left to redo");
   }
 
 
