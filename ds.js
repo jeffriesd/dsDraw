@@ -20,7 +20,7 @@ class MyArray {
 
     this.init();
 
-    this.cState.addCanvasObj("array", this);
+    this.cState.addCanvasObj(this);
   }
 
   init() {
@@ -30,7 +30,7 @@ class MyArray {
       var arrNode = new ArrayNode(this.cState, x, this.y1, val);
       
       // add new array node to canvas objects
-      this.cState.addCanvasObj("arrayNode", arrNode);
+      this.cState.addCanvasObj(arrNode);
 
       this.array.push(arrNode); 
     }
