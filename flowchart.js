@@ -108,8 +108,11 @@ class FlowchartBox {
 
   positionEditor() {
     // set size
-    this.editor.style.width = this.width + "px";
-    this.editor.style.height = this.height + "px";
+    var width = this.x2 - this.x1;
+    var height = this.y2 - this.y1;
+    this.editor.style.width = width + "px";
+    this.editor.style.height = height + "px";
+
     // set position
     this.editor.style.top = this.y1 + "px";
     this.editor.style.left = this.x1 + "px";
@@ -149,7 +152,7 @@ class FlowchartBox {
       this.editor.style.paddingTop = "0px";
     }
     else if (this.verticalAlign == "center") {
-      var ht = this.ctx.measureText("_").width * 3;
+      var ht = this.ctx.measureText("_").width * 2;
       var textHeight = (this.wrappedText.length + 1) * ht;
       var boxHeight = this.y2 - this.y1;
 
@@ -194,7 +197,7 @@ class FlowchartBox {
     this.textEntered();
 
     // approximate height
-    var ht = this.ctx.measureText("_").width * 3;
+    var ht = this.ctx.measureText("_").width * 2;
     var lineY = this.textY + ht;
     this.ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
@@ -215,6 +218,8 @@ class FlowchartBox {
     this.x2 += deltaX;
     this.y1 += deltaY;
     this.y2 += deltaY; 
+
+    console.log("moving by ", deltaX);
 
     // move editor with box
     this.positionEditor();
@@ -297,6 +302,10 @@ class FlowchartBox {
     var line = "";
     var curWidth = 0;
     var lineWidth = 0;
+
+    console.log("width = ", this.width);
+    console.log("Width of A = ", this.ctx.measureText("A").width);
+    console.log(this.textMargin);
     for (var i = 0; i < words.length; i++) {
       curWidth = this.ctx.measureText(words[i] + " ").width;
        
@@ -509,7 +518,6 @@ class ParallelogramBox extends FlowchartBox {
     this.borderThickness = 2;
 
     this.skewSlope = 3;
-    ParallelogramBox.skewSlop = 3;
   } 
 
   clone() {
@@ -585,15 +593,90 @@ class ParallelogramBox extends FlowchartBox {
   }
 }
 
-class Connector {
-  constructor(canvasState, x1, y1, x2, y2) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
-  }
-} 
 
+class Connector extends FlowchartBox {
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
+
+    // default fill
+    this.fill = "#fff";
+    this.border = "#000";
+    this.borderThickness = 2;
+
+    this.textMargin = 1;
+    this.editor.style.padding = "0px";
+
+    this.cState.addCanvasObj(this);
+  }
+
+  clone() {
+    return new Connector(this.cState, this.x1, this.y1, this.x2, this.y2);
+  }
+
+  getStartCoordinates() {
+    return {x: this.x1, y: this.y1};
+  }
+
+  configureOptions() {
+    super.configureOptions();
+    this.ctx.lineWidth = this.borderThickness;
+
+    var dx = Math.pow(this.x2 - this.x1, 2);
+    var dy = Math.pow(this.y2 - this.y1, 2);
+    this.radius = Math.floor(Math.sqrt(dx + dy) / 2);
+    var r2 = Math.floor(this.radius / Math.sqrt(2));
+    this.centerX = this.x1  + r2;
+    this.centerY = this.y1 + r2;
+
+    this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.strokeStyle = this.hashColor;
+  }
+
+  draw() {
+    this.configureOptions();
+
+    this.ctx.beginPath();
+    this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.fill();
+
+    if (this.editor.hidden)
+      this.drawText();
+
+    this.hitCtx.beginPath();
+    this.hitCtx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
+    this.hitCtx.stroke();
+    this.hitCtx.fill();
+
+    this.resizePoint.draw();
+  }
+
+  resize(deltaX, deltaY) {
+    var delta = Math.max(deltaX, deltaY);
+    super.resize(delta, delta);
+  }
+
+
+  static outline(cState) {
+    var x1 = cState.mouseDown.x;
+    var y1 = cState.mouseDown.y;
+    var x2 = cState.mouseMove.x;
+    var y2 = cState.mouseMove.y;
+
+    var dx = Math.pow(x2 - x1, 2);
+    var dy = Math.pow(y2 - y1, 2);
+    var radius = Math.floor(Math.sqrt(dx + dy) / 2);
+
+    var r2 = Math.floor(radius / Math.sqrt(2));
+ 
+    var cX = r2 + x1;
+    var cY = r2 + y1; 
+
+    cState.ctx.beginPath();
+    cState.ctx.arc(cX, cY, radius, 0, Math.PI * 2);
+    cState.ctx.stroke();
+  }
+}
 
 /*  Arrow class for drawing arcs on canvas.
  *  Composed with ArrowHead which can 
@@ -718,6 +801,9 @@ class CurvedArrow extends Arrow {
     );
     ctx.stroke();
 
+    // undo linedash
+    if (this.dashed)
+      this.ctx.setLineDash([]);      
 
     this.head.draw();
 
@@ -727,10 +813,6 @@ class CurvedArrow extends Arrow {
       this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.endX, this.endY
     );
     hitCtx.stroke();
-
-    // undo linedash
-    if (this.dashed)
-      this.ctx.setLineDash([]);      
 
     // draw control points if active
     if (this.cState.activeObj && 
