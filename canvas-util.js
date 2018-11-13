@@ -5,6 +5,7 @@ canvasClasses = {
   "ParallelogramBox": ParallelogramBox,
   "RightAngleArrow": RightAngleArrow,
   "CurvedArrow": CurvedArrow,
+  "Connector": Connector,
 };
 
 
@@ -56,7 +57,7 @@ class CanvasState {
     this.mouseDown = null;
     this.mouseUp = null;
     this.mouseMove = null;
-    this.drawMode = "curvedArrow";
+    this.drawMode = "CurvedArrow";
     this.objects = [];
     this.redoStack = [];
     this.undoStack = [];
@@ -252,7 +253,8 @@ class CanvasState {
       "diamondBox",
       "parallelogramBox",
       "rightAngleArrow",
-      "curvedArrow"
+      "curvedArrow",
+      "connector"
     ];
 
     var self = this;
