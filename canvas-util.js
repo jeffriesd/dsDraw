@@ -1,3 +1,13 @@
+canvasClasses = {
+  "RectBox": RectBox,
+  "RoundBox": RoundBox,
+  "DiamondBox": DiamondBox,
+  "ParallelogramBox": ParallelogramBox,
+  "RightAngleArrow": RightAngleArrow,
+  "CurvedArrow": CurvedArrow,
+};
+
+
 /** randInt
  *  - return a random integer in range [lo, hi)
  */
@@ -35,13 +45,6 @@ function newColor(uniqueColors) {
   return [r, g, b];
 }
 
-
-/**
- *  keycodes for hotkeys
- */
-CTRL = 17;
-SHIFT = 16;
-
 /**
  * CanvasState
  *  - maintains state of canvas,
@@ -53,7 +56,7 @@ class CanvasState {
     this.mouseDown = null;
     this.mouseUp = null;
     this.mouseMove = null;
-    this.drawMode = "angleArrow";
+    this.drawMode = "curvedArrow";
     this.objects = [];
     this.redoStack = [];
     this.undoStack = [];
@@ -77,6 +80,7 @@ class CanvasState {
     this.hotkeys = {
       [CTRL]: false,
       [SHIFT]: false,
+      [ALT]: false,
     };
 
     this.bindKeys();
@@ -228,25 +232,10 @@ class CanvasState {
 
       // reset lineWidth for outline
       this.ctx.lineWidth = 1;
-      
-      switch (this.drawMode) {
-        case "array":
-          MyArray.outline(this);
-          break;
-        case "rectBox":
-        case "roundBox":
-          RectBox.outline(this);
-          break;
-        case "diamondBox":
-          DiamondBox.outline(this);
-          break;
-        case "angleArrow":
-          RightAngleArrow.outline(this);
-          break;
-        case "curvedArrow":
-          CurvedArrow.outline(this);
-          break;
-      }
+
+      var canvasClass = canvasClasses[this.drawMode];
+      if (canvasClass) 
+        canvasClass.outline(this);
     }
 
     // TODO:
@@ -261,14 +250,18 @@ class CanvasState {
       "rectBox",
       "roundBox",
       "diamondBox",
-      "angleArrow",
+      "parallelogramBox",
+      "rightAngleArrow",
       "curvedArrow"
     ];
 
     var self = this;
     this.buttons.forEach(function(buttonName) {
       var button = document.getElementById(buttonName);
-      button.onclick = () => self.setMode(buttonName);
+      // make first character uppercase
+      var first = buttonName.substr(0, 1).toUpperCase();
+      var className = first + buttonName.substr(1);
+      button.onclick = () => self.setMode(className);
     });
 
     // delete button
