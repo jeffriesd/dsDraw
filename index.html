@@ -7,12 +7,13 @@
 </head>
 <body>
   <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">Draw mode: angleArrow </label>
-    <button class="toolbarButton" id="angleArrow"></button>
+    <label class="toolbarLabel" id="drawMode">Draw mode: curvedArrow</label>
+    <button class="toolbarButton" id="rightAngleArrow"></button>
     <button class="toolbarButton" id="curvedArrow"></button>
     <button class="toolbarButton" id="rectBox"></button> 
     <button class="toolbarButton" id="roundBox"></button> 
     <button class="toolbarButton" id="diamondBox"></button> 
+    <button class="toolbarButton" id="parallelogramBox"></button>
     <button class="toolbarButton" id="deleteButton"></button>
 
     <!--Arrow options -->
@@ -61,6 +62,8 @@
       <button class="toolbarButton" id="leftAlign"></button>
       <button class="toolbarButton" id="centerAlign"></button>
       <button class="toolbarButton" id="rightAlign"></button>
+      <button class="toolbarButton" id="centerVAlign"></button>
+      <button class="toolbarButton" id="topVAlign"></button>
     </div>
   </div>
   <div id="commandConsole">
@@ -71,207 +74,19 @@
   <!--Canvases and jsDraw scripts-->
   <canvas id="myCanvas" height=600 width=800> </canvas>
   <canvas id="hitCanvas" height=600 width=800> </canvas>
+  <script src="constants.js"></script>
   <script src="toolbars.js"></script>
-  <script src="canvas-util.js"></script>
   <script src="flowchart.js"></script>
   <script src="ds.js"></script>
+  <script src="command.js"></script>
+  <script src="canvas-util.js"></script>
   <script src="console.js"></script>
   <!--External library scripts -->
   <script src="lib/jquery-3.3.1.min.js"></script>
   <script src="lib/mousetrap.min.js"></script>
+  
+  <!--main -->
+  <script src="main.js"></script>
 
-  <script>
-
-    CTRL = 17;
-
-    var canvas = document.getElementById("myCanvas");
-    const ctx = canvas.getContext("2d");
-    ctx.font = "10pt Calibri";
-
-    var hitCanvas = document.getElementById("hitCanvas");
-    const hitCtx = hitCanvas.getContext("2d");
-
-    console.log(canvas);
-
-    // initialize
-    const cState = new CanvasState(canvas);
-
-
-    // start animation loop
-    function main() {
-      requestAnimationFrame(main);
-
-      cState.repaint();
-    }
-    main();
-
-    const commandConsole = new CommandConsole(cState);    
-
-    // add eventListeners for mouse actions
-    
-    /**
-     *  MOUSE CLICK PRESSED
-     */
-    canvas.addEventListener("mousedown", function(event) {
-      cState.mouseDown = {x: event.offsetX, y: event.offsetY};
-      // console.log("mouseDown at (", event.offsetX, ", ", event.offsetY, ")");
-      cState.mouseUp = null;
-
-      var canvasObj = cState.getClickedObject(event.offsetX, event.offsetY);
-
-      console.log("clicked on:", canvasObj);
-
-      if (canvasObj) {
-        // don't try to create new
-        // object/textbox/etc
-        // if click starts on another
-        // object
-        cState.clickedBare = false;   
-        cState.activeObj = canvasObj;
-
-        // mouse down event for some objects
-        if (canvasObj.mouseDown) {
-          canvasObj.mouseDown();
-        }
-        
-        // set offset for dragging
-        cState.dragOffsetX = event.offsetX;
-        cState.dragOffsetY = event.offsetY;
-
-        // show toolbar
-        cState.showToolbar();
-      } else {
-
-        // end editing for textboxes or other updates
-        if (cState.activeObj) {
-          cState.activeObj.deactivate();
-          if (cState.activeObj.getOptions)
-            cState.activeObj.getOptions().hide();
-        }
-
-        cState.clickedBare = true;   
-        cState.activeObj = null;
-      }   
-    });
-
-
-    /**
-     *  MOUSE MOVED
-     */
-
-    canvas.addEventListener("mousemove", function(event) {
-      cState.mouseMove = {x: event.offsetX, y: event.offsetY};
-
-      if (cState.mouseDown && !cState.mouseUp) {
-
-        var deltaX = event.offsetX - cState.dragOffsetX;
-        var deltaY = event.offsetY - cState.dragOffsetY;
-        
-        if (cState.activeObj) {
-          if (cState.hotkeys[CTRL])
-            cState.activeObj.move(deltaX, deltaY); 
-          else
-            cState.activeObj.drag(deltaX, deltaY);
-
-          // reset dragOffset
-          cState.dragOffsetX += deltaX;
-          cState.dragOffsetY += deltaY;
-        }
-      } 
-      else if (!cState.mouseDown) {
-        // hover actions
-        var hoverObj = cState.getClickedObject(cState.mouseMove.x, cState.mouseMove.y);
-        if (hoverObj) {
-          if (hoverObj.hover)
-            hoverObj.hover();
-          else
-            document.body.style.cursor = "default";    
-        }
-        else {
-          // make sure mouse pointer goes back to default
-          document.body.style.cursor = "default";    
-        }
-      }
-
-
-    });
-
-
-    /**
-     *  MOUSE CLICK RELEASED
-     */
-
-    canvas.addEventListener("mouseup", function(event) {
-      cState.mouseUp = {x: event.offsetX, y: event.offsetY};
-      
-      // only create new canvas object if actually dragged to new location
-      if (cState.mouseUp.x !== cState.mouseDown.x 
-          && cState.mouseDown.y !== cState.mouseUp.y
-          && cState.clickedBare) {
-
-        // draw array
-        switch (cState.drawMode) {
-          case "array":
-            cState.activeObj = new MyArray(cState);
-            break;
-          case "rectBox":
-            cState.activeObj = new RectBox(cState);
-            break;
-          case "roundBox":
-            cState.activeObj = new RoundBox(cState);
-            break;
-          case "diamondBox":
-            cState.activeObj = new DiamondBox(cState);
-            break;
-          case "angleArrow":
-            cState.activeObj = new RightAngleArrow(cState);
-            break;
-          case "curvedArrow":
-            cState.activeObj = new CurvedArrow(cState);
-            break;
-        }
-      }
-
-      // mouse release happens same place as press
-      else if (cState.mouseUp.x == cState.mouseDown.x 
-                && cState.mouseUp.y == cState.mouseDown.y) {
-
-        // get clicked object from colorHash map
-        var canvasObj = cState.getClickedObject(cState.mouseUp.x, cState.mouseUp.y);
-        if (canvasObj) {
-          canvasObj.click(event);
-        } 
-      }
-
-      // release active object
-      if (cState.activeObj) {
-        if (cState.activeObj.release)
-          cState.activeObj.release();
-        if (cState.activeObj.getToolbar)
-          cState.showToolbar();
-      } 
-
-      cState.mouseDown = null;
-    });
-
-    // global key bindings
-    Mousetrap.bind("t", function(event) {
-      commandConsole.toggleVisible(); 
-    });
-
-    Mousetrap.bind("esc", function(event) {
-      commandConsole.toggleVisible("off");
-    });
-
-    Mousetrap.bind("ctrl+z", function(event) {
-      var last = cState.objects[cState.objects.length - 1];
-      cState.remove(last);
-    });
-
-    Mousetrap.bind("ctrl+y", function(event) {
-      cState.redo();
-    });
-
-  </script>
 </body>
 </html>
