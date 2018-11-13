@@ -143,6 +143,8 @@ class FlowchartBoxOptions extends ToolOptions {
     var leftAlign = $("#leftAlign");
     var rightAlign = $("#rightAlign");
     var centerAlign = $("#centerAlign");
+    var topVAlign = $("#topVAlign");
+    var centerVAlign = $("#centerVAlign");
 
     var self = this;
 
@@ -164,21 +166,34 @@ class FlowchartBoxOptions extends ToolOptions {
     leftAlign.on("click", function(event) {
       var active = self.cState.activeObj;
       var textbox = active.getParent();
-      textbox.textAlign = "left";
+      textbox.horizontalAlign = "left";
       textbox.editor.style.textAlign = "left";
     });
     rightAlign.on("click", function(event) {
       var active = self.cState.activeObj;
       var textbox = active.getParent();
-      textbox.textAlign = "right";
+      textbox.horizontalAlign = "right";
       textbox.editor.style.textAlign = "right";
     });
     centerAlign.on("click", function(event) {
       var active = self.cState.activeObj;
       var textbox = active.getParent();
-      textbox.textAlign = "center";
+      textbox.horizontalAlign = "center";
       textbox.editor.style.textAlign = "center";
     });
+
+    centerVAlign.on("click", function(event) {
+      var active = self.cState.activeObj;
+      var textbox = active.getParent();
+      textbox.verticalAlign = "center";
+    });
+
+    topVAlign.on("click", function(event) {
+      var active = self.cState.activeObj;
+      var textbox = active.getParent();
+      textbox.verticalAlign = "top";
+    });
+
   }
 
   setSelectOptions() {
