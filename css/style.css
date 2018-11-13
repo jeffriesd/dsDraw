@@ -158,6 +158,10 @@ textarea {
   background-image: url("../images/curvedarrowfilled.png");
 }
 
+#connector {
+  background-image: url("../images/connector.png");
+}
+
 #leftAlign {
   background-image: url("../images/leftalign.png");
   background-size: 60% 60%;
