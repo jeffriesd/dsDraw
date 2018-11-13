@@ -5,7 +5,8 @@ body {
 #myCanvas {
   border: 1px solid #000;
   background: rgba(0, 255, 255, 0.1);
-  # margin: 10px;
+  /* background: rgba(200, 200, 200, 1); */
+  /* margin: 10px; */
 }
 
 #hitCanvas {
@@ -68,7 +69,7 @@ button {
   position: relative;
   display: block;
   float: left;
-  width: 30px;
+  width: 20px;
   height: 100%;
   background: none;
   background-size: 100% 100%;
@@ -111,15 +112,19 @@ optgroup {
   font-size: 26pt;
 }
 
+textarea {
+  /* Prevent overflow while adding 
+   * padding for vertical centering */
+  box-sizing: border-box;
+  border: rgba(0, 0, 0, 0);
+  background: rgba(0, 0, 0, 0);
+}
+
 
 .toolbarLabel {
   margin-top: 1%;
   margin-bottom: 1%;
   float: right;
-}
-
-textarea {
-  vertical-align: middle;
 }
 
 #deleteButton {
@@ -141,7 +146,11 @@ textarea {
   background-image: url("../images/diamond.png");
 }
 
-#angleArrow {
+#parallelogramBox {
+  background-image: url("../images/parallelogram.png");
+}
+
+#rightAngleArrow {
   background-image: url("../images/RAarrow.png");
 }
 
@@ -165,5 +174,13 @@ textarea {
   background-image: url("../images/centeralign.png");
   background-size: 60% 60%;
   background-position: center;
+}
+
+#centerVAlign {
+  background-image: url("../images/middlealign.png");
+}
+
+#topVAlign {
+  background-image: url("../images/topalign.png");
 }
 
