@@ -12,16 +12,16 @@ CTRL = 17;
 SHIFT = 16;
 
 class FlowchartBox {
-  constructor(canvasState) {
+  constructor(canvasState, x1, y1, x2, y2) {
     this.cState = canvasState;
     this.ctx = canvasState.ctx;
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
-    this.x1 = this.cState.mouseDown.x;
-    this.y1 = this.cState.mouseDown.y;
-    this.x2 = this.cState.mouseUp.x;
-    this.y2 = this.cState.mouseUp.y;
+    this.x1 = x1;
+    this.y1 = y1;
+    this.x2 = x2;
+    this.y2 = y2;
 
     this.width = this.x2 - this.x1;
     this.height = this.y2 - this.y1;
@@ -31,8 +31,11 @@ class FlowchartBox {
     this.fontStyle = null;
     this.fontFamily = "Purisa";
     this.fontSize = "12px";
-    this.textAlign = "left";
+
+    this.horizontalAlign = "left";
+    this.verticalAlign = "top";
     this.textX = this.x1;
+    this.textY = this.y1;
 
     // attribute to allow for slight space between edge
     // of text box and text itself
@@ -78,7 +81,8 @@ class FlowchartBox {
    */
   createEditor() {
     this.editor = document.createElement("textarea");
-    this.editor.style.background = this.fill;
+    this.editor.style.paddingLeft = this.textMargin + "px";
+    this.editor.style.paddingRight = this.textMargin + "px";
     this.editor.style.position = "absolute"; 
     this.editor.style.border = "0";
 
@@ -126,17 +130,40 @@ class FlowchartBox {
     this.ctx.font = font;
     this.editor.style.font = font;
 
-    this.ctx.textAlign = this.textAlign;
+    // set text drawing option for canvas
+    this.ctx.textAlign = this.horizontalAlign;
 
     // change x coordinate for diff alignments
-    if (this.textAlign == "left")
+    if (this.horizontalAlign == "left")
       this.textX = this.x1 + this.textMargin;
-    else if (this.textAlign == "right")
+    else if (this.horizontalAlign == "right")
       this.textX = this.x2 - this.textMargin;
-    else if (this.textAlign == "center")
+    else if (this.horizontalAlign == "center")
       this.textX = Math.floor((this.x1 + this.x2) / 2);
 
+    // change y coordinates for diff vertical alignments
+    if (this.verticalAlign == "top") {
+      this.textY = this.y1;
+
+      // hack for vertical alignment of editor
+      this.editor.style.paddingTop = "0px";
+    }
+    else if (this.verticalAlign == "center") {
+      var ht = this.ctx.measureText("_").width * 3;
+      var textHeight = (this.wrappedText.length + 1) * ht;
+      var boxHeight = this.y2 - this.y1;
+
+      var offset = Math.floor((boxHeight - textHeight) / 2);
+      // dont extend above container
+      offset = Math.max(0, offset);
+      this.textY = (this.y1 + offset);
+
+      // hack for vertical alignment of editor
+      this.editor.style.paddingTop = offset + "px";
+    }
+
     this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.strokeStyle = this.hashColor;
   }
   
   /* FlowchartBox.draw
@@ -152,7 +179,8 @@ class FlowchartBox {
     this.ctx.stroke();
     
     // helper method for text
-    this.drawText();
+    if (this.editor.hidden)
+      this.drawText();
 
     // draw to hit detection canvas
     this.hitCtx.beginPath();
@@ -163,9 +191,11 @@ class FlowchartBox {
   }
 
   drawText() {
+    this.textEntered();
+
     // approximate height
-    var ht = this.ctx.measureText("_").width * 2;
-    var lineY = this.y1 + ht;
+    var ht = this.ctx.measureText("_").width * 3;
+    var lineY = this.textY + ht;
     this.ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
       // don't fill past container
@@ -218,7 +248,7 @@ class FlowchartBox {
 
     // re-render text
     this.textEntered();
-    
+   
     // move resize point
     this.resizePoint.x = this.x2;
     this.resizePoint.y = this.y2;
@@ -241,7 +271,7 @@ class FlowchartBox {
     this.textEntered();
   }
 
-  /* textEntered
+  /* FlowchartBox.textEntered
    * performs word wrap 
    * 
    * TODO:
@@ -289,13 +319,22 @@ class FlowchartBox {
 
 class RectBox extends FlowchartBox {
 
-  constructor(canvasState) {
-    super(canvasState);
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
 
     // set borderThickness lower for rect command
     this.borderThickness = 2;
   }
   
+  clone() {
+    var copy = new RectBox(this.cState, this.x1, this.y1, this.x2, this.y2);
+    
+    // TODO 
+    // copy options while cloning
+    // (need to make options object for each class)
+
+    return copy;
+  }
 
   static outline(cState) {
     cState.ctx.strokeStyle = "#000";
@@ -309,8 +348,8 @@ class RectBox extends FlowchartBox {
 
 class RoundBox extends FlowchartBox {
   
-  constructor(canvasState) {
-    super(canvasState);
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
 
 
     this.radius = 10;
@@ -320,6 +359,9 @@ class RoundBox extends FlowchartBox {
     this.borderThickness = 2;
   } 
 
+  clone() {
+    return new RoundBox(this.cState, this.x1, this.y1, this.x2, this.y2);
+  }
 
   configureOptions() {
     super.configureOptions();
@@ -348,7 +390,8 @@ class RoundBox extends FlowchartBox {
     this.ctx.fill();
 
     // helper method for text
-    this.drawText();
+    if (this.editor.hidden)
+      this.drawText();
 
     // draw to hit detection canvas
     this.hitCtx.beginPath();
@@ -368,8 +411,8 @@ class RoundBox extends FlowchartBox {
 
 class DiamondBox extends FlowchartBox {
 
-  constructor(canvasState) {
-    super(canvasState);
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
 
 
     // need extra border thickness parameter
@@ -377,6 +420,9 @@ class DiamondBox extends FlowchartBox {
     this.borderThickness = 2;
   } 
 
+  clone() {
+    return new DiamondBox(this.cState, this.x1, this.y1, this.x2, this.y2);
+  }
 
   /*  configureOptions  
    *    set style options for drawing and redefine edge points
@@ -416,11 +462,10 @@ class DiamondBox extends FlowchartBox {
     this.ctx.fill();
 
     // draw text
-    this.drawText();
+    if (this.editor.hidden)
+      this.drawText();
 
     this.hitCtx.beginPath();
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.strokeStyle = this.hashColor;
     this.hitCtx.moveTo(this.leftX, this.midY);
     this.hitCtx.lineTo(this.midX, this.topY);
     this.hitCtx.lineTo(this.rightX, this.midY);
@@ -452,8 +497,103 @@ class DiamondBox extends FlowchartBox {
     
     cState.ctx.stroke();
   }
-
 }
+
+
+class ParallelogramBox extends FlowchartBox {
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
+
+    // need extra border thickness parameter
+    // because using custom path instead of ctx.rect()
+    this.borderThickness = 2;
+
+    this.skewSlope = 3;
+    ParallelogramBox.skewSlop = 3;
+  } 
+
+  clone() {
+    return new ParallelogramBox(this.cState, this.x1, this.y1, this.x2, this.y2);
+  }
+
+  configureOptions() {
+    super.configureOptions();
+    this.ctx.lineWidth = this.borderThickness;
+
+    this.bottomLeft = {
+      x: this.x1 - Math.floor((this.y2 - this.y1) / this.skewSlope),
+      y: this.y2,
+    };
+
+    this.topRight = {
+      x: this.x2 - Math.floor((this.y2 - this.y1) / -this.skewSlope),
+      y: this.y1,
+    };
+  }
+
+  draw() {
+    this.configureOptions();
+
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.ctx.lineTo(this.x1, this.y1);
+    this.ctx.lineTo(this.topRight.x, this.topRight.y);
+    this.ctx.lineTo(this.x2, this.y2);
+    this.ctx.lineTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.ctx.stroke();
+    this.ctx.fill();
+
+    if (this.editor.hidden)
+      this.drawText();
+
+    this.hitCtx.beginPath();
+    this.hitCtx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.hitCtx.lineTo(this.x1, this.y1);
+    this.hitCtx.lineTo(this.topRight.x, this.topRight.y);
+    this.hitCtx.lineTo(this.x2, this.y2);
+    this.hitCtx.lineTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.hitCtx.stroke();
+    this.hitCtx.stroke();
+    this.hitCtx.fill();
+
+    this.resizePoint.draw();
+  }
+
+  static outline(cState) {
+    var x1 = cState.mouseDown.x;
+    var y1 = cState.mouseDown.y;
+    var x2 = cState.mouseMove.x;
+    var y2 = cState.mouseMove.y;
+    var skewSlope = 3;
+
+    var bottomLeft = {
+      x: x1 - Math.floor((y2 - y1) / skewSlope),
+      y: y2,
+    };
+
+    var topRight = {
+      x: x2 - Math.floor((y2 - y1) / -skewSlope),
+      y: y1,
+    };
+    cState.ctx.beginPath();
+    cState.ctx.moveTo(bottomLeft.x, bottomLeft.y);
+    cState.ctx.lineTo(x1, y1);
+    cState.ctx.lineTo(topRight.x, topRight.y);
+    cState.ctx.lineTo(x2, y2);
+    cState.ctx.lineTo(bottomLeft.x, bottomLeft.y);
+    cState.ctx.stroke();
+  }
+}
+
+class Connector {
+  constructor(canvasState, x1, y1, x2, y2) {
+    this.cState = canvasState;
+    this.ctx = canvasState.ctx;
+    this.hitCtx = canvasState.hitCtx;
+    this.hashColor = null;
+  }
+} 
+
 
 /*  Arrow class for drawing arcs on canvas.
  *  Composed with ArrowHead which can 
@@ -469,16 +609,16 @@ class DiamondBox extends FlowchartBox {
  */
 class Arrow {
 
-  constructor(canvasState) {
+  constructor(canvasState, x1, y1, x2, y2) {
     this.cState = canvasState;
     this.ctx = canvasState.ctx;
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
-    this.startX = this.cState.mouseDown.x;
-    this.startY = this.cState.mouseDown.y;
-    this.endX = this.cState.mouseUp.x;
-    this.endY = this.cState.mouseUp.y;
+    this.startX = x1;
+    this.startY = y1;
+    this.endX = x2;
+    this.endY = y2;
 
     // default options
     this.thickness = 2;
@@ -520,8 +660,8 @@ class Arrow {
  *    draws curved arc with 2 control points
  */
 class CurvedArrow extends Arrow {
-  constructor(canvasState) {
-    super(canvasState);
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
 
     // initialize control points at
     // start and end points
@@ -540,6 +680,11 @@ class CurvedArrow extends Arrow {
     // this.activePoint = this.cp1;
 
     this.head = new ArrowHead(canvasState, this);
+  }
+
+  clone() {
+    return new CurvedArrow(this.cState, 
+        this.startX, this.startY, this.endX, this.endY);
   }
 
   getParent() {
@@ -588,7 +733,8 @@ class CurvedArrow extends Arrow {
       this.ctx.setLineDash([]);      
 
     // draw control points if active
-    if (this === this.cState.activeObj.getParent()) {
+    if (this.cState.activeObj && 
+          this === this.cState.activeObj.getParent()) {
       this.cp1.draw();
       this.cp2.draw(); 
     }
@@ -651,8 +797,8 @@ class CurvedArrow extends Arrow {
  *
  */
 class RightAngleArrow extends Arrow {
-  constructor(canvasState) {
-    super(canvasState); 
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2); 
 
     // force axis alignment
     this.endY = this.startY;
@@ -663,6 +809,11 @@ class RightAngleArrow extends Arrow {
     // create ArrowHead
     // (handled here because of forced alignment)
     this.head = new ArrowHead(canvasState, this);
+  }
+
+  clone() {
+    return new RightAngleArrow(this.cState, 
+          this.startX, this.startY, this.endX, this.endY);
   }
 
 
@@ -828,10 +979,6 @@ class ArrowHead {
 
   getOptions() {
     return ArrowOptions.getInstance(this.cState);
-  }
-
-  deactivate() {
-
   }
 
   getStartCoordinates() {
