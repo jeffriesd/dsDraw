@@ -300,23 +300,26 @@ class FlowchartBox {
     // TODO
       
     var line = "";
-    var curWidth = 0;
     var lineWidth = 0;
+    var wordWidth = 0;
 
-    console.log("width = ", this.width);
-    console.log("Width of A = ", this.ctx.measureText("A").width);
     console.log(this.textMargin);
     for (var i = 0; i < words.length; i++) {
-      curWidth = this.ctx.measureText(words[i] + " ").width;
-       
-      lineWidth += curWidth;
-      if (lineWidth > this.width - (2 * this.textMargin)) {
-        // draw current line and reset
-        wrappedText.push(line);
-        lineWidth = curWidth;
-        line = "";
+      wordWidth = this.ctx.measureText(words[i] + " ").width;
+      // check for horizontal overflow of a single word
+      if (wordWidth > this.width - (2 * this.textMargin)) {
+        wrappedText.push("...");
       }
-      line += words[i] + " ";
+      else { 
+        lineWidth += wordWidth;
+        if (lineWidth > this.width - (2 * this.textMargin)) {
+          // draw current line and reset
+          wrappedText.push(line);
+          lineWidth = wordWidth;
+          line = "";
+        }
+        line += words[i] + " ";
+      }
     }
     // add final line if total string was nonempty
     if (this.editor.value != "")
@@ -410,12 +413,29 @@ class RoundBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  /*
-   * TODO:
-   *  implement outline for roundBox
-   */
   static outline(cState) {
+    var x1 = cState.mouseDown.x;
+    var y1 = cState.mouseDown.y;
+    var x2 = cState.mouseMove.x;
+    var y2 = cState.mouseMove.y;
+    var radius = 10;
+
+    cState.ctx.beginPath();
+    cState.ctx.moveTo(x1 + radius, y1);
+    cState.ctx.lineTo(x2 - radius, y1);
+    cState.ctx.quadraticCurveTo(x2, y1, x2, y1 + radius);
+    cState.ctx.lineTo(x2, y2 - radius);
+    cState.ctx.quadraticCurveTo(x2, y2, x2 - radius, y2);
+    cState.ctx.lineTo(x1 + radius, y2);
+    cState.ctx.quadraticCurveTo(x1, y2, x1, y2 - radius);
+    cState.ctx.lineTo(x1, y1 + radius);
+    cState.ctx.quadraticCurveTo(x1, y1, x1 + radius, y1);
+    cState.ctx.closePath();
+
+    cState.ctx.stroke();
+    
   }
+
 }
 
 class DiamondBox extends FlowchartBox {
@@ -596,6 +616,15 @@ class ParallelogramBox extends FlowchartBox {
 
 class Connector extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
+
+    // force x2, y2 to be bottom right point
+    // on circumference of circle
+    var dx = Math.pow(x2 - x1, 2);
+    var dy = Math.pow(y2 - y1, 2);
+    var radius = Math.floor(Math.sqrt(dx + dy) / 2);
+    var r2 = Math.floor(radius / Math.sqrt(2));
+    x2 = x1 + (r2 * 2);
+    y2 = y1 + (r2 * 2);
     super(canvasState, x1, y1, x2, y2);
 
     // default fill
