@@ -76,6 +76,7 @@ canvas.addEventListener("mousedown", function(event) {
 
     cState.clickedBare = true;   
     cState.activeObj = null;
+    cState.selectGroup.clear();
   }   
 });
 
@@ -97,6 +98,14 @@ canvas.addEventListener("mousemove", function(event) {
     if (cState.activeObj) {
       if (cState.hotkeys[CTRL]) {
         cState.activeObj.move(deltaX, deltaY); 
+        // Group select move
+        // if (cState.selectGroup.has(cState.activeObj)) {
+        //   cState.selectGroup.forEach((obj) => {
+        //     if (cState.activeObj !== obj)
+        //       obj.move(deltaX, deltaY);
+        //   });
+        // }
+
         cState.activeCommandType = "move";
       }
       else if (cState.hotkeys[ALT]) {
@@ -139,11 +148,17 @@ canvas.addEventListener("mouseup", function(event) {
   
   // only create new canvas object if actually dragged to new location
   if (cState.mouseUp.x !== cState.mouseDown.x 
-      && cState.mouseDown.y !== cState.mouseUp.y) {
+      || cState.mouseDown.y !== cState.mouseUp.y) {
 
     // create new object
     if (cState.clickedBare) {
-      cState.activeCommandType = "create";
+
+      // select tool or creating
+      if (cState.drawMode == "Select")
+        cState.activeCommandType = "select";
+      else
+        cState.activeCommandType = "create";
+
       var x1 = cState.mouseDown.x;
       var y1 = cState.mouseDown.y;
       var x2 = cState.mouseUp.x;
@@ -151,7 +166,7 @@ canvas.addEventListener("mouseup", function(event) {
 
       // instantiate new object
       var canvasClass = canvasClasses[cState.drawMode];
-      if (canvasClass) {
+      if (cState.drawMode != "Select" && canvasClass) {
         cState.activeObj = 
             new canvasClass(cState, x1, y1, x2, y2);
       }
@@ -188,10 +203,9 @@ canvas.addEventListener("mouseup", function(event) {
       cState.activeObj.release();
     if (cState.activeObj.getToolbar)
       cState.showToolbar();
-
-    // create DrawCommand object and push onto undo stack
-    cState.addDrawCommand();
   } 
+  // create DrawCommand object and push onto undo stack
+  cState.addDrawCommand();
 
   cState.mouseDown = null;
 });
