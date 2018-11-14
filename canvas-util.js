@@ -6,6 +6,7 @@ canvasClasses = {
   "RightAngleArrow": RightAngleArrow,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
+  "Select": CanvasSelect,
 };
 
 
@@ -62,6 +63,9 @@ class CanvasState {
     this.redoStack = [];
     this.undoStack = [];
     this.activeCommandType = null;
+
+    this.selectGroup = new Set();
+    this.activeBorder = "#0000ff";
 
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
@@ -165,7 +169,7 @@ class CanvasState {
   }
 
   addDrawCommand() {
-    if (this.activeObj) {
+    if (true || this.activeObj) {
       var drawCommand = this.createDrawCommand();
       if (drawCommand)
         this.undoStack.push(drawCommand);
@@ -175,13 +179,21 @@ class CanvasState {
   }
 
   createDrawCommand() {
-    switch (this.activeCommandType) {
+    if (this.activeObj) {
+      switch (this.activeCommandType) {
         case "create":
           return new CreateCommand(this, this.activeObj);
         case "move":
           return new MoveCommand(this, this.activeObj);
         case "drag":
           return new DragCommand(this, this.activeObj);
+      }
+    }
+    else {
+      switch (this.activeCommandType) {
+        case "select":
+          return new SelectCommand(this);
+      }
     }
     return null;
   }
@@ -234,16 +246,18 @@ class CanvasState {
       // reset lineWidth for outline
       this.ctx.lineWidth = 1;
 
-      var canvasClass = canvasClasses[this.drawMode];
-      if (canvasClass) 
-        canvasClass.outline(this);
+      var toolClass = canvasClasses[this.drawMode];
+      if (toolClass) 
+        toolClass.outline(this);
     }
-
-    // TODO:
     //  add some bbox or highlighting to show active object
-    this.objects.forEach(function(obj) {
-        obj.draw();
+    this.objects.forEach((obj) => {
+        var active = 
+          (this.activeObj && 
+            this.activeObj.getParent() === obj ) || this.selectGroup.has(obj);
+        obj.draw(active);
     });
+
   }
 
   initButtons() {
