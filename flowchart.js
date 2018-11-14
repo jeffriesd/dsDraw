@@ -173,9 +173,12 @@ class FlowchartBox {
    * renders rectangular box on main canvas
    * and hitCanvas and draws wrapped words
    */
-  draw() {
+  draw(active=false) {
     this.configureOptions();
-     
+
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
+
     this.ctx.beginPath();
     this.ctx.rect(this.x1, this.y1, this.width, this.height);
     this.ctx.fillRect(this.x1, this.y1, this.width, this.height);
@@ -289,9 +292,6 @@ class FlowchartBox {
    *
    */
   textEntered() {
-    //update text options
-    this.configureOptions();
-
     var words = this.editor.value.split(" ");
 
     var wrappedText = [];
@@ -303,7 +303,6 @@ class FlowchartBox {
     var lineWidth = 0;
     var wordWidth = 0;
 
-    console.log(this.textMargin);
     for (var i = 0; i < words.length; i++) {
       wordWidth = this.ctx.measureText(words[i] + " ").width;
       // check for horizontal overflow of a single word
@@ -382,8 +381,12 @@ class RoundBox extends FlowchartBox {
 
   /*  RoundBox.draw
    */
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+    
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
+
     // draw rounded box
     this.ctx.beginPath();
     
@@ -396,7 +399,6 @@ class RoundBox extends FlowchartBox {
     this.ctx.quadraticCurveTo(this.x1, this.y2, this.x1, this.y2 - this.radius);
     this.ctx.lineTo(this.x1, this.y1 + this.radius);
     this.ctx.quadraticCurveTo(this.x1, this.y1, this.x1 + this.radius, this.y1);
-    this.ctx.closePath();
 
     this.ctx.stroke();
     this.ctx.fill();
@@ -476,8 +478,12 @@ class DiamondBox extends FlowchartBox {
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
    */
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
+
     this.ctx.beginPath();
 
     this.ctx.moveTo(this.leftX, this.midY);
@@ -559,8 +565,11 @@ class ParallelogramBox extends FlowchartBox {
     };
   }
 
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -661,8 +670,11 @@ class Connector extends FlowchartBox {
     this.hitCtx.strokeStyle = this.hashColor;
   }
 
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -799,10 +811,6 @@ class CurvedArrow extends Arrow {
         this.startX, this.startY, this.endX, this.endY);
   }
 
-  getParent() {
-    return this;
-  }
-
   configureOptions() {
     this.ctx.lineWidth = this.thickness;
     this.ctx.strokeStyle = this.strokeColor;
@@ -817,8 +825,11 @@ class CurvedArrow extends Arrow {
 
   /*  CurvedArrow.draw
    */
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+    
+    if (active) 
+      this.ctx.strokeStyle = this.cState.activeBorder;
 
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
@@ -834,7 +845,7 @@ class CurvedArrow extends Arrow {
     if (this.dashed)
       this.ctx.setLineDash([]);      
 
-    this.head.draw();
+    this.head.draw(active);
 
     hitCtx.beginPath();
     hitCtx.moveTo(this.startX, this.startY);
@@ -983,8 +994,11 @@ class RightAngleArrow extends Arrow {
    *    (draw slightly thicker on hit canvas so
    *    arrow can be more easily clicked)
    */
-  draw() {
+  draw(active=false) {
     this.configureOptions();
+
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
 
     var curX = this.startX;
     var curY = this.startY;
@@ -1018,7 +1032,7 @@ class RightAngleArrow extends Arrow {
     hitCtx.lineTo(this.endX, this.endY);
     hitCtx.stroke();
 
-    this.head.draw();
+    this.head.draw(active);
   }
 
   /*  click(event)
@@ -1105,48 +1119,49 @@ class ArrowHead {
 
   /*  ArrowHead.draw
    */
-  draw() {
+  draw(active) {
     this.configureOptions();
-    var ctx = this.ctx;
-    var hitCtx = this.hitCtx;
+  
+    if (active)
+      this.ctx.strokeStyle = this.cState.activeBorder;
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.translate(this.arrow.endX, this.arrow.endY);
-    ctx.rotate(this.arrow.endingAngle());
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.translate(this.arrow.endX, this.arrow.endY);
+    this.ctx.rotate(this.arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
-    ctx.moveTo(0, -hw);
+    this.ctx.moveTo(0, -hw);
     if (this.hollow) {
-      ctx.lineTo(this.height, 0);
-      ctx.lineTo(0, hw);
-      ctx.moveTo(this.height, 0);
-      ctx.lineTo(0, -hw);
-      ctx.moveTo(this.height, 0);
-      ctx.lineTo(0, 0);
+      this.ctx.lineTo(this.height, 0);
+      this.ctx.lineTo(0, hw);
+      this.ctx.moveTo(this.height, 0);
+      this.ctx.lineTo(0, -hw);
+      this.ctx.moveTo(this.height, 0);
+      this.ctx.lineTo(0, 0);
     }
     else {
-      ctx.lineTo(this.height, 0);
-      ctx.lineTo(0, hw);
-      ctx.lineTo(0, -hw);
-      ctx.fill();
+      this.ctx.lineTo(this.height, 0);
+      this.ctx.lineTo(0, hw);
+      this.ctx.lineTo(0, -hw);
+      this.ctx.fill();
     }
-    ctx.stroke();
-    ctx.restore();
+    this.ctx.stroke();
+    this.ctx.restore();
 
 
-    hitCtx.save();
-    hitCtx.beginPath();
-    hitCtx.translate(this.arrow.endX, this.arrow.endY);
-    hitCtx.rotate(this.arrow.endingAngle());
+    this.hitCtx.save();
+    this.hitCtx.beginPath();
+    this.hitCtx.translate(this.arrow.endX, this.arrow.endY);
+    this.hitCtx.rotate(this.arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
-    hitCtx.moveTo(0, -hw);
-    hitCtx.lineTo(this.height, 0);
-    hitCtx.lineTo(0, hw);
-    hitCtx.lineTo(0, -hw);
-    hitCtx.fill();
-    hitCtx.restore();
+    this.hitCtx.moveTo(0, -hw);
+    this.hitCtx.lineTo(this.height, 0);
+    this.hitCtx.lineTo(0, hw);
+    this.hitCtx.lineTo(0, -hw);
+    this.hitCtx.fill();
+    this.hitCtx.restore();
   }
 
   click(event) {
