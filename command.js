@@ -124,3 +124,39 @@ class DragCommand extends DrawCommand {
   }
 }
 
+class SelectCommand {
+  constructor(cState) {
+    this.cState = cState;
+
+    this.x1 = cState.mouseDown.x;
+    this.y1 = cState.mouseDown.y;
+    this.x2 = cState.mouseUp.x;
+    this.y2 = cState.mouseUp.y;
+
+    console.log("new select");
+
+    this.execute();
+  }
+
+  /** SelectCommand.execute
+   *    iterate through canvas objects and check if 
+   *    starting point is 
+   */
+  execute() {
+    this.cState.selectGroup.clear();
+  
+    this.cState.objects.forEach((cObject) => {
+      var pObj = cObject.getParent();
+      var pt = cObject.getStartCoordinates();
+
+      if (pt.x <= this.x2 && pt.x >= this.x1 
+           && pt.y <= this.y2 && pt.y >= this.y1)
+        this.cState.selectGroup.add(pObj);
+    });
+
+  }
+
+  undo() {
+    this.cState.selectGroup.clear();
+  }
+}
