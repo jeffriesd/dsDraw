@@ -255,7 +255,7 @@ class CanvasState {
         var active = 
           (this.activeObj && 
             this.activeObj.getParent() === obj ) || this.selectGroup.has(obj);
-        obj.draw(active);
+          obj.draw(active);
     });
 
   }
