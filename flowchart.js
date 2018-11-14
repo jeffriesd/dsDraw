@@ -1,30 +1,14 @@
 
-/*  TODO:
+/** TODO:
  *    - remove anchor point class -- really just need to look ahead 
  *    for flowchart box and handle anchored arrows within FcBox classest 
  *    - - need like box.getLeftEdge() for differing functionality between
  *        diamonds and rectangles
  */
 
-
-ENTER = 13;
-CTRL = 17;
-SHIFT = 16;
-
-class FlowchartBox {
+class FlowchartBox extends CanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
-
-    this.x1 = x1;
-    this.y1 = y1;
-    this.x2 = x2;
-    this.y2 = y2;
-
-    this.width = this.x2 - this.x1;
-    this.height = this.y2 - this.y1;
+    super(canvasState, x1, y1, x2, y2);
 
     this.fill = "#fff";
     this.border =  "#000";
@@ -52,10 +36,6 @@ class FlowchartBox {
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
 
-  getParent() {
-    return this;
-  }
-
   getToolbar() {
     return FlowchartToolbar.getInstance(this.cState);
   } 
@@ -64,14 +44,14 @@ class FlowchartBox {
     return FlowchartBoxOptions.getInstance(this.cState);
   }
 
-  /*  FlowchartBox.getStartCoordinates
+  /** FlowchartBox.getStartCoordinates
    *    return x, y object for upper left corner
    */
   getStartCoordinates() {
     return { x: this.x1, y: this.y1};
   }
 
-  /* createEditor
+  /**createEditor
    *  initializes <textarea> element for editing text
    *  inside flowchart element
    *
@@ -169,7 +149,7 @@ class FlowchartBox {
     this.hitCtx.strokeStyle = this.hashColor;
   }
   
-  /* FlowchartBox.draw
+  /**FlowchartBox.draw
    * renders rectangular box on main canvas
    * and hitCanvas and draws wrapped words
    */
@@ -216,13 +196,13 @@ class FlowchartBox {
     this.ctx.stroke();
   }
 
+  /** FlowchartBox.move
+   */
   move(deltaX, deltaY) {
     this.x1 += deltaX;
     this.x2 += deltaX;
     this.y1 += deltaY;
     this.y2 += deltaY; 
-
-    console.log("moving by ", deltaX);
 
     // move editor with box
     this.positionEditor();
@@ -232,7 +212,7 @@ class FlowchartBox {
     this.resizePoint.y += deltaY;
   }
 
-  /*  resize
+  /** resize
    *    cause box to change width by deltaX, height by deltaY,
    *    with top left corner staying in same position. 
    *    Gets called by child resizePoint.
@@ -262,10 +242,11 @@ class FlowchartBox {
     this.resizePoint.y = this.y2;
   }
 
-  /*  click(event)
+  /** click(event)
    *  bring up <textarea> to edit text
    */
   click(event) {
+    super.click(event);
     this.editor.hidden = false;
 
     // necessary for focus/select behavior
@@ -273,31 +254,23 @@ class FlowchartBox {
     this.editor.select();
   } 
 
+
+  /** FlowchartBox.deactivate
+   *    hide editor and format text
+   */
   deactivate() {
     this.editor.hidden = true;
     this.text = this.editor.value;
     this.textEntered();
   }
 
-  /* FlowchartBox.textEntered
-   * performs word wrap 
-   * 
-   * TODO:
-   *  - do letter level wrap
-   *  for single words that exceed 
-   *  width of container
-   *
-   *  - consider case where multiple spaces
-   *  occur between words
-   *
+  /** FlowchartBox.textEntered
+   *    performs word wrap 
    */
   textEntered() {
     var words = this.editor.value.split(" ");
 
     var wrappedText = [];
-
-    // check that no words are too long to fit in container
-    // TODO
       
     var line = "";
     var lineWidth = 0;
@@ -379,7 +352,7 @@ class RoundBox extends FlowchartBox {
     this.ctx.lineWidth = this.borderThickness;
   }
 
-  /*  RoundBox.draw
+  /** RoundBox.draw
    */
   draw(active=false) {
     this.configureOptions();
@@ -455,7 +428,7 @@ class DiamondBox extends FlowchartBox {
     return new DiamondBox(this.cState, this.x1, this.y1, this.x2, this.y2);
   }
 
-  /*  configureOptions  
+  /** configureOptions  
    *    set style options for drawing and redefine edge points
    */
   configureOptions() {
@@ -474,7 +447,7 @@ class DiamondBox extends FlowchartBox {
   }
 
   
-  /*  DiamondBox.draw
+  /** DiamondBox.draw
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
    */
@@ -719,7 +692,7 @@ class Connector extends FlowchartBox {
   }
 }
 
-/*  Arrow class for drawing arcs on canvas.
+/** Arrow class for drawing arcs on canvas.
  *  Composed with ArrowHead which can 
  *  vary independently of Arrow attributes
  *
@@ -731,13 +704,10 @@ class Connector extends FlowchartBox {
  *    - solid/dashed
  *
  */
-class Arrow {
+class Arrow extends CanvasObject {
 
   constructor(canvasState, x1, y1, x2, y2) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
+    super(canvasState, x1, y1, x2, y2);
 
     this.startX = x1;
     this.startY = y1;
@@ -753,16 +723,6 @@ class Arrow {
 
     // default hit thickness
     this.hitThickness = 8;
-
-    this.cState.addCanvasObj(this);
-  }
-
-  getParent() {
-    return this;
-  }
-
-  deactivate() {
-
   }
 
   getToolbar() {
@@ -780,7 +740,7 @@ class Arrow {
 }
 
 
-/*  CurvedArrow
+/** CurvedArrow
  *    draws curved arc with 2 control points
  */
 class CurvedArrow extends Arrow {
@@ -823,7 +783,7 @@ class CurvedArrow extends Arrow {
   }
 
 
-  /*  CurvedArrow.draw
+  /** CurvedArrow.draw
    */
   draw(active=false) {
     this.configureOptions();
@@ -877,7 +837,7 @@ class CurvedArrow extends Arrow {
     ctx.stroke();
   }
 
-  /*  return ending angle using bezier math (t = 1)
+  /** return ending angle using bezier math (t = 1)
    */
   endingAngle() {
     var dx = this.endX - this.cp2.x;
@@ -891,11 +851,9 @@ class CurvedArrow extends Arrow {
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
   }
 
-  click(event) {
 
-  }
-
-  /*  translate entire arrow by deltaX, deltaY
+  /** Arrow.move
+   *    translate entire arrow by deltaX, deltaY
    */
   move(deltaX, deltaY) {
     this.startX += deltaX;
@@ -910,7 +868,7 @@ class CurvedArrow extends Arrow {
 }
 
 
-/*  RightAngleArrow to handle
+/** RightAngleArrow to handle
  *  arrow composed of solely right angles.
  *
  *  To add a new right angle: hold ctrl,
@@ -939,7 +897,7 @@ class RightAngleArrow extends Arrow {
   }
 
 
-  /*  endingOrientation()
+  /** endingOrientation()
    *    return up/down/left/right
    *    so arrowhead can be positioned appropriately
    */
@@ -989,7 +947,7 @@ class RightAngleArrow extends Arrow {
     this.hitCtx.lineWidth = this.hitThickness;
   }
 
-  /*  RightAngleArrow.draw()
+  /** RightAngleArrow.draw()
    *    draw line segments to canvas
    *    (draw slightly thicker on hit canvas so
    *    arrow can be more easily clicked)
@@ -1035,14 +993,8 @@ class RightAngleArrow extends Arrow {
     this.head.draw(active);
   }
 
-  /*  click(event)
-   *    bring up options for this particular arrow
-   *    or extend/create new angle if clicking arrowhead
+  /** RightAngleArrow.move
    */
-  click(event) {
-    // if click is on arrowhead 
-  }
-
   move(deltaX, deltaY) {
     this.startX += deltaX;
     this.startY += deltaY;
@@ -1072,26 +1024,20 @@ class RightAngleArrow extends Arrow {
 }
 
 
-/*  Handles drawing of arrow head using
+/** Handles drawing of arrow head using
  *  rotation and translation
  */
-class ArrowHead {
+class ArrowHead extends CanvasChildObject {
   constructor(canvasState, parentArrow) {
-    this.cState = canvasState;
-    this.ctx = this.cState.ctx;
-    this.hitCtx = this.cState.hitCtx;
-    this.arrow = parentArrow;
+    super(canvasState);
 
-    // center of fat end of arrowhead
+    this.arrow = parentArrow;
 
     this.hollow = true;
     this.fill = "#fff";
 
     this.width = 20;
     this.height = 20;
-
-    // add to hidden canvas but dont actually draw
-    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
@@ -1116,8 +1062,7 @@ class ArrowHead {
     this.hitCtx.fillStyle = this.hashColor;
   }
 
-
-  /*  ArrowHead.draw
+  /** ArrowHead.draw
    */
   draw(active) {
     this.configureOptions();
@@ -1164,16 +1109,12 @@ class ArrowHead {
     this.hitCtx.restore();
   }
 
-  click(event) {
-    
-  }
-
   release() {
     if (this.arrow instanceof RightAngleArrow)
       this.arrow.addedNewAngle = false;
   }
 
-  /*  ArrowHead.drag
+  /** ArrowHead.drag
    *    shift arrow end point by deltaX, deltaY
    *    and add a new anglePoint if RightAngleArrow 
    */
@@ -1248,7 +1189,7 @@ class ArrowHead {
     }
   }
 
-  /* Arrowhead.move
+  /**Arrowhead.move
    */
   move(deltaX, deltaY) {
     this.arrow.move(deltaX, deltaY);
@@ -1256,88 +1197,9 @@ class ArrowHead {
 }
 
 
-/*  AnchorPoint class handles anchoring of flowchart
- *  arcs to flowchart boxes. Arrows snap to anchors when
- *  dragged within their radius.
- *  When boxes get moved, 
- *  anchored arrows get updated automatically
- *
- *  TODO:
- *    automatically update arrows
- */
-class AnchorPoint {
+class ResizePoint extends CanvasChildObject {
   constructor(canvasState, parentBox, x, y) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
-    
-    this.parentBox = parentBox;
-
-    this.anchoredArrow = null;
-
-    this.x = x;
-    this.y = y;
-
-    // default radius 
-    // (snap to this anchor if within radius)
-    this.radius = 30;
-
-    this.cState.registerCanvasObj(this);
-  }
-
-  getParent() {
-    return this.parentBox.getParent();
-  }   
-
-
-  /*  AnchorPoint.draw
-   *
-   */
-  draw() {
-    // force anchored arrow to update position
-    // if (this.anchoredArrow)
-    //   this.anchoredArrow.moveEnd(this.x, this.y);
-     
-    // only draw to hit detect canvas
-    this,hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.beginPath();
-    this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-    this.hitCtx.fill();
-  }
-  
-  getToolbar() {
-    return this.parentBox.getToolbar();
-  }
-
-  getOptions() {
-    return this.parentBox.getOptions();
-  }
-
-  /*  click
-   *    pass click event to parent text box
-   */
-  click(event) {
-    // this.parentBox.click(event);
-  }
-
-  move(deltaX, deltaY) {
-    // this.parentBox.move(deltaX, deltaY);
-  }
-
-  deactivate() {
-
-  }
-
-}
-
-class ResizePoint {
-  constructor(canvasState, parentBox, x, y) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
-    
+    super(canvasState);
     this.parentBox = parentBox;
 
     this.x = x;
@@ -1345,8 +1207,6 @@ class ResizePoint {
 
     // default radius 
     this.radius = 15;
-
-    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
@@ -1357,7 +1217,7 @@ class ResizePoint {
     return {x: this.x, y: this.y};
   }
 
-  /*  ResizePoint.draw
+  /** ResizePoint.draw
    */
   draw() {
     // only draw to hit detect canvas
@@ -1367,22 +1227,14 @@ class ResizePoint {
     this.hitCtx.fill();
   }
 
-  click(event) {
-
-  }
-
-  deactivate() {
-
-  }
-
-  /*  ResizePoint.drag
+  /** ResizePoint.drag
    *    should cause parent to resize
    */
   drag(deltaX, deltaY) {
     this.parentBox.resize(deltaX, deltaY);
   }
 
-  /*  hover
+  /** hover
    *    change mouse pointer to resize shape
    */
   hover() {
@@ -1394,12 +1246,9 @@ class ResizePoint {
 /** ControlPoint
  *    used to define curvature of CurvedArrow (bezier curve)
  */
-class ControlPoint {
+class ControlPoint extends CanvasChildObject {
   constructor(canvasState, parentArrow, x, y) {
-    this.cState = canvasState;
-    this.ctx = canvasState.ctx;
-    this.hitCtx = canvasState.hitCtx;
-    this.hashColor = null;
+    super(canvasState);
     
     this.parentArrow = parentArrow;
 
@@ -1411,8 +1260,6 @@ class ControlPoint {
 
     // default fill
     this.fill = "#00f8";
-
-    this.cState.registerCanvasObj(this);
   }
 
   getParent() {
@@ -1423,11 +1270,15 @@ class ControlPoint {
     return {x: this.x, y: this.y}; 
   }
 
+  /** ControlPoint.configureOptions
+   */ 
   configureOptions() {
     this.ctx.fillStyle = this.fill;
     this.hitCtx.fillStyle = this.hashColor;
   }
 
+  /** ControlPoint.draw
+   */
   draw() {
     this.configureOptions();
     
@@ -1440,13 +1291,10 @@ class ControlPoint {
     this.hitCtx.fill();
   }
 
-  deactivate() {
-    this.getParent().deactivate();
-  }
-
+  /** ControlPoint.drag
+   */
   drag(deltaX, deltaY) {
     this.x += deltaX;
     this.y += deltaY;
   }
-
 }
