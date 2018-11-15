@@ -1,4 +1,4 @@
-canvasClasses = {
+canvasObjectClasses = {
   "RectBox": RectBox,
   "RoundBox": RoundBox,
   "DiamondBox": DiamondBox,
@@ -6,6 +6,9 @@ canvasClasses = {
   "RightAngleArrow": RightAngleArrow,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
+};
+
+canvasToolClasses = {
   "Select": CanvasSelect,
 };
 
@@ -55,45 +58,56 @@ function newColor(uniqueColors) {
  */
 class CanvasState {
   constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+
+    // event handling and event state
+    this.eventHandler = new CanvasEventHandler(this);
     this.mouseDown = null;
     this.mouseUp = null;
     this.mouseMove = null;
+
+    // keeping track of canvas objects
     this.drawMode = "CurvedArrow";
     this.objects = [];
+    this.objectFactory = new CanvasObjectFactory(this);
+
+    // keeping track of command history
     this.redoStack = [];
     this.undoStack = [];
     this.activeCommandType = null;
 
+    // keeping track of active objects
     this.selectGroup = new Set();
     this.activeBorder = "#0000ff";
-
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
-
     this.clickedBare = true;
     this.activeObj = null;
     
-    // starting coordinates of drag event
-    this.dragOffsetX = 0;
-    this.dragOffsetY = 0;
 
+    // hit detection with hidden canvas
     this.hitCanvas = hitCanvas;
     this.hitCtx = hitCanvas.getContext("2d");
     this.uniqueColors = new Set();
     this.colorHash = {};
 
+    // hotkey state
     this.hotkeys = {
       [CTRL]: false,
       [SHIFT]: false,
       [ALT]: false,
     };
 
+    // initialize toolbars and buttons
     this.bindKeys();
     this.toolbars = {};
     this.initToolbars();
     this.initButtons();
   }
 
+
+  /** CanvasState.setMode
+   *    sets drawMode and updates label on toolbar
+   */
   setMode(mode) {
     var dmLabel = document.getElementById("drawMode");
     console.log(dmLabel);
@@ -102,6 +116,11 @@ class CanvasState {
     this.drawMode = mode;
   }
 
+
+  /** CanvasState.bindKeys
+   *    bind key press/release to change of 
+   *    hotkeys object
+   */
   bindKeys() {
     var self = this;
     document.onkeydown = function(event) {
@@ -116,13 +135,21 @@ class CanvasState {
     };
   }
 
+  /** CanvasState.createNewCanvasObject
+   *    call objectFactory to instantiate new object
+   *    if in "create" mode
+   */
+  createNewCanvasObject() {
+    if (this.drawMode in canvasObjectClasses)
+      var newObject = this.objectFactory.createCanvasObject();
+      this.activeObj = newObject;
+  }
+
   /** CanvasState.registerCanvasObj
    *    assign a unique rgb color to canvasObj 
    *    for event detection. 
    */
   registerCanvasObj(canvasObj) {
-    // get unique color for hashing 
-    // (newColor function adds to set for us)
     var rgbArr = newColor(this.uniqueColors);
     var rgbStr = rgbArr.join(" ");
 
@@ -146,7 +173,6 @@ class CanvasState {
 
 
   /** CanvasState.remove
-   *
    */
   remove(removeObj) {
     this.objects = this.objects.filter(function(item) {
@@ -156,9 +182,7 @@ class CanvasState {
     removeObj.deactivate();
     if (removeObj.getOptions)
       removeObj.getOptions().hide();
-
   }
-
 
   /**  set start state for DrawCommand
    *  whenever mouse press happens
@@ -168,6 +192,11 @@ class CanvasState {
     this.startPoint = this.activeObj.getStartCoordinates();
   }
 
+
+  /** CanvasState.addDrawCommand
+   *    call createDrawCommand and push it 
+   *    onto undoStack
+   */
   addDrawCommand() {
     if (true || this.activeObj) {
       var drawCommand = this.createDrawCommand();
@@ -178,6 +207,9 @@ class CanvasState {
       console.log("Cannot create DrawCommand: no active canvas object");
   }
 
+  /** CanvasState.createDrawCommand
+   *    Create new command object
+   */
   createDrawCommand() {
     if (this.activeObj) {
       switch (this.activeCommandType) {
@@ -190,8 +222,8 @@ class CanvasState {
       }
     }
     else {
-      switch (this.activeCommandType) {
-        case "select":
+      switch (this.drawMode) {
+        case "Select":
           return new SelectCommand(this);
       }
     }
@@ -209,9 +241,6 @@ class CanvasState {
   }
 
   redo() {
-    // just redoing instantiation
-    // this.objects.push(this.redoStack.pop());
-    
     if (this.redoStack.length) {
       var lastCommand = this.redoStack.pop();
       lastCommand.execute();
@@ -246,9 +275,16 @@ class CanvasState {
       // reset lineWidth for outline
       this.ctx.lineWidth = 1;
 
-      var toolClass = canvasClasses[this.drawMode];
-      if (toolClass) 
+      // use tool or outline object creation
+      var toolClass = null;
+      if (this.drawMode in canvasObjectClasses)
+        toolClass = canvasObjectClasses[this.drawMode];
+      if (this.drawMode in canvasToolClasses)
+        toolClass = canvasToolClasses[this.drawMode];
+
+      if (toolClass)  {
         toolClass.outline(this);
+      }
     }
     //  add some bbox or highlighting to show active object
     this.objects.forEach((obj) => {
@@ -299,8 +335,6 @@ class CanvasState {
   /*  showToolbars
    *    bring up toolbar for active object and set select options
    *    to appropriate values
-   *
-   *    TODO:
    */
   showToolbar() {
     if (this.activeObj.getToolbar) {
@@ -311,3 +345,177 @@ class CanvasState {
 
 }
 
+/** CanvasObjectFactory
+ *    handles CanvasObject instantiation
+ */
+class CanvasObjectFactory {
+  constructor(canvasState) {
+    this.cState = canvasState;
+  }
+
+  createCanvasObject() {
+    var x1 = cState.mouseDown.x;    
+    var y1 = cState.mouseDown.y;    
+    var x2 = cState.mouseUp.x;    
+    var y2 = cState.mouseUp.y;    
+
+    var canvasClass = canvasObjectClasses[this.cState.drawMode];
+    if (canvasClass)
+      return new canvasClass(cState, x1, y1, x2, y2);
+  }
+} 
+
+class CanvasEventHandler {
+  constructor(canvasState) {
+    this.cState = canvasState;
+
+    // starting coordinates of drag event
+    this.dragOffsetX = 0;
+    this.dragOffsetY = 0;
+  }
+  
+  mouseDown(event) {
+    this.cState.mouseDown = {x: event.offsetX, y: event.offsetY};
+    this.cState.mouseUp = null;
+
+    var canvasObj = cState.getClickedObject(event.offsetX, event.offsetY);
+
+    if (canvasObj) {
+      // don't try to create new object/textbox/etc
+      // if click starts on another object
+      this.cState.clickedBare = false;
+
+      //  deactivate previously active object 
+      //  (e.g. end editing of textbox if another box is clicked)
+      if (this.cState.activeObj && this.cState.activeObj !== canvasObj)
+        this.cState.activeObj.deactivate();
+
+      this.cState.activeObj = canvasObj;
+
+      // mouse down event for some objects
+      canvasObj.mouseDown();
+
+      // set offset for dragging
+      this.dragOffsetX = event.offsetX;
+      this.dragOffsetY = event.offsetY;
+
+      // show toolbar
+      this.cState.showToolbar();
+
+      // set start state for whatever DrawCommand 
+      // is about to occur 
+      this.cState.setCommandStartState();
+
+    } 
+    else {
+      // end editing for textboxes or other updates
+      if (this.cState.activeObj) {
+        this.cState.activeObj.deactivate();
+        if (this.cState.activeObj.getOptions)
+          this.cState.activeObj.getOptions().hide();
+      }
+
+      this.cState.clickedBare = true;
+      this.cState.activeObj = null;
+      this.cState.selectGroup.clear();
+    }
+  }
+
+  mouseMove(event) {
+    this.cState.mouseMove = {x: event.offsetX, y: event.offsetY};
+
+    // dragging mouse and haven't released yet
+    if (this.cState.mouseDown && !this.cState.mouseUp) {
+      var deltaX = event.offsetX - this.dragOffsetX;
+      var deltaY = event.offsetY - this.dragOffsetY;
+
+
+      // draw commands happen here
+      if (this.cState.activeObj) {
+        if (this.cState.hotkeys[CTRL]) {
+          this.cState.activeObj.move(deltaX, deltaY);
+          // Group select move
+          // if (this.cState.selectGroup.has(this.cState.activeObj)) {
+          //   this.cState.selectGroup.forEach((obj) => {
+          //     if (this.cState.activeObj !== obj)
+          //       obj.move(deltaX, deltaY);
+          //   });
+          // }
+
+          this.cState.activeCommandType = "move";
+        }
+        else {
+          this.cState.activeObj.drag(deltaX, deltaY);
+          this.cState.activeCommandType = "drag";
+        }
+
+        // reset dragOffset
+        this.dragOffsetX += deltaX;
+        this.dragOffsetY += deltaY;
+      }
+    }
+    // just moving mouse (not during click)
+    else if (!this.cState.mouseDown) {
+      // hover actions
+      var hoverObj = this.cState.getClickedObject(this.cState.mouseMove.x, this.cState.mouseMove.y);
+      if (hoverObj)
+        hoverObj.hover();
+      else
+        document.body.style.cursor = "default";
+    }
+  }
+  
+  mouseUp(event) {
+    this.cState.mouseUp = {x: event.offsetX, y: event.offsetY};
+
+    // only create new canvas object if actually dragged to new location
+    if (this.cState.mouseUp.x !== this.cState.mouseDown.x
+        || this.cState.mouseDown.y !== this.cState.mouseUp.y) {
+
+      // create new object
+      if (this.cState.clickedBare) {
+        this.cState.createNewCanvasObject();
+        this.cState.activeCommandType = "create";
+      }
+
+      // clone clicked object
+      if (this.cState.activeObj && this.cState.hotkeys[ALT]) {
+        this.cState.activeCommandType = "create";
+        console.log("cloning:", this.cState.activeObj);
+
+        this.cState.activeObj = this.cState.activeObj.getParent().clone();
+
+        // move it to new location
+        var deltaX = this.cState.mouseUp.x - this.cState.mouseDown.x;
+        var deltaY = this.cState.mouseUp.y - this.cState.mouseDown.y;
+        this.cState.activeObj.move(deltaX, deltaY);
+      }
+    }
+
+    // mouse release happens same place as press
+    else if (this.cState.mouseUp.x == this.cState.mouseDown.x
+        && this.cState.mouseUp.y == this.cState.mouseDown.y) {
+
+      // get clicked object from colorHash map
+      var canvasObj = this.cState.getClickedObject(this.cState.mouseUp.x, this.cState.mouseUp.y);
+      if (canvasObj) 
+        canvasObj.click(event);
+    }
+
+    // release active object
+    if (this.cState.activeObj) {
+      this.cState.activeObj.release();
+
+      // show toolbar on object creation
+      if (this.cState.activeObj.getToolbar)
+        this.cState.showToolbar();
+    }
+
+    // create DrawCommand object and push onto undo stack
+    this.cState.addDrawCommand();
+
+    this.cState.mouseDown = null;
+
+  }
+
+}
