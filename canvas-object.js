@@ -30,7 +30,13 @@ class CanvasObject {
   }
 
   click(event) {
-          
+  }
+
+  /** CanvasObject.hover
+   *    default behavior to reset hover action over resize point
+   */
+  hover() {
+    document.body.style.cursor = "default";
   }
 
   move(deltaX, deltaY) {
@@ -89,5 +95,12 @@ class CanvasChildObject {
   }
 
   release() {
+  }
+
+  /** CanvasChildObject.hover
+   *    default behavior to reset hover action over resize point
+   */
+  hover() {
+    document.body.style.cursor = "default";
   }
 }
