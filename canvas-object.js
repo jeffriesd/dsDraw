@@ -11,6 +11,8 @@ class CanvasObject {
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
+    this.label = "";
+
     this.x1 = x1;
     this.y1 = y1;
     this.x2 = x2;
@@ -24,6 +26,32 @@ class CanvasObject {
 
   getParent() {
     return this;
+  }
+
+  getStartCoordinates() {
+    return {x: this.x1, y: this.y1};
+  }
+
+  setProperty(propName, value) {
+    // label is special, need to update
+    // canvasState mapping
+    //
+    // TODO
+    // keywords shouldn't be used
+    if (propName == "label") {
+      if (this.cState.labeled.get(value))
+        throw `Existing object with label '${value}'.`;
+      this.cState.labeled.set(value, this); 
+    }
+
+    if (this[propName] != null)
+      this[propName] = value;
+    else 
+      throw `${this.constructor.name} has no property '${propName}.'`;
+  }
+
+  destroy() {
+    this.cState.remove(this);
   }
 
   deactivate() {
@@ -47,6 +75,7 @@ class CanvasObject {
   }
 
   drag(deltaX, deltaY) {
+    console.log("drag not implemented for", this.constructor.name);
   }
 
   /** CanvasObject.mouseDown
@@ -83,9 +112,11 @@ class CanvasChildObject {
   }
 
   move(deltaX, deltaY) {
+    console.log("move not implemented for", this.constructor.name);
   }
 
   drag(deltaX, deltaY) {
+    console.log("drag not implemented for", this.constructor.name);
   }
 
   /** Event when click begins
