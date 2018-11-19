@@ -25,15 +25,32 @@ class FlowchartBox extends CanvasObject {
     // of text box and text itself
     this.textMargin = 8;
 
-    this.text = "";
     this.wrappedText = [];
 
     this.createEditor();
 
-    this.cState.addCanvasObj(this);
-
     // add clickable point for resizing
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
+  }
+
+  clone() {
+    // configurable options for cloning
+    this.config = {
+      fontStyle: this.fontStyle,
+      fontFamily: this.fontFamily,
+      fontSize: this.fontSize,
+      horizontalAlign: this.horizontalAlign,
+      verticalAlign: this.verticalAlign,
+    };
+
+    var copy = 
+        new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
+    Object.assign(copy, this.config);
+
+    // set text in clone
+    copy.editor.value = this.editor.value;
+    
+    return copy;
   }
 
   getToolbar() {
@@ -42,13 +59,6 @@ class FlowchartBox extends CanvasObject {
 
   getOptions() {
     return FlowchartBoxOptions.getInstance(this.cState);
-  }
-
-  /** FlowchartBox.getStartCoordinates
-   *    return x, y object for upper left corner
-   */
-  getStartCoordinates() {
-    return { x: this.x1, y: this.y1};
   }
 
   /**createEditor
@@ -78,10 +88,9 @@ class FlowchartBox extends CanvasObject {
     document.body.appendChild(this.editor);
   
     // end editing with enter key
-    var self = this;
-    this.editor.onkeydown = function(event) {
+    this.editor.onkeydown = (event) => {
       if (event.keyCode == ENTER) {
-        self.deactivate();
+        this.deactivate();
       }
     };
   }
@@ -260,7 +269,6 @@ class FlowchartBox extends CanvasObject {
    */
   deactivate() {
     this.editor.hidden = true;
-    this.text = this.editor.value;
     this.textEntered();
   }
 
@@ -309,16 +317,6 @@ class RectBox extends FlowchartBox {
     // set borderThickness lower for rect command
     this.borderThickness = 2;
   }
-  
-  clone() {
-    var copy = new RectBox(this.cState, this.x1, this.y1, this.x2, this.y2);
-    
-    // TODO 
-    // copy options while cloning
-    // (need to make options object for each class)
-
-    return copy;
-  }
 
   static outline(cState) {
     cState.ctx.strokeStyle = "#000";
@@ -342,10 +340,6 @@ class RoundBox extends FlowchartBox {
     // because using custom path instead of ctx.rect()
     this.borderThickness = 2;
   } 
-
-  clone() {
-    return new RoundBox(this.cState, this.x1, this.y1, this.x2, this.y2);
-  }
 
   configureOptions() {
     super.configureOptions();
@@ -423,10 +417,6 @@ class DiamondBox extends FlowchartBox {
     // because using custom path instead of ctx.rect()
     this.borderThickness = 2;
   } 
-
-  clone() {
-    return new DiamondBox(this.cState, this.x1, this.y1, this.x2, this.y2);
-  }
 
   /** configureOptions  
    *    set style options for drawing and redefine edge points
@@ -518,10 +508,6 @@ class ParallelogramBox extends FlowchartBox {
 
     this.skewSlope = 3;
   } 
-
-  clone() {
-    return new ParallelogramBox(this.cState, this.x1, this.y1, this.x2, this.y2);
-  }
 
   configureOptions() {
     super.configureOptions();
@@ -616,16 +602,6 @@ class Connector extends FlowchartBox {
 
     this.textMargin = 1;
     this.editor.style.padding = "0px";
-
-    this.cState.addCanvasObj(this);
-  }
-
-  clone() {
-    return new Connector(this.cState, this.x1, this.y1, this.x2, this.y2);
-  }
-
-  getStartCoordinates() {
-    return {x: this.x1, y: this.y1};
   }
 
   configureOptions() {
@@ -725,6 +701,26 @@ class Arrow extends CanvasObject {
     this.hitThickness = 8;
   }
 
+  clone() {
+    this.config = {
+      thickness: this.thickness,
+      dashed: this.dashed,
+    }
+
+    this.headConfig = {
+      hollow: this.head.hollow,
+      fill: this.head.fill,
+    }
+
+    var copy = 
+      new this.constructor(this.cState, this.startX, this.startY, this.endX, this.endY);
+
+    Object.assign(copy, this.config);
+    Object.assign(copy.head, this.headConfig);
+
+    return copy;
+  }
+
   getToolbar() {
     return FlowchartToolbar.getInstance(this.cState);
   }
@@ -767,8 +763,15 @@ class CurvedArrow extends Arrow {
   }
 
   clone() {
-    return new CurvedArrow(this.cState, 
-        this.startX, this.startY, this.endX, this.endY);
+    var copy = super.clone();
+    
+    // set control points
+    copy.cp1.x = this.cp1.x;
+    copy.cp1.y = this.cp1.y;
+    copy.cp2.x = this.cp2.x;
+    copy.cp2.y = this.cp2.y;
+    
+    return copy;  
   }
 
   configureOptions() {
@@ -815,8 +818,7 @@ class CurvedArrow extends Arrow {
     hitCtx.stroke();
 
     // draw control points if active
-    if (this.cState.activeObj && 
-          this === this.cState.activeObj.getParent()) {
+    if (this === this.cState.activeParent()) {
       this.cp1.draw();
       this.cp2.draw(); 
     }
@@ -892,8 +894,18 @@ class RightAngleArrow extends Arrow {
   }
 
   clone() {
-    return new RightAngleArrow(this.cState, 
-          this.startX, this.startY, this.endX, this.endY);
+    var copy = super.clone();
+
+    // copy angle points -- somehow broken currently
+    // var copyPoint = {x: 0, y: 0};
+    // this.anglePoints.forEach((point) => {
+    //   copyPoint.x = point.x;
+    //   copyPoint.y = point.y;
+    //   copy.anglePoints.push(copyPoint);
+    //   console.log("adding point at ", point);
+    // }); 
+  
+    return copy;
   }
 
 
