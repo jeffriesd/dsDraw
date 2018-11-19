@@ -7,8 +7,9 @@
 </head>
 <body>
   <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">Draw mode: CurvedArrow</label>
-    <button class="toolbarButton" id="rightAngleArrow"></button>
+    <label class="toolbarLabel" id="drawMode">Draw mode: Array1D</label>
+    <!-- <button class="toolbarButton" id="rightAngleArrow"></button> -->
+    <button class="toolbarButton" id="selectTool"></button>
     <button class="toolbarButton" id="curvedArrow"></button>
     <button class="toolbarButton" id="rectBox"></button> 
     <button class="toolbarButton" id="roundBox"></button> 
@@ -76,9 +77,11 @@
   <canvas id="myCanvas" height=600 width=800> </canvas>
   <canvas id="hitCanvas" height=600 width=800> </canvas>
   <script src="constants.js"></script>
+  <script src="canvas-object.js"></script>
   <script src="toolbars.js"></script>
   <script src="flowchart.js"></script>
   <script src="ds.js"></script>
+  <script src="arrays.js"></script>
   <script src="command.js"></script>
   <script src="canvas-tool.js"></script>
   <script src="canvas-util.js"></script>
