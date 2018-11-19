@@ -80,19 +80,15 @@ class ArrowOptions extends ToolOptions {
   }
 
   bindActions() {
-    var self = this;
     var arrowWidth = $("#arrowWidth");
-    arrowWidth.on("change", function(event) {
-      var active = self.cState.activeObj;
-      var arrow = active.getParent();
+    arrowWidth.on("change", (event) => {
+      var arrow = this.cState.activeParent();
       arrow.thickness = arrowWidth.val();
     });
 
     var arrowHeadFill = $("#arrowHeadFill");
-    arrowHeadFill.on("change", function(event) {
-      var active = self.cState.activeObj;
-      var arrow = active.getParent();
-
+    arrowHeadFill.on("change", (event) => {
+      var arrow = this.cState.activeParent();
       arrow.head.hollow = arrowHeadFill.val() == "hollow";
       if (arrowHeadFill.val().includes("white")) 
         arrow.head.fill = "#fff";
@@ -101,9 +97,8 @@ class ArrowOptions extends ToolOptions {
     });
 
     var arrowDash = $("#arrowDash");
-    arrowDash.on("change", function(event) {
-      var active = self.cState.activeObj;
-      var arrow = active.getParent();
+    arrowDash.on("change", (event) => {
+      var arrow = this.cState.activeParent();
       arrow.dashed = arrowDash.val() == "dashed";
     });
   }
@@ -146,51 +141,42 @@ class FlowchartBoxOptions extends ToolOptions {
     var topVAlign = $("#topVAlign");
     var centerVAlign = $("#centerVAlign");
 
-    var self = this;
-
-    fontSize.on("change", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    fontSize.on("change", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.fontSize = fontSize.val();
 
       // re-render text with new size
       textbox.textEntered();
     });
 
-    fontFamily.on("change", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    fontFamily.on("change", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.fontFamily = fontFamily.val();
     });
 
-    leftAlign.on("click", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    leftAlign.on("click", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.horizontalAlign = "left";
       textbox.editor.style.textAlign = "left";
     });
-    rightAlign.on("click", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    rightAlign.on("click", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.horizontalAlign = "right";
       textbox.editor.style.textAlign = "right";
     });
-    centerAlign.on("click", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    centerAlign.on("click", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.horizontalAlign = "center";
       textbox.editor.style.textAlign = "center";
     });
 
-    centerVAlign.on("click", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    centerVAlign.on("click", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.verticalAlign = "center";
     });
 
-    topVAlign.on("click", function(event) {
-      var active = self.cState.activeObj;
-      var textbox = active.getParent();
+    topVAlign.on("click", (event) => {
+      var textbox = this.cState.activeParent();
       textbox.verticalAlign = "top";
     });
 
