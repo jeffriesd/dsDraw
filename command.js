@@ -58,8 +58,8 @@ class DrawCommand {
   getState() {
     return {
       hotkeys: this.cState.hotkeyStartState,
-      startPoint: this.cState.startPoint,
-      endPoint: this.receiver.getStartCoordinates(),
+      startPoint: this.cState.mouseDown,
+      endPoint: this.cState.mouseUp,
     };
   }
 
@@ -73,9 +73,9 @@ class DrawCommand {
 }
 
 
-/**  Handles object instantiation and adding to canvas
+/**  Handles object instantiation using click and drag
  */
-class CreateCommand extends DrawCommand {
+class ClickCreateCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
   }
@@ -85,25 +85,37 @@ class CreateCommand extends DrawCommand {
   }
 
   undo() {
-    this.cState.remove(this.receiver);
+    this.receiver.destroy();
   }
 }
 
 
+/** MoveCommand
+ *    supports single element or group translation on canvas
+ */
 class MoveCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
     this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
     this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+
+    if (this.cState.selectGroup.size) 
+      this.group = new Set(this.cState.selectGroup);
+    else
+      this.group = [this.receiver];
   }
 
   execute() {
-    this.receiver.move(this.deltaX, this.deltaY);
+    this.group.forEach((receiver) => {
+      receiver.move(this.deltaX, this.deltaY);
+    });
   }
 
   undo() {
     // move (translate) back to initial point
-    this.receiver.move(-this.deltaX, -this.deltaY);
+    this.group.forEach((receiver) => {
+      receiver.move(-this.deltaX, -this.deltaY);
+    });
   }
 }
 
@@ -124,6 +136,44 @@ class DragCommand extends DrawCommand {
   }
 }
 
+class CloneCommand extends DrawCommand {
+  constructor(cState, receiver) {
+    super(cState, receiver);
+    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+
+    if (this.cState.selectGroup.size) 
+      this.group = new Set(this.cState.selectGroup);
+    else
+      this.group = [this.receiver];
+
+    // happens after mouse up, so execute here
+    this.execute();
+  }
+  
+  execute() {
+    this.group.forEach((receiver) => {
+      receiver.getParent().clone();
+
+      receiver.move(this.deltaX, this.deltaY);
+    });
+
+    if (this.group.size == 1) {
+      this.cState.selectGroup.forEach((obj) => {
+        this.cState.activeObj = obj;
+        this.cState.showToolbar();
+      });
+    }
+  }
+
+  undo() {
+    this.group.forEach((receiver) => {
+      this.cState.remove(receiver);
+    });
+  }
+
+}
+
 class SelectCommand {
   constructor(cState) {
     this.cState = cState;
@@ -135,6 +185,7 @@ class SelectCommand {
 
     console.log("new select");
 
+    // happens after mouseup, so execute here
     this.execute();
   }
 
@@ -154,9 +205,192 @@ class SelectCommand {
         this.cState.selectGroup.add(pObj);
     });
 
+    console.log("selected = ", this.cState.selectGroup);
+
+    // if only one thing selected, set it
+    // as active and show options
+    if (this.cState.selectGroup.size == 1) {
+      this.cState.selectGroup.forEach((obj) => {
+        this.cState.activeObj = obj;
+        this.cState.showToolbar();
+      });
+    }
+  }
+
+  /** SelectCommand.undo
+   *    if selection is not already undone, 
+   *    then clear selection, otherwise
+   *    just move onto the next undo
+   */
+  undo() {
+    if (this.cState.selectGroup.size)
+      this.cState.selectGroup.clear();
+    else
+      this.cState.undo();
+  }
+}
+
+
+/**
+ *  Console command objects
+ *
+ */
+
+// allow multiple names to be used
+// for some classes e.g. array, array1d
+const classNames = new Map([
+      ["array", Array1D],
+      ["array1d", Array1D], 
+]); 
+
+class ConsoleCreateCommand {
+  constructor(canvasState, objType, label="") {
+    this.cState = canvasState;
+    console.log("in ConsoleCreateCOmmand, objType =", objType);
+    this.objType = objType.toLowerCase();
+    this.objClass = classNames.get(this.objType);
+    
+    if (this.objClass == null) 
+      throw `No class known by name '${objType}'.`;
+ 
+    this.coords = this.objClass.defaultCoordinates(this.cState);
+
+    console.log("objType = ", objType);
+
+    this.label = label;
+    
+  }
+
+  execute() {
+    // been done before (undo has happened)
+    if (this.obj) {
+      this.cState.addCanvasObj(this.obj);
+    }
+    else {
+      this.obj = 
+        new this.objClass(this.cState, this.coords.x1, this.coords.y1,
+                            this.coords.x2, this.coords.y2);  
+     
+      if (this.label.length)
+        this.obj.setProperty("label", this.label);
+    }
+    
+    return this.obj;
   }
 
   undo() {
-    this.cState.selectGroup.clear();
+    if (this.obj) {
+      this.obj.destroy(); 
+      console.log("destroying", this.obj);
+    }
+  }
+}
+
+const ArrayNodePropNames = new Map([
+      ["bg", "fill"],
+      ["background", "fill"],
+      ["fill", "fill"],
+      ["=", "value"],
+      ["val", "value"],
+      ["border", "borderThickness"],
+]);
+
+const Array1DPropNames = new Map([
+    ["fontFamily", "fontFamily"],
+]);
+
+const propNames = new Map([
+  ["ArrayNode", ArrayNodePropNames],
+  ["Array1D", Array1DPropNames],
+]);
+
+/** ConfigCommand 
+ *    receiver param is an actual object (not string). This way
+ *    RangeConfigCommand can create a bunch of ConfigCommand
+ *    objects for the child objects (e.g. array cells),
+ *    which won't have names themselves
+ */
+class ConfigCommand {
+  constructor(receiver, property, value) {
+    this.receiver = receiver;
+
+    this.propNames = propNames.get(receiver.constructor.name);
+    console.log("constr name = ", receiver.constructor.name);
+
+    this.property = this.propNames.get(property);
+
+    if (this.property == null)
+      throw `${receiver.constructor.name} has no property '${property}'.`;
+
+    this.value = value;
+
+    // save original value for undo
+    this.oldValue = this.receiver[this.property];
+  }
+
+  /** ConfigCommand.execute
+   *    set property to some value
+   */
+  execute() {
+    this.receiver[this.property] = this.value;
+
+    console.log("executing:", this.property, " = ", this.value);
+    console.log("label = ", this.receiver.label);
+  }
+
+  undo() {
+    this.receiver[this.property] = this.oldValue;
+  }
+}
+
+class RangeConfigCommand {
+  constructor(parentObj, range, property, value) {
+    this.parentObj = parentObj;
+    this.range = range;
+    this.receivers = this.getReceivers();
+
+    this.configCommands = [];
+
+    this.receivers.forEach((receiver) => {
+      var configCmd = new ConfigCommand(receiver, property, value);
+      this.configCommands.push(configCmd);
+    });
+  }
+
+  getReceivers() {
+    var brackets = /(\[|\])/g
+    var range = this.range.replace(brackets, "").split(":");
+    var low = parseInt(range[0]);
+    var high = parseInt(range[1]);
+    if (range[1] == null)
+      high = low + 1;
+
+    if (isNaN(low) || isNaN(high))
+      throw `Invalid range: [${low}: ${high}]`;
+
+    return this.parentObj.getChildren(low, high);
+  }
+
+  execute() {
+    this.configCommands.forEach((command) => command.execute());
+  }
+
+  undo() {
+    this.configCommands.forEach((command) => command.undo());
+  }
+}
+
+
+class MacroCommand {
+  constructor(commands) {
+    this.commands = commands;
+  }
+
+  execute() {
+    this.commands.forEach((command) => command.execute());
+  }
+
+  undo() {
+    this.commands.forEach((command) => command.undo());
   }
 }
