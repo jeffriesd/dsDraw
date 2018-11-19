@@ -6,10 +6,11 @@ canvasObjectClasses = {
   "RightAngleArrow": RightAngleArrow,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
+  "Array1D": Array1D,
 };
 
 canvasToolClasses = {
-  "Select": CanvasSelect,
+  "SelectTool": CanvasSelect,
 };
 
 
@@ -68,8 +69,9 @@ class CanvasState {
     this.mouseMove = null;
 
     // keeping track of canvas objects
-    this.drawMode = "CurvedArrow";
+    this.drawMode = "Array1D";
     this.objects = [];
+    this.labeled = new Map();
     this.objectFactory = new CanvasObjectFactory(this);
 
     // keeping track of command history
@@ -82,7 +84,6 @@ class CanvasState {
     this.activeBorder = "#0000ff";
     this.clickedBare = true;
     this.activeObj = null;
-    
 
     // hit detection with hidden canvas
     this.hitCanvas = hitCanvas;
@@ -117,20 +118,31 @@ class CanvasState {
   }
 
 
+  /** CanvasState.activeParent
+   *    returns active macro object (parent of active obj)
+   */
+  activeParent() {
+    if (this.activeObj)
+      return this.activeObj.getParent();
+  }
+
+
   /** CanvasState.bindKeys
    *    bind key press/release to change of 
    *    hotkeys object
    */
   bindKeys() {
-    var self = this;
-    document.onkeydown = function(event) {
-      if (event.keyCode in self.hotkeys) {
-        self.hotkeys[event.keyCode] = true;
+    document.onkeydown = (event) => {
+      if (event.keyCode in this.hotkeys) {
+        this.hotkeys[event.keyCode] = true;
       }
+      if (event.keyCode == ESC)
+        this.command
+
     };
-    document.onkeyup = function(event) {
-      if (event.keyCode in self.hotkeys) {
-        self.hotkeys[event.keyCode] = false;
+    document.onkeyup = (event) => {
+      if (event.keyCode in this.hotkeys) {
+        this.hotkeys[event.keyCode] = false;
       }
     };
   }
@@ -141,8 +153,7 @@ class CanvasState {
    */
   createNewCanvasObject() {
     if (this.drawMode in canvasObjectClasses)
-      var newObject = this.objectFactory.createCanvasObject();
-      this.activeObj = newObject;
+      this.activeObj = this.objectFactory.createCanvasObject();
   }
 
   /** CanvasState.registerCanvasObj
@@ -169,6 +180,7 @@ class CanvasState {
       this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
     this.objects.push(canvasObj);
+    console.log("adding new", canvasObj.constructor.name);
   }
 
 
@@ -189,7 +201,7 @@ class CanvasState {
    */
   setCommandStartState() {
     this.hotkeyStartState = Object.assign({}, this.hotkeys);
-    this.startPoint = this.activeObj.getStartCoordinates();
+    this.startPoint = this.mouseDown;
   }
 
 
@@ -198,13 +210,14 @@ class CanvasState {
    *    onto undoStack
    */
   addDrawCommand() {
-    if (true || this.activeObj) {
-      var drawCommand = this.createDrawCommand();
-      if (drawCommand)
-        this.undoStack.push(drawCommand);
-    }
+    var drawCommand = this.createDrawCommand();
+    if (drawCommand)
+      this.undoStack.push(drawCommand);
     else
-      console.log("Cannot create DrawCommand: no active canvas object");
+      console.log("Error: Cannot create draw command.");
+
+    // clear redo stack
+    this.redoStack = [];
   }
 
   /** CanvasState.createDrawCommand
@@ -213,17 +226,19 @@ class CanvasState {
   createDrawCommand() {
     if (this.activeObj) {
       switch (this.activeCommandType) {
-        case "create":
-          return new CreateCommand(this, this.activeObj);
+        case "clickCreate":
+          return new ClickCreateCommand(this, this.activeObj);
         case "move":
           return new MoveCommand(this, this.activeObj);
         case "drag":
           return new DragCommand(this, this.activeObj);
+        case "clone":
+          return new CloneCommand(this, this.activeObj);
       }
     }
     else {
       switch (this.drawMode) {
-        case "Select":
+        case "SelectTool":
           return new SelectCommand(this);
       }
     }
@@ -234,6 +249,7 @@ class CanvasState {
     if (this.undoStack.length) {
       var lastCommand = this.undoStack.pop();
       lastCommand.undo();
+      console.log("undoing: ", lastCommand.constructor.name);
       this.redoStack.push(lastCommand);
     }
     else
@@ -248,6 +264,16 @@ class CanvasState {
     }
     else 
       console.log("Nothing left to redo");
+  }
+
+  /** CanvasState.getCenter
+   *    return coordinates of canvas center
+   */
+  getCenter() {
+    var w = this.canvas.width;
+    var h = this.canvas.height;
+    
+    return {x: Math.floor(w / 2), y: Math.floor(h / 2)};
   }
 
 
@@ -286,12 +312,14 @@ class CanvasState {
         toolClass.outline(this);
       }
     }
-    //  add some bbox or highlighting to show active object
+
     this.objects.forEach((obj) => {
+        // add some highlighting to show active object/group
         var active = 
-          (this.activeObj && 
-            this.activeObj.getParent() === obj ) || this.selectGroup.has(obj);
-          obj.draw(active);
+          (this.activeParent() === obj && !this.selectGroup.size)
+          || this.selectGroup.has(obj);
+
+        obj.draw(active);
     });
 
   }
@@ -302,18 +330,18 @@ class CanvasState {
       "roundBox",
       "diamondBox",
       "parallelogramBox",
-      "rightAngleArrow",
+      // "rightAngleArrow",
       "curvedArrow",
-      "connector"
+      "connector",
+      "selectTool"
     ];
 
-    var self = this;
-    this.buttons.forEach(function(buttonName) {
+    this.buttons.forEach((buttonName) => {
       var button = document.getElementById(buttonName);
       // make first character uppercase
       var first = buttonName.substr(0, 1).toUpperCase();
       var className = first + buttonName.substr(1);
-      button.onclick = () => self.setMode(className);
+      button.onclick = () => this.setMode(className);
     });
 
     // delete button
@@ -406,6 +434,10 @@ class CanvasEventHandler {
       // is about to occur 
       this.cState.setCommandStartState();
 
+      // only clear selection if clicking on unselected element
+      if (! this.cState.selectGroup.has(canvasObj.getParent()))
+        this.cState.selectGroup.clear();
+
     } 
     else {
       // end editing for textboxes or other updates
@@ -418,6 +450,7 @@ class CanvasEventHandler {
       this.cState.clickedBare = true;
       this.cState.activeObj = null;
       this.cState.selectGroup.clear();
+      console.log("clearing select group");
     }
   }
 
@@ -435,12 +468,12 @@ class CanvasEventHandler {
         if (this.cState.hotkeys[CTRL]) {
           this.cState.activeObj.move(deltaX, deltaY);
           // Group select move
-          // if (this.cState.selectGroup.has(this.cState.activeObj)) {
-          //   this.cState.selectGroup.forEach((obj) => {
-          //     if (this.cState.activeObj !== obj)
-          //       obj.move(deltaX, deltaY);
-          //   });
-          // }
+          if (this.cState.selectGroup.has(this.cState.activeParent())) {
+            this.cState.selectGroup.forEach((obj) => {
+              if (this.cState.activeParent() !== obj)
+                obj.move(deltaX, deltaY);
+            });
+          }
 
           this.cState.activeCommandType = "move";
         }
@@ -475,21 +508,12 @@ class CanvasEventHandler {
       // create new object
       if (this.cState.clickedBare) {
         this.cState.createNewCanvasObject();
-        this.cState.activeCommandType = "create";
+        this.cState.activeCommandType = "clickCreate";
       }
 
       // clone clicked object
-      if (this.cState.activeObj && this.cState.hotkeys[ALT]) {
-        this.cState.activeCommandType = "create";
-        console.log("cloning:", this.cState.activeObj);
-
-        this.cState.activeObj = this.cState.activeObj.getParent().clone();
-
-        // move it to new location
-        var deltaX = this.cState.mouseUp.x - this.cState.mouseDown.x;
-        var deltaY = this.cState.mouseUp.y - this.cState.mouseDown.y;
-        this.cState.activeObj.move(deltaX, deltaY);
-      }
+      if (this.cState.activeObj && this.cState.hotkeys[ALT])
+        this.cState.activeCommandType = "clone";
     }
 
     // mouse release happens same place as press
@@ -507,12 +531,12 @@ class CanvasEventHandler {
       this.cState.activeObj.release();
 
       // show toolbar on object creation
-      if (this.cState.activeObj.getToolbar)
-        this.cState.showToolbar();
+      this.cState.showToolbar();
     }
 
     // create DrawCommand object and push onto undo stack
     this.cState.addDrawCommand();
+    this.cState.activeCommandType = "";
 
     this.cState.mouseDown = null;
 
