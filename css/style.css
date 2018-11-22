@@ -134,6 +134,10 @@ textarea {
   visibility: hidden;
 }
 
+#selectTool { 
+  background-image: url("../images/select.png");
+}
+
 #rectBox {
   background-image: url("../images/rect.png");
 }

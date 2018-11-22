@@ -11,8 +11,6 @@ class CanvasObject {
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
-    this.label = "";
-
     this.x1 = x1;
     this.y1 = y1;
     this.x2 = x2;
@@ -22,6 +20,37 @@ class CanvasObject {
     this.height = this.y2 - this.y1;
 
     this.cState.addCanvasObj(this);
+    
+    // convert 'rgb(1, 2, 3)' to 123
+    var hashStr = this.hashColor.split("rgb(")[1];
+    hashStr = hashStr.split(")")[0];
+    var hashCode = hashStr.replace(/[,\s]/g, "");
+
+    this._label = "";
+    
+    // property for adding to 
+    // canvasState mapping from (name => object)
+    this.label = this.constructor.name + "_" + hashCode;
+  }
+
+  set label(value) {
+    if (value == "" || value == "TEMP")
+      return;
+    if (this.cState.labeled.get(value))
+      throw `Existing object with label '${value}'.`;
+
+    // if previous name is already mapping to this object, 
+    // clear that mapping
+    if (this.cState.labeled.get(this.label))
+      this.cState.labeled.clear(this.label);
+    
+    this.cState.labeled.set(value, this); 
+
+    this._label = value;
+  }
+
+  get label() {
+    return this._label;
   }
 
   getParent() {
@@ -30,24 +59,6 @@ class CanvasObject {
 
   getStartCoordinates() {
     return {x: this.x1, y: this.y1};
-  }
-
-  setProperty(propName, value) {
-    // label is special, need to update
-    // canvasState mapping
-    //
-    // TODO
-    // keywords shouldn't be used
-    if (propName == "label") {
-      if (this.cState.labeled.get(value))
-        throw `Existing object with label '${value}'.`;
-      this.cState.labeled.set(value, this); 
-    }
-
-    if (this[propName] != null)
-      this[propName] = value;
-    else 
-      throw `${this.constructor.name} has no property '${propName}.'`;
   }
 
   destroy() {

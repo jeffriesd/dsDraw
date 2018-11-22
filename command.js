@@ -153,9 +153,9 @@ class CloneCommand extends DrawCommand {
   
   execute() {
     this.group.forEach((receiver) => {
-      receiver.getParent().clone();
+      var cl = receiver.getParent().clone();
 
-      receiver.move(this.deltaX, this.deltaY);
+      cl.move(this.deltaX, this.deltaY);
     });
 
     if (this.group.size == 1) {
@@ -271,8 +271,7 @@ class ConsoleCreateCommand {
         new this.objClass(this.cState, this.coords.x1, this.coords.y1,
                             this.coords.x2, this.coords.y2);  
      
-      if (this.label.length)
-        this.obj.setProperty("label", this.label);
+      this.obj.label = this.label;
     }
     
     return this.obj;
@@ -291,17 +290,33 @@ const ArrayNodePropNames = new Map([
       ["background", "fill"],
       ["fill", "fill"],
       ["=", "value"],
-      ["val", "value"],
+      ["value", "value"],
       ["border", "borderThickness"],
+      ["fg", "textColor"],
+      ["fg", "textColor"],
+      ["ind", "showIndices"]
 ]);
 
 const Array1DPropNames = new Map([
+    ["ff", "fontFamily"],
     ["fontFamily", "fontFamily"],
+    ["font", "fontSize"],
+    ["fontSize", "fontSize"],
+    ["fs", "fontSize"],
+    ["label", "label"]
 ]);
 
 const propNames = new Map([
   ["ArrayNode", ArrayNodePropNames],
   ["Array1D", Array1DPropNames],
+]);
+
+/**   convert user-entered text to actual value
+ *    e.g. on = true, off = false
+ */
+const conversionValues = new Map([
+  ["on", true],
+  ["off", false],
 ]);
 
 /** ConfigCommand 
@@ -322,10 +337,21 @@ class ConfigCommand {
     if (this.property == null)
       throw `${receiver.constructor.name} has no property '${property}'.`;
 
-    this.value = value;
+    this.value = this.parseValue(value);
+    console.log("config value = ", this.value);
 
     // save original value for undo
     this.oldValue = this.receiver[this.property];
+  }
+
+  /** ConfigCommand.parseValue
+   *    convert user-entered text to actual value
+   *    e.g. on = true, off = false
+   */
+  parseValue(value) {
+    if (conversionValues.get(value) != null)
+      return conversionValues.get(value);
+    return value;
   }
 
   /** ConfigCommand.execute
@@ -333,9 +359,6 @@ class ConfigCommand {
    */
   execute() {
     this.receiver[this.property] = this.value;
-
-    console.log("executing:", this.property, " = ", this.value);
-    console.log("label = ", this.receiver.label);
   }
 
   undo() {
@@ -349,6 +372,8 @@ class RangeConfigCommand {
     this.range = range;
     this.receivers = this.getReceivers();
 
+    console.log("parent in range cmd is ", parentObj.label);
+
     this.configCommands = [];
 
     this.receivers.forEach((receiver) => {
@@ -357,9 +382,18 @@ class RangeConfigCommand {
     });
   }
 
+  /** RangeConfigCommand
+   *    parses range in input e.g. pulls (3, 5) from arr1[3:5]
+   */
   getReceivers() {
     var brackets = /(\[|\])/g
-    var range = this.range.replace(brackets, "").split(":");
+    var range = this.range.replace(brackets, "")
+
+    // input was a1[]
+    if (range == "") 
+      return this.parentObj.getChildren();
+     
+    range = range.split(":");
     var low = parseInt(range[0]);
     var high = parseInt(range[1]);
     if (range[1] == null)

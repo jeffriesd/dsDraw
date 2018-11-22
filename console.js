@@ -148,6 +148,8 @@ class CommandConsole {
         this.cycleCommands(1);
       else if (event.keyCode == DOWN)
         this.cycleCommands(-1);
+      else if (event.keyCode == C && this.cState.hotkeys[CTRL])
+        this.commandLine.value = "";
     }
   }
 
@@ -179,21 +181,16 @@ class CommandConsole {
     var line = this.commandLine.value.trim();
     console.log("command was", line);
 
-    // ending brace shouldnt be indented,
-    // so check before indentation is added
-    // and parse the multiline command
+    var cmdObj;
+
+    // multiline command has ended
     if (line.includes("}")) {
       this.multiLine = false;
       console.log("new multiline command:", this.multiCommand);
 
-      // TODO 
-      // make this return a MacroCommand
-      // and then handle execution in
-      // try/catch here
-      var cmdObj = this.parser.parseMultiLine(this.multiCommand);
-      cmdObj.execute();
-      this.cState.undoStack.push(cmdObj);
+      cmdObj = this.parser.parseMultiLine(this.multiCommand);
     }
+    // multiline command starting
     else if (line.includes("{")) {
       this.multiLine = true;
 
@@ -204,20 +201,20 @@ class CommandConsole {
     }
     else if (line.trim()) {
       // if in the middle of a multiline command,
-      // simply append the following lines
+      // simply append the following lines to history
       if (this.multiLine) {
         this.multiCommand.push(line);
         // indent in console
         line = "  " + line;
       }
-      else {
-        // one line command entered
-           
-        // split on whitespace and remove any remaining whitespace
-        var cmdObj = this.parser.parseLine(line);
-        this.cState.undoStack.push(cmdObj);
-        cmdObj.execute();
-      }
+      else 
+        cmdObj = this.parser.parseLine(line); // one line command
+    }
+
+    // if command obj instantiated
+    if (cmdObj) {
+      cmdObj.execute();
+      this.cState.undoStack.push(cmdObj);
     }
 
     // add to command history 
@@ -295,8 +292,7 @@ class CommandInterpreter {
     // if no name was provided
     var label;
     if (newObj.label == "") {
-      label = "TEMP";
-      newObj.setProperty("label", label);
+      newObj.label = "TEMP";
     }
     else
       label = newObj.label;
@@ -371,6 +367,8 @@ class CommandInterpreter {
   
       var receiverName = mainCmd.match(/[^\[]*/).toString();
       var receiverObj = this.cState.labeled.get(receiverName);
+
+      console.log("In cmdIntrp.createCO, receiver", receiverName, " = ", receiverObj);
 
       var configCommand;
       if (mainCmd.includes("[")) {
