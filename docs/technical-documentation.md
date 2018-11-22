@@ -198,7 +198,8 @@ const ArrayNodePropNames = new Map([
       ["background", "fill"],
       ["fill", "fill"],
       ["=", "value"],
-      ["value", "value"],
+      ["value", "showValues"],
+      ["val", "showValues"],
       ["border", "borderThickness"],
       ["fg", "textColor"],
       ["fg", "textColor"],
@@ -208,11 +209,11 @@ const ArrayNodePropNames = new Map([
 Note that this is not a one-to-one mapping: some attributes have multiple keys that reference them. A user
 could type 
 ```
-myarr[0] value 5
+myarr[0] fill blue
 ```
 or equivalently
 ```
-myarr[0] = 5
+myarr[0] bg blue
 ```
 
 RangeConfigCommand objects are created
