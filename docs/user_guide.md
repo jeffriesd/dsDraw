@@ -1,17 +1,17 @@
 # dsDraw User Guide
 
 ## General
-To move an existing object, hold control and drag the object.\\
-To delete the most recently created object, press control-z.\\
-To delete any object, click on it to bring up the options and click the red X. \\
+To move an existing object, hold control and drag the object.
+To delete the most recently created object, press control-z.
+To delete any object, click on it to bring up the options and click the red X. 
 To change the settings of an existing object, click on it
 and select new options.
 
 ### Shortcuts
-\textbf{Control+Z:} Undo \\
-\textbf{Control+Y:} Redo\\
-\textbf{T:} Show console \\
-\textbf{Escape:} Hide console \\
+Control-Z: Undo 
+Control-Y: Redo
+T: Show console 
+Escape: Hide console 
 
 # Tools
 
