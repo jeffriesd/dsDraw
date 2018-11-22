@@ -1,5 +1,3 @@
-# dsDraw User Guide
-
 ## General
 To __move__ an existing object, hold control and drag the object.  
 To __clone__ an existing object, hold alt and drag the object.  
