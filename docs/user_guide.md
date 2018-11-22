@@ -79,3 +79,26 @@ create array myarr456 {
   fontSize: 18
 }
 ```
+
+#### configuration
+Each data structure has configurable attributes, and child elements (such as the cells of an array) may have configurable attributes of their own. To change the settings of an existing objects, its label must be used in the console. For
+iterable objects such as arrays, ranges of child elements can be configured together.
+
+Configure parent objects:
+```
+myarr123 fontFamily Purisa
+```
+Configure child elements:
+```
+myarr123[0] foreground #ff0
+```
+Configure a range of child elements:
+```
+myarr123[0:5] bg yellow
+```
+shorthand for configuring all children:
+```
+myarr123[] value 55
+```
+
+
