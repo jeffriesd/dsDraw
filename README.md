@@ -1,3 +1,7 @@
+# dsDraw
+
+dsDraw is an interactive tool for drawing flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console.
+
 ## General
 To __move__ an existing object, hold control and drag the object.  
 To __clone__ an existing object, hold alt and drag the object.  
