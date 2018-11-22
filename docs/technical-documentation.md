@@ -156,7 +156,7 @@ const ArrayNodePropNames = new Map([
       ["background", "fill"],
       ["fill", "fill"],
       ["=", "value"],
-      ["val", "value"],
+      ["value", "value"],
       ["border", "borderThickness"],
       ["fg", "textColor"],
       ["fg", "textColor"],
