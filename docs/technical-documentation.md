@@ -64,6 +64,42 @@ at that coordinate, and the color is used as a key in a map of current canvas ob
 Using this method eliminates the need to iterate through the current canvas objects,
 doing math on each to calculate its bounds and so on.
 
+Mouse and keyboard events are dispatched to the CanvasEventHandler class. It has methods
+for mouseDown(), mouseMove(), and mouseUp(). 
+
+* mouseDown():
+      If click happened on an existing object:
+            - set CanvasState.activeObj to to this one and
+      call mouseDown() on this object.
+            - Set dragOffset
+            - show toolbar
+            - set command start state 
+            - clear select group unless clicked on object in selected group
+      otherwise:
+            - deactivate active object
+            - hide options for previously active object
+            - clear active object and select group
+* mouseMove():
+      If mouse down event occurred and mouse has yet to be released:
+            - If there is a currently active object:
+                  - perform move or drag
+            - update drag offset
+      Mouse moving but not during click:
+            - call hover() if moving over object
+* mouseUp():
+      If mouse up occurs in different place from mouse down:
+            - if click began on bare canvas:
+                  - create new object, set commandType to "clickCreate"
+            - if there is an active object and "alt" key is pressed:
+                  - set commandType to "clone"
+      else if mouse up occurs in same place:
+            - perform click on object in this location      
+      if there is an active object:
+            release it
+            show toolbar for it
+      call addDrawCommand
+      set commandType to ""
+
 #### Canvas Objects
 Canvas objects such as text boxes, arcs, arrays, etc. are represented as classes 
 with a reference to the canvas state and several methods such as draw, drag, click,
