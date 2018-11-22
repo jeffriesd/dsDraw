@@ -1,4 +1,3 @@
-
 # dsDraw Technical Documentation
 
 ## Canvas
@@ -33,15 +32,24 @@ and thus separate information from mouseDown)
 * hotkeys: {keyCode: bool} object/mapping for keeping track of currently depressed hotkeys/modifiers
 ### Methods
 * setMode(string mode): change drawing mode, update toolbar label
-* undo(): remove most recently drawn object from CanvasState.objects
+* undo(): undo most recent command and push it onto redoStack
+* redo(): redo most recently undone command and push it onto undoStack
+* activeParent(): returns active parent object
+* createNewCanvasObject(): make call to CanvasObjectFactory for object instantiation
 * initToolbars(): initialize toolbars for different drawing modes
 * bindKeys(): initialize key bindings for hotkeys
-* addCanvasObj(objType, canvasObj): add a new object (and its type as a string) to current list 
-and do color hashing
+* addCanvasObj(canvasObj): add a new object to current list 
+and do color hashing if hashColor is unassigned -- only gets called for parent objects, parent objects handle
+drawing of their children.
+* remove(removeObj): removes object from current object list so it won't be repainted
+* setCommandStartState(): save position of mouse and hotkeys when click starts
+* addDrawCommand(): call createDrawCommand() and push it onto undo stack
+* createDrawCommand(): instantiate new DrawCommand (create, move, drag, clone, etc.)
 * getClickedObject(mouseX, mouseY): returns topmost object at given coordinates
+* getCenter(): returns coordinates of canvas center
 * repaint(): clear canvas and redraw each current object (and possibly "creator" elements, such
-as a hollow box if user is currently creating a new text box, etc.)
-
+as a hollow box if user is currently creating a new text box, etc.) -- also draws active objects
+with blue highlighted border
 
 #### Canvas Events
 A hidden canvas with the same dimensions as the main canvas is used for 
