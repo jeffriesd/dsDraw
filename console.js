@@ -1,5 +1,6 @@
 mainCommands = {
   "create": ConsoleCreateCommand,
+  "delete": ConsoleDestroyCommand,
 };
 
 class CommandConsole {
@@ -101,7 +102,6 @@ class CommandConsole {
       this.history.scrollTo(0, newScrollTop);
     };
   }
-
 
   /*  CommandConsole.clickingInput
    *    helper method for determining when to allow dragging of console.
