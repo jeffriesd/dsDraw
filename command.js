@@ -147,6 +147,8 @@ class CloneCommand extends DrawCommand {
     else
       this.group = [this.receiver];
 
+    this.clones = [];
+
     // happens after mouse up, so execute here
     this.execute();
   }
@@ -154,10 +156,14 @@ class CloneCommand extends DrawCommand {
   execute() {
     this.group.forEach((receiver) => {
       var cl = receiver.getParent().clone();
+      
+      // save clones for undoing
+      this.clones.push(cl);
 
       cl.move(this.deltaX, this.deltaY);
     });
 
+    // make cloned object active and show options
     if (this.group.size == 1) {
       this.cState.selectGroup.forEach((obj) => {
         this.cState.activeObj = obj;
@@ -167,11 +173,33 @@ class CloneCommand extends DrawCommand {
   }
 
   undo() {
-    this.group.forEach((receiver) => {
-      this.cState.remove(receiver);
+    this.clones.forEach((clone) => {
+      this.cState.remove(clone);
     });
   }
+}
 
+/** ClickDestryCommand
+ *    Delete an object from canvas by clicking delete
+ *    button in toolbar.
+ */
+class ClickDestroyCommand {
+  constructor(cState, receiver) {
+    this.cState = cState;
+    this.receiver = receiver;
+
+    // save label for undo
+    this.objLabel = receiver.label;      
+  }
+
+  execute() {
+    this.receiver.destroy();
+  }
+
+  undo() {
+    this.cState.addCanvasObj(this.receiver);
+    this.receiver.label = this.objLabel; 
+  }
 }
 
 class SelectCommand {
@@ -236,6 +264,26 @@ class SelectCommand {
  *
  */
 
+class ConsoleDestroyCommand {
+  constructor(cState, receiverLabel) {
+    this.cState = cState;
+    this.receiver = this.cState.labeled.get(receiverLabel);
+
+    // save label for undoing
+    this.objLabel = receiverLabel;
+  }
+
+  execute() {
+    this.receiver.destroy();
+  }
+
+  undo() {
+    this.cState.addCanvasObj(this.receiver);
+    this.receiver.label = this.objLabel;
+  }
+
+}
+
 // allow multiple names to be used
 // for some classes e.g. array, array1d
 const classNames = new Map([
@@ -290,7 +338,8 @@ const ArrayNodePropNames = new Map([
       ["background", "fill"],
       ["fill", "fill"],
       ["=", "value"],
-      ["value", "value"],
+      ["value", "showValues"],
+      ["val", "showValues"],
       ["border", "borderThickness"],
       ["fg", "textColor"],
       ["fg", "textColor"],
@@ -303,7 +352,9 @@ const Array1DPropNames = new Map([
     ["font", "fontSize"],
     ["fontSize", "fontSize"],
     ["fs", "fontSize"],
-    ["label", "label"]
+    ["label", "label"],
+    ["display", "displayStyle"],
+    ["ds", "displayStyle"],
 ]);
 
 const propNames = new Map([
