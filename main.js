@@ -34,6 +34,8 @@ canvas.onmousedown = (event) => cState.eventHandler.mouseDown(event);
  */
 canvas.onmousemove = (event) => cState.eventHandler.mouseMove(event);
 
+// drag console even if mouse moves away from it 
+window.onmousemove = (event) => commandConsole.dragConsole(event);
 
 /**
  *  MOUSE CLICK RELEASED
