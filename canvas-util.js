@@ -185,11 +185,16 @@ class CanvasState {
 
 
   /** CanvasState.remove
+   *    remove this object from list
+   *    to be repainted and clear labeling
    */
   remove(removeObj) {
     this.objects = this.objects.filter(function(item) {
       return (item !== removeObj);
     });
+
+    if (this.labeled.get(removeObj.label))
+      this.labeled.delete(removeObj.label);
 
     removeObj.deactivate();
     if (removeObj.getOptions)
@@ -347,10 +352,16 @@ class CanvasState {
     // delete button
     var deleteButton = document.getElementById("deleteButton");
     deleteButton.onclick = () => {
-      if (this.activeObj) {
-        this.remove(this.activeObj);
-        this.activeObj.getOptions().hide();
-        this.activeObj.deactivate();
+      var active = this.activeParent();
+      
+      // create command for undoing
+      var destroyCmd = new ClickDestroyCommand(this, active);
+      this.undoStack.push(destroyCmd);
+
+      // remove from canvas, hide options, and set activeObj to null
+      if (active) {
+        destroyCmd.execute();
+        active.getOptions().hide();
         this.activeObj = null;
       }
     }
@@ -365,8 +376,9 @@ class CanvasState {
    *    to appropriate values
    */
   showToolbar() {
-    if (this.activeObj.getToolbar) {
-      var activeToolbar = this.activeObj.getToolbar();
+    var active = this.activeParent();
+    if (active.getToolbar) {
+      var activeToolbar = active.getToolbar();
       activeToolbar.show();
     }
   }
@@ -512,7 +524,7 @@ class CanvasEventHandler {
       }
 
       // clone clicked object
-      if (this.cState.activeObj && this.cState.hotkeys[ALT])
+      else if (this.cState.activeObj && this.cState.hotkeys[ALT])
         this.cState.activeCommandType = "clone";
     }
 
