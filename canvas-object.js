@@ -33,6 +33,16 @@ class CanvasObject {
     this.label = this.constructor.name + "_" + hashCode;
   }
 
+  clone() {
+    if (this.config === null)
+      throw `No configurable options for ${this.constructor.name}`;
+
+    var copy = 
+      new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
+    Object.assign(copy, this.config());
+    return copy;
+  }
+
   set label(value) {
     if (value == "" || value == "TEMP")
       return;
@@ -41,16 +51,27 @@ class CanvasObject {
 
     // if previous name is already mapping to this object, 
     // clear that mapping
-    if (this.cState.labeled.get(this.label))
-      this.cState.labeled.clear(this.label);
+    if (this.cState.labeled.get(this.label)) {
+      this.cState.labeled.delete(this.label);
+      console.log("clearing label for ", this.label);
+    }
     
     this.cState.labeled.set(value, this); 
 
     this._label = value;
+    // console.log("labels after set", [...this.cState.labeled.keys()], "\n");
   }
 
   get label() {
     return this._label;
+  }
+
+  getToolbar() {
+    return Toolbar.getInstance(this.cState);
+  }
+
+  getOptions() {
+    return ToolOptions.getInstance(this.cState);
   }
 
   getParent() {
@@ -61,6 +82,11 @@ class CanvasObject {
     return {x: this.x1, y: this.y1};
   }
 
+  /** CanvasObject.destroy
+   *    remove this object from list of 
+   *    repaintable objects and also clear
+   *    labeling
+   */
   destroy() {
     this.cState.remove(this);
   }
@@ -113,6 +139,16 @@ class CanvasChildObject {
     this.hashColor = null;
 
     this.cState.registerCanvasObj(this);
+  }
+
+  clone() {
+    if (this.config === null)
+      throw `No configurable options for ${this.constructor.name}`;
+
+    var copy = 
+      new this.constructor(this.cState);
+    Object.assign(copy, this.config());
+    return copy;
   }
 
   deactivate() {
