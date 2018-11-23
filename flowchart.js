@@ -33,23 +33,26 @@ class FlowchartBox extends CanvasObject {
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
 
-  clone() {
-    // configurable options for cloning
-    this.config = {
+  /** FlowchartBox.config
+   *    return object with configurable 
+   *    attribute names and values for
+   *    cloning
+   */
+  config() {
+    return {
       fontStyle: this.fontStyle,
       fontFamily: this.fontFamily,
       fontSize: this.fontSize,
       horizontalAlign: this.horizontalAlign,
       verticalAlign: this.verticalAlign,
     };
+  }
 
-    var copy = 
-        new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
-    Object.assign(copy, this.config);
+  clone() {
+    var copy = super.clone();
 
     // set text in clone
     copy.editor.value = this.editor.value;
-    
     return copy;
   }
 
@@ -685,10 +688,10 @@ class Arrow extends CanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
 
-    this.startX = x1;
-    this.startY = y1;
-    this.endX = x2;
-    this.endY = y2;
+    this.x1 = x1;
+    this.y1 = y1;
+    this.x2 = x2;
+    this.y2 = y2;
 
     // default options
     this.thickness = 2;
@@ -701,23 +704,20 @@ class Arrow extends CanvasObject {
     this.hitThickness = 8;
   }
 
-  clone() {
-    this.config = {
+  config() {
+    return {
       thickness: this.thickness,
       dashed: this.dashed,
-    }
+    };
+  }
 
-    this.headConfig = {
-      hollow: this.head.hollow,
-      fill: this.head.fill,
-    }
+  /** Arrow.clone
+   */
+  clone() {
+    var copy = super.clone();
 
-    var copy = 
-      new this.constructor(this.cState, this.startX, this.startY, this.endX, this.endY);
-
-    Object.assign(copy, this.config);
-    Object.assign(copy.head, this.headConfig);
-
+    copy.head = this.head.clone();
+    copy.head.arrow = copy;
     return copy;
   }
 
@@ -730,7 +730,7 @@ class Arrow extends CanvasObject {
   }
 
   getStartCoordinates() {
-    return {x: this.startX, y: this.startY};
+    return {x: this.x1, y: this.y1};
   }
 
 }
@@ -746,22 +746,24 @@ class CurvedArrow extends Arrow {
     // initialize control points at
     // start and end points
     this.cp1 = {
-      x: this.startX,
-      y: this.startY,
+      x: this.x1,
+      y: this.y1,
     };
     this.cp2 = {
-      x: this.endX,
-      y: this.endY,
+      x: this.x2,
+      y: this.y2,
     };
   
-    this.cp1 = new ControlPoint(this.cState, this, this.startX, this.startY);
-    this.cp2 = new ControlPoint(this.cState, this, this.endX, this.endY);
+    this.cp1 = new ControlPoint(this.cState, this, this.x1, this.y1);
+    this.cp2 = new ControlPoint(this.cState, this, this.x2, this.y2);
 
     // this.activePoint = this.cp1;
 
     this.head = new ArrowHead(canvasState, this);
   }
 
+  /** CurvedArrow.clone
+   */
   clone() {
     var copy = super.clone();
     
@@ -798,9 +800,9 @@ class CurvedArrow extends Arrow {
     var hitCtx = this.cState.hitCtx;
 
     ctx.beginPath();
-    ctx.moveTo(this.startX, this.startY);
+    ctx.moveTo(this.x1, this.y1);
     ctx.bezierCurveTo(
-      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.endX, this.endY
+      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.x2, this.y2
     );
     ctx.stroke();
 
@@ -811,9 +813,9 @@ class CurvedArrow extends Arrow {
     this.head.draw(active);
 
     hitCtx.beginPath();
-    hitCtx.moveTo(this.startX, this.startY);
+    hitCtx.moveTo(this.x1, this.y1);
     hitCtx.bezierCurveTo(
-      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.endX, this.endY
+      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.x2, this.y2
     );
     hitCtx.stroke();
 
@@ -826,28 +828,28 @@ class CurvedArrow extends Arrow {
 
   static outline(cState) {
     var ctx = cState.ctx;
-    var startX = cState.mouseDown.x;
-    var startY = cState.mouseDown.y;
-    var endX = cState.mouseMove.x;
-    var endY = cState.mouseMove.y;
+    var x1 = cState.mouseDown.x;
+    var y1 = cState.mouseDown.y;
+    var x2 = cState.mouseMove.x;
+    var y2 = cState.mouseMove.y;
 
 
     ctx.strokeStyle = "#000";
     ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
   }
 
   /** return ending angle using bezier math (t = 1)
    */
   endingAngle() {
-    var dx = this.endX - this.cp2.x;
-    var dy = this.endY - this.cp2.y;
+    var dx = this.x2 - this.cp2.x;
+    var dy = this.y2 - this.cp2.y;
     
-    if (this.cp2.x == this.endX && this.cp2.y == this.endY) {
-      dx = this.endX - this.startX;
-      dy = this.endY - this.startY;
+    if (this.cp2.x == this.x2 && this.cp2.y == this.y2) {
+      dx = this.x2 - this.x1;
+      dy = this.y2 - this.y1;
     }
       
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
@@ -858,14 +860,14 @@ class CurvedArrow extends Arrow {
    *    translate entire arrow by deltaX, deltaY
    */
   move(deltaX, deltaY) {
-    this.startX += deltaX;
+    this.x1 += deltaX;
     this.cp1.x += deltaX;
     this.cp2.x += deltaX;
-    this.endX += deltaX;
-    this.startY += deltaY;
+    this.x2 += deltaX;
+    this.y1 += deltaY;
     this.cp1.y += deltaY;
     this.cp2.y += deltaY;
-    this.endY += deltaY;
+    this.y2 += deltaY;
   }
 }
 
@@ -883,7 +885,7 @@ class RightAngleArrow extends Arrow {
     super(canvasState, x1, y1, x2, y2); 
 
     // force axis alignment
-    this.endY = this.startY;
+    this.y2 = this.y1;
 
     this.anglePoints = [];
     this.addedNewAngle = false;
@@ -893,6 +895,8 @@ class RightAngleArrow extends Arrow {
     this.head = new ArrowHead(canvasState, this);
   }
 
+  /** RightAngleArrow.clone
+   */
   clone() {
     var copy = super.clone();
 
@@ -918,19 +922,19 @@ class RightAngleArrow extends Arrow {
     if (this.anglePoints.length > 0) 
       penultimate = this.anglePoints[this.anglePoints.length-1];
     else
-      penultimate = {x: this.startX, y: this.startY};
+      penultimate = {x: this.x1, y: this.y1};
 
     //up
-    if (this.endY - penultimate.y < 0) 
+    if (this.y2 - penultimate.y < 0) 
       return "U"; 
     //down
-    if (this.endY - penultimate.y > 0)
+    if (this.y2 - penultimate.y > 0)
       return "D";      
     //left
-    if (this.endX - penultimate.x < 0)      
+    if (this.x2 - penultimate.x < 0)      
       return "L"
     //right
-    if (this.endX - penultimate.x > 0)
+    if (this.x2 - penultimate.x > 0)
       return "R";
 
     // default
@@ -942,9 +946,9 @@ class RightAngleArrow extends Arrow {
     if (this.anglePoints.length > 0) 
       penultimate = this.anglePoints[this.anglePoints.length-1];
     else
-      penultimate = {x: this.startX, y: this.startY};
-    var dx = this.endX - penultimate.x;
-    var dy = this.endY - penultimate.y;
+      penultimate = {x: this.x1, y: this.y1};
+    var dx = this.x2 - penultimate.x;
+    var dy = this.y2 - penultimate.y;
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
   }
 
@@ -970,8 +974,8 @@ class RightAngleArrow extends Arrow {
     if (active)
       this.ctx.strokeStyle = this.cState.activeBorder;
 
-    var curX = this.startX;
-    var curY = this.startY;
+    var curX = this.x1;
+    var curY = this.y1;
 
     var ctx = this.ctx;
     var hitCtx = this.hitCtx;
@@ -993,13 +997,13 @@ class RightAngleArrow extends Arrow {
       curY = point.y;
     });
 
-    ctx.lineTo(this.endX, this.endY);
+    ctx.lineTo(this.x2, this.y2);
     ctx.stroke();
 
     if (this.dashed)
       this.ctx.setLineDash([]);
 
-    hitCtx.lineTo(this.endX, this.endY);
+    hitCtx.lineTo(this.x2, this.y2);
     hitCtx.stroke();
 
     this.head.draw(active);
@@ -1008,17 +1012,16 @@ class RightAngleArrow extends Arrow {
   /** RightAngleArrow.move
    */
   move(deltaX, deltaY) {
-    this.startX += deltaX;
-    this.startY += deltaY;
+    this.x1 += deltaX;
+    this.y1 += deltaY;
 
     this.anglePoints.forEach(function(point) {
       point.x += deltaX;
       point.y += deltaY;
     });
 
-    this.endX += deltaX;
-    this.endY += deltaY;
-
+    this.x2 += deltaX;
+    this.y2 += deltaY;
   }
 
   static outline(cState) {
@@ -1052,6 +1055,16 @@ class ArrowHead extends CanvasChildObject {
     this.height = 20;
   }
 
+  /** ArrowHead.config
+   *    Configurable options for cloning
+   */
+  config() {
+    return {
+      hollow: this.hollow,
+      fill: this.fill,
+    };
+  }
+
   getParent() {
     return this.arrow.getParent();
   }
@@ -1065,7 +1078,7 @@ class ArrowHead extends CanvasChildObject {
   }
 
   getStartCoordinates() {
-    return {x: this.arrow.endX, y: this.arrow.endY};
+    return {x: this.arrow.x2, y: this.arrow.y2};
   }
   
   configureOptions() {
@@ -1084,7 +1097,7 @@ class ArrowHead extends CanvasChildObject {
 
     this.ctx.save();
     this.ctx.beginPath();
-    this.ctx.translate(this.arrow.endX, this.arrow.endY);
+    this.ctx.translate(this.arrow.x2, this.arrow.y2);
     this.ctx.rotate(this.arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
@@ -1109,7 +1122,7 @@ class ArrowHead extends CanvasChildObject {
 
     this.hitCtx.save();
     this.hitCtx.beginPath();
-    this.hitCtx.translate(this.arrow.endX, this.arrow.endY);
+    this.hitCtx.translate(this.arrow.x2, this.arrow.y2);
     this.hitCtx.rotate(this.arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
@@ -1140,17 +1153,17 @@ class ArrowHead extends CanvasChildObject {
         // dont allow user to add more than one angle per drag
         this.arrow.addedNewAngle = true;
 
-        this.arrow.anglePoints.push({x: this.arrow.endX, y: this.arrow.endY});
+        this.arrow.anglePoints.push({x: this.arrow.x2, y: this.arrow.y2});
         if (ori == "U" || ori == "D") {
-          this.arrow.endX += deltaX;
+          this.arrow.x2 += deltaX;
         } else {
-          this.arrow.endY += deltaY;    
+          this.arrow.y2 += deltaY;    
         }
       } else {
         if (ori == "U" || ori == "D") {
-          this.arrow.endY += deltaY;    
+          this.arrow.y2 += deltaY;    
         } else {
-          this.arrow.endX += deltaX;
+          this.arrow.x2 += deltaX;
         }
       }
 
@@ -1160,8 +1173,8 @@ class ArrowHead extends CanvasChildObject {
       //  and thus its color is on top
       //  -> easy fix: just check color 1 pixel ahead of arrow
       // var ori = this.arrow.endingOrientation();
-      // var x = this.arrow.endX;
-      // var y = this.arrow.endY;
+      // var x = this.arrow.x2;
+      // var y = this.arrow.y2;
 
       // var anchorRadius = 10;
 
@@ -1175,8 +1188,8 @@ class ArrowHead extends CanvasChildObject {
       //     y += (this.height + anchorRadius);
 
       // var hoverObj = this.cState.getClickedObject(x, y);
-      // var newX = this.arrow.endX;
-      // var newY = this.arrow.endY;
+      // var newX = this.arrow.x2;
+      // var newY = this.arrow.y2;
       //     
       // if (hoverObj instanceof FlowchartBox) {
       //   // set arrow end to center of anchor - arrow tip height
@@ -1189,15 +1202,15 @@ class ArrowHead extends CanvasChildObject {
       //   if (ori == "D")
       //     newY = hoverObj.y1 - this.height;
       //   
-      //   this.arrow.endX = newX;
-      //   this.arrow.endY = newY;
+      //   this.arrow.x2 = newX;
+      //   this.arrow.y2 = newY;
       //   hoverObj.anchoredArrow = this.arrow;
       // }
     }
     else if (this.arrow instanceof CurvedArrow) {
       // just move end point to new location
-      this.arrow.endX += deltaX;
-      this.arrow.endY += deltaY;
+      this.arrow.x2 += deltaX;
+      this.arrow.y2 += deltaY;
     }
   }
 
