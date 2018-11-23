@@ -14,8 +14,19 @@ class Toolbar {
     this.instance = null;
   }
 
+  static getInstance(cState) {
+    if (this.instance == null) 
+      this.instance = new Toolbar(cState);
+    return this.instance;
+  }
+
+  /** Toolbar.show
+   *    show specific toolbar element (<div>) if it exists
+   *    otherwise just show options
+   */ 
   show() {
-    this.element.attr("hidden", false);
+    if (this.element)
+      this.element.attr("hidden", false);
     this.showSelectOptions();
   }
 
@@ -23,7 +34,7 @@ class Toolbar {
     if (this.activeOptions) 
       this.activeOptions.hide();
 
-    this.activeOptions = this.cState.activeObj.getOptions();
+    this.activeOptions = this.cState.activeParent().getOptions();
 
     if (this.activeOptions) {
       this.activeOptions.show();
@@ -43,17 +54,34 @@ class ToolOptions {
     this.bindActions();
   }
 
+  static getInstance(cState) {
+    if (this.instance == null) 
+      this.instance = new ToolOptions(cState, Toolbar.getInstance(cState));
+    return this.instance;
+  }
+
+  /** ToolOptions.show
+   *    if there is a specific div element with options
+   *    for the active object, show it
+   */
   show() {
     // show delete button
     $("#deleteButton").css("visibility", "visible");
       
-    this.element.attr("hidden", false);
+    if (this.element)
+      this.element.attr("hidden", false);
     this.setSelectOptions();
   }
 
+  /** ToolOptions.hide
+   *    if there is a specific div element with options
+   *    for the active object, hide it
+   */
   hide() {
     $("#deleteButton").css("visibility", "hidden");
-    this.element.attr("hidden", true);
+
+    if (this.element)
+      this.element.attr("hidden", true);
   }
 
   setSelectOptions() {
