@@ -39,6 +39,7 @@ class CanvasObject {
 
     var copy = 
       new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
+
     Object.assign(copy, this.config());
     return copy;
   }
@@ -46,8 +47,18 @@ class CanvasObject {
   set label(value) {
     if (value == "" || value == "TEMP")
       return;
-    if (this.cState.labeled.get(value))
-      throw `Existing object with label '${value}'.`;
+    while (this.cState.labeled.get(value)) {
+      var numPattern = /[0-9]*$/;
+      var match = value.match(numPattern);
+      var matchStr = match[0];
+      var num = parseInt(matchStr);
+
+      // matched number at end
+      if (matchStr) 
+        value = value.substr(0, match.index) + (num+1);
+      else
+        value = value + "1";
+    }
 
     // if previous name is already mapping to this object, 
     // clear that mapping
@@ -92,6 +103,7 @@ class CanvasObject {
   }
 
   deactivate() {
+    this.getOptions().hide();
   }
 
   click(event) {
