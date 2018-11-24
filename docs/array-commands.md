@@ -18,9 +18,10 @@ Settings for array cells:
 
 __Reminder: configuration syntax is the same for every data structure and property__
 ```
-myarr123 ind below
-myarr123 ds tower
-myarr123[0:5] = 2
+myarr123 ind below    // draw array indices below the cells (better for tower display)
+myarr123 ds tower     // set array display style to tower
+myarr123[0:5] = 2     // set cell values to 2 for cells [inclusive:exclusive]
+myarr123[] bg #f00    // set background to red for entire range of cells
 ```
 
 ## Commands
