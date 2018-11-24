@@ -128,6 +128,7 @@ of the object.
 * drag(): called when user drags object with no hotkeys held, default does nothing
 * mouseDown(): moves object to end of CanvasState objects array (raise to top)
 * release(): called when mouse click released on object
+* deactivate(): gets called when user clicks outside this object, default hides options
 
 Subclasses implement clone, draw, and configureOptions, among other class specific methods.
 Draw gets called every time CanvasState calls repaint, and CanvasObject classes handle the drawing
