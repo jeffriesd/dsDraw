@@ -3,6 +3,11 @@ mainCommands = {
   "delete": ConsoleDestroyCommand,
 };
 
+objectCommands = {
+  "Array1Dresize": Array1DResizeCommand,
+}
+
+
 class CommandConsole {
 
   constructor(canvasState) {
@@ -331,64 +336,92 @@ class CommandInterpreter {
 
     console.log("in interpreter.parseLine, args = ", args);
 
-    // check if 'mainCmd' is 1. labeled object
-    // or 2. a command type 
+    // check if 'mainCmd' is 
+    // 1. labeled object with subcommand
+    // 2. labeled object with config command
+    // 3. a command type 
     //  e.g
-    // 1. myarr12[1:3] bg #ff0
-    // 2. create array  {
+    // 1. 'myarr123.swap 0 5'
+    // 2. 'myarr123[1:3] bg #ff0' or 'myarr123 fs 12'
+    // 3. 'create array myarr123'
     
+    if (mainCmd.includes(".")) {
+      var name = mainCmd.split(".")[0];
+      if (this.cState.labeled.get(name))
+        return this.createObjectCommand(mainCmd, args);
+      throw `No object named ${name}`;
+    }
+
     // name is first word up to [ symbol
     var name = mainCmd.match(/[^\[]*/).toString();
-    var namedObj = this.cState.labeled.get(name);
-
-    if (namedObj) 
-      return this.createCommandObject(mainCmd, args, true);
+    if (this.cState.labeled.get(name)) 
+      return this.createConfigCommand(mainCmd, args);
     else
-      return this.createCommandObject(mainCmd, args);
+      return this.createMainCommand(mainCmd, args);
+  }
+
+  /** CommandInterpreter.createObjectCommand
+   *    parses command with an object label and a '.'
+   *    and returns command object
+   */
+  createObjectCommand(mainCmd, args) {
+    var cmdSpl = mainCmd.split(".");
+    var receiverName = cmdSpl[0];
+    var commandName = cmdSpl[1];
+
+    var receiverObj = this.cState.labeled.get(receiverName); 
+
+    // keys of command map are ClassnameCommandName
+    var cmdKey = receiverObj.constructor.name + commandName;
+
+    var commandClass = objectCommands[cmdKey];
+    
+    if (commandClass == null)
+      throw `No command '${commandName}' for class '${receiverObj.constructor.name}'`;
+
+    return new commandClass(receiverObj, ...args);
+  }
+
+  /** CommandInterpreter.createConfigCommand
+   *    parses commands with an object label and no '.'
+   *    and returns command object
+   *
+   *    e.g. 
+   *      myarr fontFamily purisa
+   *    or
+   *      myarr[0:5] fg blue
+   */
+  createConfigCommand(mainCmd, args) {
+    // either configure single object or range of child objects
+    // such as cells in an array
+    var receiverName = mainCmd.match(/[^\[]*/).toString();
+    var receiverObj = this.cState.labeled.get(receiverName);
+
+    console.log("In cmdIntrp.createConfig, receiver", receiverName, " = ", receiverObj);
+
+    var configCommand;
+    if (mainCmd.includes("[")) {
+      var range = mainCmd.match(/\[.*\]/).toString();
+      configCommand = new RangeConfigCommand(receiverObj, range, ...args);
+    }        
+    else {
+      configCommand = new ConfigCommand(receiverObj, ...args);
+      console.log("new config command for ", receiverObj);
+    }
+
+    return configCommand;
   }
    
-  /** CommandInterpreter.createCommandObject
-   *    if command is working on named object, 
-   *    determine whether it's a parent object config
-   *    or a range of child objects. ConfigCommand takes
-   *    an actual object as its receiver whereas 
-   *    RangeConfigCommand takes in a string e.g. "arr1[5:8]"
-   *    and determines the receiver from that.
-   *
-   *    otherwise, use mainCmd as the commandType and
-   *    create a new command using that as a key (checking
-   *    first that such a command exists)
+  /** CommandInterpreter.createMainCommand
+   *    parse command with mainCmd as the commandType and
+   *    returns a new command object 
    */
-  createCommandObject(mainCmd, args, named=false) {  
-    console.log("in interpreter.createCommandObject, args = ", args);
-    if (named) {
-      // either configure single object or range of child objects
-      // such as cells in an array
-  
-      var receiverName = mainCmd.match(/[^\[]*/).toString();
-      var receiverObj = this.cState.labeled.get(receiverName);
-
-      console.log("In cmdIntrp.createCO, receiver", receiverName, " = ", receiverObj);
-
-      var configCommand;
-      if (mainCmd.includes("[")) {
-        var range = mainCmd.match(/\[.*\]/).toString();
-        configCommand = new RangeConfigCommand(receiverObj, range, ...args);
-      }        
-      else {
-        configCommand = new ConfigCommand(receiverObj, ...args);
-        console.log("new config command for ", receiverObj);
-      }
-
-      return configCommand;
-    }
-    else {
-      var commandObj = mainCommands[mainCmd];
-      console.log("main cmd was ", mainCmd);
-      if (commandObj)
-        return new commandObj(this.cState, ...args);
-      else
-        throw `Invalid command '${mainCmd}'.`;
-    }
+  createMainCommand(mainCmd, args, named=false) {  
+    var commandObj = mainCommands[mainCmd];
+    console.log("main cmd was ", mainCmd);
+    if (commandObj)
+      return new commandObj(this.cState, ...args);
+    else
+      throw `Invalid command '${mainCmd}'.`;
   }
 }
