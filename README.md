@@ -103,4 +103,6 @@ shorthand for configuring all children:
 myarr123[] value 55
 ```
 
+### Commands by data structure:
+[Array Commands](https://github.com/danjeffries96/dsDraw/blob/master/docs/array-commands.md)
 
