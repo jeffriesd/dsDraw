@@ -47,3 +47,4 @@ removed by clicking on it and clicking the delete button or by executing the sam
 ```
 myarr123.arc 0 4
 ```
+Currently arcs only anchor on top of the array, so it doesn't play well with the tower display style.
