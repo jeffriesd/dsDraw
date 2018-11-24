@@ -263,7 +263,6 @@ class SelectCommand {
  *  Console command objects
  *
  */
-
 class ConsoleDestroyCommand {
   constructor(cState, receiverLabel) {
     this.cState = cState;
@@ -286,17 +285,17 @@ class ConsoleDestroyCommand {
 
 // allow multiple names to be used
 // for some classes e.g. array, array1d
-const classNames = new Map([
-      ["array", Array1D],
-      ["array1d", Array1D], 
-]); 
+const classNames = {
+  "array": Array1D,
+  "array1d": Array1D, 
+}
 
 class ConsoleCreateCommand {
   constructor(canvasState, objType, label="") {
     this.cState = canvasState;
     console.log("in ConsoleCreateCOmmand, objType =", objType);
     this.objType = objType.toLowerCase();
-    this.objClass = classNames.get(this.objType);
+    this.objClass = classNames[this.objType];
     
     if (this.objClass == null) 
       throw `No class known by name '${objType}'.`;
@@ -306,7 +305,6 @@ class ConsoleCreateCommand {
     console.log("objType = ", objType);
 
     this.label = label;
-    
   }
 
   execute() {
@@ -318,9 +316,9 @@ class ConsoleCreateCommand {
       this.obj = 
         new this.objClass(this.cState, this.coords.x1, this.coords.y1,
                             this.coords.x2, this.coords.y2);  
-     
-      this.obj.label = this.label;
     }
+   
+    this.obj.label = this.label;
     
     return this.obj;
   }
@@ -333,42 +331,44 @@ class ConsoleCreateCommand {
   }
 }
 
-const ArrayNodePropNames = new Map([
-      ["bg", "fill"],
-      ["background", "fill"],
-      ["fill", "fill"],
-      ["=", "value"],
-      ["value", "showValues"],
-      ["val", "showValues"],
-      ["border", "borderThickness"],
-      ["fg", "textColor"],
-      ["fg", "textColor"],
-      ["ind", "showIndices"]
-]);
+const ArrayNodePropNames = {
+  "bg": "fill",
+  "background": "fill",
+  "fill": "fill",
+  "=": "value",
+  "value": "showValues",
+  "val": "showValues",
+  "border": "borderThickness",
+  "fg": "textColor",
+  "fg": "textColor",
+  "ind": "showIndices",
+};
 
-const Array1DPropNames = new Map([
-    ["ff", "fontFamily"],
-    ["fontFamily", "fontFamily"],
-    ["font", "fontSize"],
-    ["fontSize", "fontSize"],
-    ["fs", "fontSize"],
-    ["label", "label"],
-    ["display", "displayStyle"],
-    ["ds", "displayStyle"],
-]);
+const Array1DPropNames = {
+  "ff": "fontFamily",
+  "fontFamily": "fontFamily",
+  "font": "fontSize",
+  "fontSize": "fontSize",
+  "fs": "fontSize",
+  "label": "label",
+  "display": "displayStyle",
+  "ds": "displayStyle",
+  "cellSize": "cellSize",
+  "cs": "cellSize",
+};
 
-const propNames = new Map([
-  ["ArrayNode", ArrayNodePropNames],
-  ["Array1D", Array1DPropNames],
-]);
+const propNames = {
+  "ArrayNode": ArrayNodePropNames,
+  "Array1D": Array1DPropNames,
+};
 
 /**   convert user-entered text to actual value
  *    e.g. on = true, off = false
  */
-const conversionValues = new Map([
-  ["on", true],
-  ["off", false],
-]);
+const conversionValues = {
+  "on": true,
+  "off": false,
+};
 
 /** ConfigCommand 
  *    receiver param is an actual object (not string). This way
@@ -380,10 +380,10 @@ class ConfigCommand {
   constructor(receiver, property, value) {
     this.receiver = receiver;
 
-    this.propNames = propNames.get(receiver.constructor.name);
+    this.propNames = propNames[receiver.constructor.name];
     console.log("constr name = ", receiver.constructor.name);
 
-    this.property = this.propNames.get(property);
+    this.property = this.propNames[property];
 
     if (this.property == null)
       throw `${receiver.constructor.name} has no property '${property}'.`;
@@ -400,8 +400,8 @@ class ConfigCommand {
    *    e.g. on = true, off = false
    */
   parseValue(value) {
-    if (conversionValues.get(value) != null)
-      return conversionValues.get(value);
+    if (conversionValues[value] != null)
+      return conversionValues[value];
     return value;
   }
 
@@ -465,7 +465,6 @@ class RangeConfigCommand {
   }
 }
 
-
 class MacroCommand {
   constructor(commands) {
     this.commands = commands;
@@ -479,3 +478,31 @@ class MacroCommand {
     this.commands.forEach((command) => command.undo());
   }
 }
+
+class Array1DResizeCommand {
+  constructor(receiver, newLength) {
+    this.receiver = receiver;
+
+    if (newLength < 1)
+      throw `Invalid array length: ${newLength}`;
+
+    this.newLength = newLength;
+
+    // save old array for undo
+    this.prevArray = this.receiver.array.slice();
+  }
+
+  execute() {
+    var startLength = this.receiver.array.length;
+    for (var i = startLength; i <= this.newLength; i++)
+      this.receiver.append("random");
+
+    this.receiver.array = this.receiver.array.slice(0, this.newLength); 
+  }
+
+  undo() {
+    this.receiver.array = this.prevArray;
+  }
+}
+
+
