@@ -152,29 +152,27 @@ class CloneCommand extends DrawCommand {
     // happens after mouse up, so execute here
     this.execute();
   }
-  
+ 
+  /** CloneCommand.execute
+   *    Clone all objects in selection except those
+   *    objects which are 'locked' to a parent,
+   *    e.g. an arc that is attached to an array
+   */  
   execute() {
     this.group.forEach((receiver) => {
-      var cl = receiver.getParent().clone();
-      
-      // save clones for undoing
-      this.clones.push(cl);
-
-      cl.move(this.deltaX, this.deltaY);
+      if (! receiver.getParent().locked) {
+        // check that label isn't already taken
+        var cl = receiver.getParent().clone();
+        // save clones for undoing
+        this.clones.push(cl);
+        cl.move(this.deltaX, this.deltaY);
+      }
     });
-
-    // make cloned object active and show options
-    if (this.group.size == 1) {
-      this.cState.selectGroup.forEach((obj) => {
-        this.cState.activeObj = obj;
-        this.cState.showToolbar();
-      });
-    }
   }
 
   undo() {
     this.clones.forEach((clone) => {
-      this.cState.remove(clone);
+      clone.destroy();
     });
   }
 }
@@ -355,6 +353,7 @@ const Array1DPropNames = {
   "ds": "displayStyle",
   "cellSize": "cellSize",
   "cs": "cellSize",
+  "ind": "indexPlacement",
 };
 
 const propNames = {
@@ -381,7 +380,6 @@ class ConfigCommand {
     this.receiver = receiver;
 
     this.propNames = propNames[receiver.constructor.name];
-    console.log("constr name = ", receiver.constructor.name);
 
     this.property = this.propNames[property];
 
@@ -389,7 +387,6 @@ class ConfigCommand {
       throw `${receiver.constructor.name} has no property '${property}'.`;
 
     this.value = this.parseValue(value);
-    console.log("config value = ", this.value);
 
     // save original value for undo
     this.oldValue = this.receiver[this.property];
@@ -479,9 +476,22 @@ class MacroCommand {
   }
 }
 
-class Array1DResizeCommand {
-  constructor(receiver, newLength) {
+class Array1DCommand {
+  constructor(receiver) {
     this.receiver = receiver;
+  }
+
+  checkIndices(index1, index2) {
+    var len = this.receiver.array.length;
+    
+    if (index1 >= len || index1 < 0 || index2 >= len || index2 < 0)
+      throw `Invalid indices: ${index1}, ${index2}.`;
+  }
+}
+
+class Array1DResizeCommand extends Array1DCommand {
+  constructor(receiver, newLength) {
+    super(receiver);
 
     if (newLength < 1)
       throw `Invalid array length: ${newLength}`;
@@ -505,4 +515,89 @@ class Array1DResizeCommand {
   }
 }
 
+class Array1DSwapCommand extends Array1DCommand {
+  constructor(receiver, index1, index2) {
+    super(receiver);
 
+    this.checkIndices(index1, index2);
+
+    this.i1 = index1;
+    this.i2 = index2;
+  }
+
+  execute() {
+    var t = this.receiver.array[this.i1];
+    this.receiver.array[this.i1] = this.receiver.array[this.i2];
+    this.receiver.array[this.i2] = t;
+  }
+
+  undo() {
+    this.execute();
+  }
+}
+
+class Array1DArrowCommand extends Array1DCommand {
+  constructor(receiver, index1, index2) {
+    super(receiver);
+
+    this.checkIndices(index1, index2);
+
+    this.i1 = index1;
+    this.i2 = index2;
+
+    this.arrow = null;
+  }
+
+  /** Array1DArrowCommand.execute
+   *    add an arc from i1 to i2 unless one already exists
+   */
+  execute() {
+    if (this.receiver.arrows[[this.i1, this.i2]]) {
+      this.undo();
+      return;
+    }
+
+    if (this.arrow == null) {
+      var cs = this.receiver.cellSize;
+      var x1 = (this.i1 * cs) + this.receiver.x1;
+      var x2 = (this.i2 * cs) + this.receiver.x1;
+      
+      // anchor to center of cells
+      x1 += Math.floor(cs / 2);
+      x2 += Math.floor(cs / 2);
+    
+      var y = this.receiver.y1;
+      
+      this.arrow = 
+        new CurvedArrow(this.receiver.cState, x1, y, x2, y);
+
+      // lock arrow to parent
+      this.arrow.locked = this.receiver;
+
+      // set control points so arc goes above by default
+      var mid = Math.floor((x1 + x2) / 2);
+      this.arrow.cp1.x = Math.floor((x1 + mid) / 2);
+      this.arrow.cp2.x = Math.floor((mid + x2) / 2);
+      this.arrow.cp1.y = y - cs;
+      this.arrow.cp2.y = y - cs;
+    } 
+
+    // add arrow to array mapping
+    this.receiver.arrows[[this.i1, this.i2]] = this.arrow;
+  }
+
+  /** Array1DArrowCommand.undo
+   *    remove arrow if it exists otherwise recreate it
+   */
+  undo() {
+    // arrow exists
+    if (this.receiver.arrows[[this.i1, this.i2]])  {
+      var toDelete = this.receiver.arrows[[this.i1, this.i2]];
+      delete this.receiver.arrows[[this.i1, this.i2]];
+      toDelete.destroy();
+    }
+    // arrow doesn't exist
+    else
+      this.execute();
+  }
+}
