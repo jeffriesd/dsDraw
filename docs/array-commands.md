@@ -1,5 +1,4 @@
-# Array1D Commands
-
+# Array1D
 ## Configuration
 
 Settings for arrays:  
@@ -18,3 +17,20 @@ Settings for array cells:
 * fg: set foreground (text) color (HTML color)
 * ind: show/hide indices (on/off)
 
+
+## Commands
+
+### resize(int newLength):
+###### Precondition:  Input is checked and an exception is thrown if newLength < 1.
+Change array length to newLength. If newLength is smaller than current length, the array is truncated.
+Otherwise it is filled to newLength with random values.
+
+### swap(int i, int j):
+###### Precondition: Input is checked and exception is thrown if either i or j is < 0 or >= array length.
+Swap cells at indices i and j. 
+Cell objects themselves are swapped, not just values, so colors and other cell-specific settings are retained.
+
+### arc(int i, int j):
+###### Precondition: Input is checked and exception is thrown if either i or j is < 0 or >= array length.
+Draws an arc from cell i to cell j anchored at the top middle edge of each of these cells. The arc can be 
+removed by clicking on it and clicking the delete button or by executing the same command again.
