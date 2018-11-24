@@ -190,21 +190,22 @@ Config commands are used to change the settings of an object or its children. Th
 [objectLabel] [attributeName] [attributeValue]
 ```
 
-Only some attributes are configurable. They must be present in the PropNames Map for the provided object.
-For instance, here is the Map for the ArrayNode (array cell) class:
+Only some attributes are configurable. They must be present in the PropNames mapping for the provided object.
+For instance, here is the mapping for the ArrayNode (array cell) class:
 ```
-const ArrayNodePropNames = new Map([
-      ["bg", "fill"],
-      ["background", "fill"],
-      ["fill", "fill"],
-      ["=", "value"],
-      ["value", "showValues"],
-      ["val", "showValues"],
-      ["border", "borderThickness"],
-      ["fg", "textColor"],
-      ["fg", "textColor"],
-      ["ind", "showIndices"]
-]);
+const ArrayNodePropNames = {
+  "bg": "fill",
+  "background": "fill",
+  "fill": "fill",
+  "=": "value",
+  "value": "showValues",
+  "val": "showValues",
+  "border": "borderThickness",
+  "fg": "textColor",
+  "fg": "textColor",
+  "ind": "showIndices",
+};
+
 ```
 Note that this is not a one-to-one mapping: some attributes have multiple keys that reference them. A user
 could type 
