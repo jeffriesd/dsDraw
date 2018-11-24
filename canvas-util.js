@@ -197,8 +197,6 @@ class CanvasState {
       this.labeled.delete(removeObj.label);
 
     removeObj.deactivate();
-    if (removeObj.getOptions)
-      removeObj.getOptions().hide();
   }
 
   /**  set start state for DrawCommand
@@ -218,8 +216,8 @@ class CanvasState {
     var drawCommand = this.createDrawCommand();
     if (drawCommand)
       this.undoStack.push(drawCommand);
-    else
-      console.log("Error: Cannot create draw command.");
+    // else
+    //   console.log("Error: Cannot create draw command.");
 
     // clear redo stack
     this.redoStack = [];
@@ -354,14 +352,13 @@ class CanvasState {
     deleteButton.onclick = () => {
       var active = this.activeParent();
       
-      // create command for undoing
-      var destroyCmd = new ClickDestroyCommand(this, active);
-      this.undoStack.push(destroyCmd);
-
       // remove from canvas, hide options, and set activeObj to null
       if (active) {
+        // create command for undoing
+        var destroyCmd = new ClickDestroyCommand(this, active);
+        this.undoStack.push(destroyCmd);
         destroyCmd.execute();
-        active.getOptions().hide();
+
         this.activeObj = null;
       }
     }
@@ -454,15 +451,14 @@ class CanvasEventHandler {
     else {
       // end editing for textboxes or other updates
       if (this.cState.activeObj) {
-        this.cState.activeObj.deactivate();
-        if (this.cState.activeObj.getOptions)
-          this.cState.activeObj.getOptions().hide();
+        this.cState.activeParent().deactivate();
       }
-
+      // hide generic options
+      ToolOptions.getInstance(this.cState).hide();
+  
       this.cState.clickedBare = true;
       this.cState.activeObj = null;
       this.cState.selectGroup.clear();
-      console.log("clearing select group");
     }
   }
 
