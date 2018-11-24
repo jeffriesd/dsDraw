@@ -271,6 +271,7 @@ class FlowchartBox extends CanvasObject {
    *    hide editor and format text
    */
   deactivate() {
+    super.deactivate();
     this.editor.hidden = true;
     this.textEntered();
   }
@@ -697,11 +698,15 @@ class Arrow extends CanvasObject {
     this.thickness = 2;
     this.strokeColor = "#000";
     this.dashed = false;
+
     // default dash pattern
     this.lineDash = [10, 10];
 
     // default hit thickness
     this.hitThickness = 8;
+
+    // arrow may be 'locked' into place by parent
+    this.locked = false;
   }
 
   config() {
@@ -721,6 +726,20 @@ class Arrow extends CanvasObject {
     return copy;
   }
 
+  destroy() {
+    super.destroy();
+    // remove from parent anchor if exists
+    if (this.locked) {
+      for (var idx in this.locked.arrows) {
+        if (this.locked.arrows[idx] === this) {
+          delete this.locked.arrows[idx];
+          break;
+        }
+      }
+    }
+
+  }
+
   getToolbar() {
     return FlowchartToolbar.getInstance(this.cState);
   }
@@ -731,6 +750,16 @@ class Arrow extends CanvasObject {
 
   getStartCoordinates() {
     return {x: this.x1, y: this.y1};
+  }
+
+  /** Arrow.move
+   *    translate entire arrow by deltaX, deltaY
+   */
+  move(deltaX, deltaY) {
+    this.x1 += deltaX;
+    this.x2 += deltaX;
+    this.y1 += deltaY;
+    this.y2 += deltaY;
   }
 
 }
@@ -810,8 +839,6 @@ class CurvedArrow extends Arrow {
     if (this.dashed)
       this.ctx.setLineDash([]);      
 
-    this.head.draw(active);
-
     hitCtx.beginPath();
     hitCtx.moveTo(this.x1, this.y1);
     hitCtx.bezierCurveTo(
@@ -824,6 +851,9 @@ class CurvedArrow extends Arrow {
       this.cp1.draw();
       this.cp2.draw(); 
     }
+
+    // draw head so it appears on top
+    this.head.draw(active);
   }
 
   static outline(cState) {
@@ -856,18 +886,20 @@ class CurvedArrow extends Arrow {
   }
 
 
-  /** Arrow.move
+  /** CurvedArrow.move
    *    translate entire arrow by deltaX, deltaY
+   *
+   *    if arrow is locked to parent (e.g. array)
+   *    don't allow user to move arrow directly
    */
-  move(deltaX, deltaY) {
-    this.x1 += deltaX;
-    this.cp1.x += deltaX;
-    this.cp2.x += deltaX;
-    this.x2 += deltaX;
-    this.y1 += deltaY;
-    this.cp1.y += deltaY;
-    this.cp2.y += deltaY;
-    this.y2 += deltaY;
+  move(deltaX, deltaY, fromParent=false) {
+    if (! this.locked || fromParent) {
+      super.move(deltaX, deltaY);
+      this.cp1.x += deltaX;
+      this.cp2.x += deltaX;
+      this.cp1.y += deltaY;
+      this.cp2.y += deltaY;
+    }
   }
 }
 
@@ -1051,8 +1083,8 @@ class ArrowHead extends CanvasChildObject {
     this.hollow = true;
     this.fill = "#fff";
 
-    this.width = 20;
-    this.height = 20;
+    this.width = 10;
+    this.height = 10;
   }
 
   /** ArrowHead.config
@@ -1067,14 +1099,6 @@ class ArrowHead extends CanvasChildObject {
 
   getParent() {
     return this.arrow.getParent();
-  }
-
-  getToolbar() {
-    return FlowchartToolbar.getInstance(this.cState);
-  }
-
-  getOptions() {
-    return ArrowOptions.getInstance(this.cState);
   }
 
   getStartCoordinates() {
@@ -1101,35 +1125,49 @@ class ArrowHead extends CanvasChildObject {
     this.ctx.rotate(this.arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
-    this.ctx.moveTo(0, -hw);
+    // this.ctx.moveTo(0, -hw);
+    // if (this.hollow) {
+    //   this.ctx.lineTo(this.height, 0);
+    //   this.ctx.lineTo(0, hw);
+    //   this.ctx.moveTo(this.height, 0);
+    //   this.ctx.lineTo(0, -hw);
+    //   this.ctx.moveTo(this.height, 0);
+    //   this.ctx.lineTo(0, 0);
+    // }
+    // else {
+    //   this.ctx.lineTo(this.height, 0);
+    //   this.ctx.lineTo(0, hw);
+    //   this.ctx.lineTo(0, -hw);
+    //   this.ctx.fill();
+    // }
+    
     if (this.hollow) {
-      this.ctx.lineTo(this.height, 0);
-      this.ctx.lineTo(0, hw);
-      this.ctx.moveTo(this.height, 0);
-      this.ctx.lineTo(0, -hw);
-      this.ctx.moveTo(this.height, 0);
-      this.ctx.lineTo(0, 0);
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(-this.height, -hw);
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(-this.height, hw);
     }
     else {
-      this.ctx.lineTo(this.height, 0);
-      this.ctx.lineTo(0, hw);
-      this.ctx.lineTo(0, -hw);
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(-this.height, -hw);
+      this.ctx.lineTo(-this.height, hw);
+      this.ctx.lineTo(0, 0);
       this.ctx.fill();
     }
+    
     this.ctx.stroke();
     this.ctx.restore();
-
 
     this.hitCtx.save();
     this.hitCtx.beginPath();
     this.hitCtx.translate(this.arrow.x2, this.arrow.y2);
     this.hitCtx.rotate(this.arrow.endingAngle());
 
-    var hw = Math.floor(this.width / 2);
-    this.hitCtx.moveTo(0, -hw);
-    this.hitCtx.lineTo(this.height, 0);
-    this.hitCtx.lineTo(0, hw);
-    this.hitCtx.lineTo(0, -hw);
+    // draw twice as big as actual arrow head
+    this.hitCtx.moveTo(0, 0);
+    this.hitCtx.lineTo(-2 * this.height, -this.width);
+    this.hitCtx.lineTo(-2 * this.height, this.width);
+
     this.hitCtx.fill();
     this.hitCtx.restore();
   }
@@ -1143,7 +1181,7 @@ class ArrowHead extends CanvasChildObject {
    *    shift arrow end point by deltaX, deltaY
    *    and add a new anglePoint if RightAngleArrow 
    */
-  drag(deltaX, deltaY) {
+  drag(deltaX, deltaY, fromParent=false) {
     if (this.arrow instanceof RightAngleArrow) {
       var ori = this.arrow.endingOrientation();
       
@@ -1208,9 +1246,11 @@ class ArrowHead extends CanvasChildObject {
       // }
     }
     else if (this.arrow instanceof CurvedArrow) {
-      // just move end point to new location
-      this.arrow.x2 += deltaX;
-      this.arrow.y2 += deltaY;
+      if (! this.arrow.locked || fromParent) {
+        // just move end point to new location
+        this.arrow.x2 += deltaX;
+        this.arrow.y2 += deltaY;
+      }
     }
   }
 
