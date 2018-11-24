@@ -5,6 +5,8 @@ mainCommands = {
 
 objectCommands = {
   "Array1Dresize": Array1DResizeCommand,
+  "Array1Dswap": Array1DSwapCommand,
+  "Array1Darc": Array1DArrowCommand,
 }
 
 
