@@ -1,8 +1,11 @@
 /** Array1D
  *    configurable options:
- *      - width 
  *      - number of cells
  *      - cell size
+ *      - fonts
+ *      - display style
+ *      - hide/show label
+ *      - index placement (above/below)
  *    all other options such as color, value, 
  *    border highlighting are bound to 
  *    individual cells
