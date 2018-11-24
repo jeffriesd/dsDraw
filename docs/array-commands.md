@@ -25,12 +25,26 @@ Settings for array cells:
 Change array length to newLength. If newLength is smaller than current length, the array is truncated.
 Otherwise it is filled to newLength with random values.
 
+e.g.
+```
+myarr123.resize 5
+```
+
 ### swap(int i, int j):
 ###### Precondition: Input is checked and exception is thrown if either i or j is < 0 or >= array length.
 Swap cells at indices i and j. 
 Cell objects themselves are swapped, not just values, so colors and other cell-specific settings are retained.
 
+e.g.
+```
+myarr123.swap 2 5
+```
 ### arc(int i, int j):
 ###### Precondition: Input is checked and exception is thrown if either i or j is < 0 or >= array length.
 Draws an arc from cell i to cell j anchored at the top middle edge of each of these cells. The arc can be 
 removed by clicking on it and clicking the delete button or by executing the same command again.
+
+e.g.
+```
+myarr123.arc 0 4
+```
