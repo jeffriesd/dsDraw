@@ -1,6 +1,7 @@
 mainCommands = {
   "create": ConsoleCreateCommand,
   "delete": ConsoleDestroyCommand,
+  "save": ExportToImageCommand,
 };
 
 objectCommands = {
