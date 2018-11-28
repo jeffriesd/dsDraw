@@ -4,8 +4,6 @@ body {
 
 #myCanvas {
   border: 1px solid #000;
-  background: rgba(0, 50, 50);
-  /* background: rgba(200, 200, 200, 1); */
   /* margin: 10px; */
 }
 

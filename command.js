@@ -489,6 +489,14 @@ class Array1DCommand {
   }
 }
 
+/** Array1DResizeCommand
+ *    resize array to new length. Length must be > 0.
+ *    Previous array is saved for undo method.
+ *    If array is lengthened, random values are inserted.
+ *
+ *    When array is truncated, check to see if any arcs should 
+ *    also be destroyed.
+ */
 class Array1DResizeCommand extends Array1DCommand {
   constructor(receiver, newLength) {
     super(receiver);
@@ -500,6 +508,8 @@ class Array1DResizeCommand extends Array1DCommand {
 
     // save old array for undo
     this.prevArray = this.receiver.array.slice();
+
+    this.prevArrows = {};
   }
 
   execute() {
@@ -507,11 +517,27 @@ class Array1DResizeCommand extends Array1DCommand {
     for (var i = startLength; i <= this.newLength; i++)
       this.receiver.append("random");
 
-    this.receiver.array = this.receiver.array.slice(0, this.newLength); 
+    if (this.newLength < startLength) {
+      this.receiver.array = this.receiver.array.slice(0, this.newLength); 
+       
+      for (var aidx in this.receiver.arrows) {
+        var arrow = this.receiver.arrows[aidx];
+        var start = parseInt(aidx.split(",")[0]);
+        var end = parseInt(aidx.split(",")[1]);
+        if (start >= this.newLength || end >= this.newLength) {
+          this.prevArrows[aidx] = arrow;
+          delete this.receiver.arrows[aidx];
+          arrow.destroy();
+        }
+      }
+    }
   }
 
   undo() {
     this.receiver.array = this.prevArray;
+
+    // add back any removed arrows
+    Object.assign(this.receiver.arrows, this.prevArrows);
   }
 }
 

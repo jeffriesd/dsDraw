@@ -146,6 +146,12 @@ class CommandConsole {
 
   bindKeys() {
     this.commandLine.onkeydown = (event) => {
+      // allow user to CTRL-Z from console
+      if (event.keyCode == Z && this.cState.hotkeys[CTRL]) {
+        event.preventDefault(); // dont undo typing
+        this.cState.undo();
+      }
+
       if (event.keyCode == ENTER) {
         this.commandEntered();
         this.commandLine.value = ""; 
