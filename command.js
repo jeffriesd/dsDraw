@@ -601,3 +601,24 @@ class Array1DArrowCommand extends Array1DCommand {
       this.execute();
   }
 }
+
+/** Util commands
+ *  e.g. save
+ */
+
+class ExportToImageCommand {
+  constructor(cState) {
+    this.cState = cState;
+  }
+
+  execute() {
+    var link = document.getElementById("downloadLink");
+    link.setAttribute("download", "image.jpg");
+    link.setAttribute("href", this.cState.canvas.toDataURL());
+    link.click();
+  }
+
+  undo() {
+    
+  }
+}
