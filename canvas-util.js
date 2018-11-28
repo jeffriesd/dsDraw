@@ -294,7 +294,8 @@ class CanvasState {
   }
 
   repaint() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = this.canvas.style.backgroundColor;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.hitCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // draw box for creating text/array/etc 
