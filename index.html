@@ -73,8 +73,12 @@
     <textarea id="commandHistory" readonly disabled></textarea>
   </div>
 
-  <!--Canvases and jsDraw scripts-->
-  <canvas id="myCanvas" height=600 width=800> </canvas>
+  <!-- a element for saving blobs -->
+  <a hidden id="downloadLink"></a>
+
+  <!--Canvases and dsDraw scripts-->
+  <canvas id="myCanvas" height=600 width=800
+    style="background-color:rgba(210, 255, 255);"> </canvas>
   <canvas hidden id="hitCanvas" height=600 width=800> </canvas>
   <script src="constants.js"></script>
   <script src="canvas-object.js"></script>
