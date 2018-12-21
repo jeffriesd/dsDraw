@@ -14,7 +14,7 @@ class FlowchartBox extends CanvasObject {
     this.border =  "#000";
     this.fontStyle = null;
     this.fontFamily = "Purisa";
-    this.fontSize = "12px";
+    this.fontSize = 12;
 
     this.horizontalAlign = "left";
     this.verticalAlign = "top";
@@ -31,6 +31,29 @@ class FlowchartBox extends CanvasObject {
 
     // add clickable point for resizing
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
+  }
+
+  propNames() {
+    return {
+        "ff": "fontFamily",
+        "fontFamily": "fontFamily",
+        "font": "fontSize",
+        "fontSize": "fontSize",
+        "fs": "fontSize",
+        "label": "label",
+    };
+  }
+
+  static defaultCoordinates(cState) {
+    var center = cState.getCenter();
+    var w = 200;
+    var h = 200;
+    return {
+      x1: center.x,
+      y1: center.y,
+      x2: center.x + w,
+      y2: center.y + h,
+    };
   }
 
   /** FlowchartBox.config
@@ -119,7 +142,7 @@ class FlowchartBox extends CanvasObject {
     if (this.fontStyle)
       font += this.fontStyle + " ";
 
-    font += this.fontSize + " ";
+    font += this.fontSize + "px ";
     font += this.fontFamily;
 
     this.ctx.font = font;

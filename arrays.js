@@ -39,6 +39,22 @@ class Array1D extends CanvasObject {
     this.initCells();
   }
 
+  propNames() {
+    return {
+        "ff": "fontFamily",
+        "fontFamily": "fontFamily",
+        "font": "fontSize",
+        "fontSize": "fontSize",
+        "fs": "fontSize",
+        "label": "label",
+        "display": "displayStyle",
+        "ds": "displayStyle",
+        "cellSize": "cellSize",
+        "cs": "cellSize",
+        "ind": "indexPlacement",
+    };
+  }
+
   /** Array1D.config
    */
   config() {
@@ -270,6 +286,21 @@ class ArrayNode extends CanvasChildObject {
 
   getStartCoordinates() {
     return {x: this.x, y: this.y};
+  }
+
+  propNames() {
+    return {
+        "bg": "fill",
+        "background": "fill",
+        "fill": "fill",
+        "=": "value",
+        "value": "showValues",
+        "val": "showValues",
+        "border": "borderThickness",
+        "fg": "textColor",
+        "fg": "textColor",
+        "ind": "showIndices",
+    };
   }
 
   config() {
