@@ -286,12 +286,14 @@ class ConsoleDestroyCommand {
 const classNames = {
   "array": Array1D,
   "array1d": Array1D, 
+  "rectbox": RectBox,
+  "rbox": RectBox,
 }
 
 class ConsoleCreateCommand {
   constructor(canvasState, objType, label="") {
     this.cState = canvasState;
-    console.log("in ConsoleCreateCOmmand, objType =", objType);
+    console.log("in ConsoleCreateCommand, objType =", objType);
     this.objType = objType.toLowerCase();
     this.objClass = classNames[this.objType];
     
@@ -317,6 +319,8 @@ class ConsoleCreateCommand {
         new this.objClass(this.cState, this.coords.x1, this.coords.y1,
                             this.coords.x2, this.coords.y2);  
     }
+
+    console.log("created obj:", this.obj);
    
     this.obj.label = this.label;
     
@@ -330,38 +334,6 @@ class ConsoleCreateCommand {
     }
   }
 }
-
-const ArrayNodePropNames = {
-  "bg": "fill",
-  "background": "fill",
-  "fill": "fill",
-  "=": "value",
-  "value": "showValues",
-  "val": "showValues",
-  "border": "borderThickness",
-  "fg": "textColor",
-  "fg": "textColor",
-  "ind": "showIndices",
-};
-
-const Array1DPropNames = {
-  "ff": "fontFamily",
-  "fontFamily": "fontFamily",
-  "font": "fontSize",
-  "fontSize": "fontSize",
-  "fs": "fontSize",
-  "label": "label",
-  "display": "displayStyle",
-  "ds": "displayStyle",
-  "cellSize": "cellSize",
-  "cs": "cellSize",
-  "ind": "indexPlacement",
-};
-
-const propNames = {
-  "ArrayNode": ArrayNodePropNames,
-  "Array1D": Array1DPropNames,
-};
 
 /**   convert user-entered text to actual value
  *    e.g. on = true, off = false
@@ -381,9 +353,8 @@ class ConfigCommand {
   constructor(receiver, property, value) {
     this.receiver = receiver;
 
-    this.propNames = propNames[receiver.constructor.name];
-
-    this.property = this.propNames[property];
+    var propNames = this.receiver.propNames();
+    this.property = propNames[property];
 
     if (this.property == null)
       throw `${receiver.constructor.name} has no property '${property}'.`;
