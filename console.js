@@ -169,14 +169,20 @@ class CommandConsole {
 
   cycleCommands(direction) {
     var newIdx = this.cycleIndex + direction;
-    console.log("ni = ", newIdx);
     this.cycleIndex = newIdx <= this.historyStack.length &&
                     newIdx >= 0 ? newIdx : this.cycleIndex;
+    console.log("cycle idx = ", this.cycleIndex);
 
     var fromEnd = this.historyStack.length - this.cycleIndex;
     
-    if (this.cycleIndex > 0)
-      this.commandLine.value = this.historyStack[fromEnd];
+    if (this.cycleIndex > 0) {
+      var cycledCmd = this.historyStack[fromEnd];
+      // skip over errors
+      if (cycledCmd.startsWith("[ERROR]"))
+        this.cycleCommands(direction);
+      else
+        this.commandLine.value = cycledCmd;
+    }
     else
       this.commandLine.value = "";
   }
@@ -196,13 +202,15 @@ class CommandConsole {
     console.log("command was", line);
 
     var cmdObj;
+    var parseFunc;
+    var rawCommand;
 
     // multiline command has ended
     if (line.includes("}")) {
       this.multiLine = false;
-      console.log("new multiline command:", this.multiCommand);
 
-      cmdObj = this.parser.parseMultiLine(this.multiCommand);
+      parseFunc = this.parser.parseMultiLine.bind(this.parser);
+      rawCommand = this.multiCommand;
     }
     // multiline command starting
     else if (line.includes("{")) {
@@ -221,18 +229,35 @@ class CommandConsole {
         // indent in console
         line = "  " + line;
       }
-      else 
-        cmdObj = this.parser.parseLine(line); // one line command
+      else {
+        parseFunc = this.parser.parseLine.bind(this.parser);
+        rawCommand = line;
+      }
+    }
+
+    // try to parse line
+    if (parseFunc && rawCommand) {
+      try {
+        cmdObj = parseFunc(rawCommand);
+      }
+      catch (error) {
+        line = "[ERROR]: " + error.toString();
+      }
     }
 
     // if command obj instantiated
     if (cmdObj) {
-      cmdObj.execute();
-      this.cState.undoStack.push(cmdObj);
+      try {
+        cmdObj.execute();
+        this.cState.undoStack.push(cmdObj);
+      }
+      catch (error) {
+        line = "[ERROR]: " + error.toString();
+      }
     }
 
     // add to command history 
-    if (line.trim()) 
+    if (line && line.trim()) 
       this.historyStack.push(line);
 
     // redraw command history
