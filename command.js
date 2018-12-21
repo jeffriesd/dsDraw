@@ -300,12 +300,14 @@ class ConsoleCreateCommand {
  
     this.coords = this.objClass.defaultCoordinates(this.cState);
 
-    console.log("objType = ", objType);
-
     this.label = label;
   }
 
   execute() {
+    // if label already exists, reject command
+    if (this.cState.labeled.get(this.label)) 
+      throw `Object with label '${this.label}' already exists.`;
+
     // been done before (undo has happened)
     if (this.obj) {
       this.cState.addCanvasObj(this.obj);
