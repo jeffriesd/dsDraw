@@ -297,6 +297,7 @@ class CanvasState {
   }
 
   repaint() {
+    // fill background (erase previous contents)
     this.ctx.fillStyle = this.canvas.style.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.hitCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -316,7 +317,11 @@ class CanvasState {
         toolClass = canvasToolClasses[this.drawMode];
 
       if (toolClass)  {
-        toolClass.outline(this);
+        var x1 = this.mouseDown.x;
+        var y1 = this.mouseDown.y;
+        var x2 = this.mouseMove.x;
+        var y2 = this.mouseMove.y;
+        toolClass.outline(this, x1, y1, x2, y2);
       }
     }
 
@@ -326,8 +331,20 @@ class CanvasState {
         (this.activeParent() === obj && !this.selectGroup.size)
         || this.selectGroup.has(obj);
 
+      if (active)
+        obj.drawLabel();
+
       obj.draw(active);
     });
+
+    // dispatch mouseMove event even when mouse is stationary 
+    // for hover actions
+    if (this.mouseMove) {
+      var mouseMove = new Event("mousemove");
+      mouseMove.offsetX = this.mouseMove.x;
+      mouseMove.offsetY = this.mouseMove.y;
+      this.canvas.dispatchEvent(mouseMove);
+    }
   }
 
   initButtons() {
