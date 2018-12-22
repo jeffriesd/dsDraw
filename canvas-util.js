@@ -325,7 +325,6 @@ class CanvasState {
 
         obj.draw(active);
     });
-
   }
 
   initButtons() {
@@ -351,12 +350,12 @@ class CanvasState {
     // delete button
     var deleteButton = document.getElementById("deleteButton");
     deleteButton.onclick = () => {
-      var active = this.activeParent();
+      var activeP = this.activeParent();
       
       // remove from canvas, hide options, and set activeObj to null
-      if (active) {
+      if (activeP) {
         // create command for undoing
-        var destroyCmd = new ClickDestroyCommand(this, active);
+        var destroyCmd = new ClickDestroyCommand(this, activeP);
         this.undoStack.push(destroyCmd);
         destroyCmd.execute();
 
