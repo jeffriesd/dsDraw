@@ -191,7 +191,7 @@ class Array1D extends CanvasObject {
   /** Array1D.draw
    */
   draw(active) {
-    this.configureOptions();
+    super.draw(active);
 
     var idx = 0;
     this.array.forEach((arrNode) => {
@@ -201,19 +201,8 @@ class Array1D extends CanvasObject {
 
     for (var index in this.arrows)
       this.arrows[index].draw();
-
-    if (active) {
-      this.ctx.beginPath();
-      // draw label
-      this.ctx.font = "bold 12px Monospace";
-      this.ctx.fillStyle = "#000";
-      this.ctx.fillText(this.label, 
-              this.x1 - this.cellSize, this.y1 - Math.floor(this.cellSize/ 2));
-      this.ctx.stroke();
-    }
-
   }
- 
+
   /** Array1D.move
    *    update x, y for all cells in array
    */  

@@ -60,7 +60,7 @@ function newColor(uniqueColors) {
 class CanvasState {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
+    // this.ctx = canvas.getContext("2d");
 
     // event handling and event state
     this.eventHandler = new CanvasEventHandler(this);
@@ -105,6 +105,9 @@ class CanvasState {
     this.initButtons();
   }
 
+  get ctx() {
+    return this.canvas.getContext("2d");
+  }
 
   /** CanvasState.setMode
    *    sets drawMode and updates label on toolbar
@@ -318,12 +321,12 @@ class CanvasState {
     }
 
     this.objects.forEach((obj) => {
-        // add some highlighting to show active object/group
-        var active = 
-          (this.activeParent() === obj && !this.selectGroup.size)
-          || this.selectGroup.has(obj);
+      // add some highlighting to show active object/group
+      var active = 
+        (this.activeParent() === obj && !this.selectGroup.size)
+        || this.selectGroup.has(obj);
 
-        obj.draw(active);
+      obj.draw(active);
     });
   }
 

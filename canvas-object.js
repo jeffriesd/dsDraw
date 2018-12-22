@@ -127,6 +127,33 @@ class CanvasObject {
     console.log("drag not implemented for", this.constructor.name);
   }
 
+  draw(active=false) {
+    if (active) {
+      this.drawLabel(); 
+      this.ctx.strokeStyle = this.cState.activeBorder;
+    }
+  }
+
+  drawLabel() {
+    // save fillStyle and font 
+    var fs = this.ctx.fillStyle;
+    var font = this.ctx.font;
+
+    this.ctx.beginPath();
+    this.ctx.font = "bold 12px Monospace";
+    this.ctx.fillStyle = "black";
+    var lw = this.ctx.measureText(this.label).width;
+    var lh = this.ctx.measureText("_").width * 2;
+
+    this.ctx.fillText(this.label, 
+        this.x1 - (lw + 10), this.y1 - (lh + 10));
+    this.ctx.stroke();
+
+    // reset fillStyle and font
+    this.ctx.fillStyle = fs;
+    this.ctx.font = font;
+  }
+
   /** CanvasObject.mouseDown
    *    Called when click begins.
    *    Move this object to end of cState objects array
