@@ -21,6 +21,8 @@ class FlowchartBox extends CanvasObject {
     this.textX = this.x1;
     this.textY = this.y1;
 
+    this.showBorder = false;
+
     // attribute to allow for slight space between edge
     // of text box and text itself
     this.textMargin = 8;
@@ -43,6 +45,10 @@ class FlowchartBox extends CanvasObject {
         "label": "label",
         "va": "verticalAlign",
         "ha": "horizontalAlign",
+        "bg": "fill",
+        "fill": "fill",
+        "border": "border",
+        "bc": "border",
     };
   }
 
@@ -70,6 +76,9 @@ class FlowchartBox extends CanvasObject {
       fontSize: this.fontSize,
       horizontalAlign: this.horizontalAlign,
       verticalAlign: this.verticalAlign,
+      fill: this.fill,
+      border: this.border,
+      label: this.label + "_copy",
     };
   }
 
@@ -135,8 +144,10 @@ class FlowchartBox extends CanvasObject {
     this.editor.style.left = this.x1 + "px";
   }
 
-  configureOptions() {
-    this.ctx.strokeStyle = this.border;
+  /** FlowchartBox.configureOptions
+   */
+  configureOptions(active=false) {
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
     this.ctx.lineWidth = this.borderThickness;
     this.ctx.fillStyle = this.fill;
     
@@ -275,6 +286,40 @@ class FlowchartBox extends CanvasObject {
     this.textEntered();
   }
 
+  /** FlowchartBox.hover
+   *    show border of text box when hovering
+   *    even if border is transparent
+   */
+  hover() {
+    super.hover();
+    this.showBorder = true;
+  }
+
+  /** FlowchartBox.draw
+   *    only here to show border
+   */
+  draw(active=false) {
+    // check for transparency
+    if (!active && this.showBorder && this.border.startsWith("#")) {
+      // border color is #xxx0 or #xxxxxx00
+      var len = this.border.length;
+      var alpha;
+      if (len < 7) {
+        if (len > 4)
+          alpha = parseInt(this.border.substring(4));
+      }
+      else
+        alpha = parseInt(this.border.substring(7));
+    
+      if (alpha == 0) {
+        this.constructor.outline(this.cState,
+            this.x1, this.y1, this.x2, this.y2);
+      }
+    }
+
+    this.showBorder = false;
+  }
+
   /** FlowchartBox.textEntered
    *    performs word wrap 
    */
@@ -321,12 +366,11 @@ class RectBox extends FlowchartBox {
     this.borderThickness = 2;
   }
 
-  static outline(cState) {
+  static outline(cState, x1, y1, x2, y2) {
     cState.ctx.strokeStyle = "#000";
-    var w = cState.mouseMove.x - cState.mouseDown.x;
-    var h = cState.mouseMove.y - cState.mouseDown.y;
-    cState.ctx.rect(cState.mouseDown.x, cState.mouseDown.y, w, h);
-    cState.ctx.stroke();
+    cState.ctx.beginPath();
+    cState.ctx.rect(x1, y1, x2 - x1, y2 - y1);
+    cState.ctx.stroke();    
   }
 
   /** RectBox.draw
@@ -334,8 +378,8 @@ class RectBox extends FlowchartBox {
    *    and hitCanvas and draws wrapped words
    */
   draw(active=false) {
-    this.configureOptions();
     super.draw(active);
+    this.configureOptions(active);
 
     this.ctx.beginPath();
     this.ctx.rect(this.x1, this.y1, this.width, this.height);
@@ -354,7 +398,6 @@ class RectBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-
 }
 
 class RoundBox extends FlowchartBox {
@@ -370,16 +413,16 @@ class RoundBox extends FlowchartBox {
     this.borderThickness = 2;
   } 
 
-  configureOptions() {
-    super.configureOptions();
+  configureOptions(active=false) {
+    super.configureOptions(active);
     this.ctx.lineWidth = this.borderThickness;
   }
 
   /** RoundBox.draw
    */
   draw(active=false) {
-    this.configureOptions();
     super.draw(active);
+    this.configureOptions(active);
 
     // draw rounded box
     this.ctx.beginPath();
@@ -409,11 +452,8 @@ class RoundBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState) {
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;
-    var y2 = cState.mouseMove.y;
+  static outline(cState, x1, y1, x2, y2) {
+    cState.ctx.strokeStyle = "#000";
     var radius = 10;
 
     cState.ctx.beginPath();
@@ -429,7 +469,6 @@ class RoundBox extends FlowchartBox {
     cState.ctx.closePath();
 
     cState.ctx.stroke();
-    
   }
 
 }
@@ -448,8 +487,8 @@ class DiamondBox extends FlowchartBox {
   /** configureOptions  
    *    set style options for drawing and redefine edge points
    */
-  configureOptions() {
-    super.configureOptions();
+  configureOptions(active=false) {
+    super.configureOptions(active);
     this.ctx.lineWidth = this.borderThickness;
 
     var hw = Math.floor(this.width / 2);
@@ -469,8 +508,8 @@ class DiamondBox extends FlowchartBox {
    *    circumscribes box drawn by mouse
    */
   draw(active=false) {
-    this.configureOptions();
     super.draw(active);
+    this.configureOptions(active);
 
     this.ctx.beginPath();
 
@@ -502,16 +541,12 @@ class DiamondBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState) {
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;
-    var y2 = cState.mouseMove.y;
+  static outline(cState, x1, y1, x2, y2) {
+    cState.ctx.strokeStyle = "#000";
     var hw = Math.floor((x2 - x1)/ 2);
     var hh = Math.floor((y2 - y1)/ 2);
 
     cState.ctx.beginPath();
-    cState.ctx.strokeStyle = "#000";
     cState.ctx.moveTo(x1 - hw, y1 + hh);
     cState.ctx.lineTo(x1 + hw, y1 - hh);
     cState.ctx.lineTo(x2 + hw, y1 + hh);
@@ -534,8 +569,8 @@ class ParallelogramBox extends FlowchartBox {
     this.skewSlope = 3;
   } 
 
-  configureOptions() {
-    super.configureOptions();
+  configureOptions(active=false) {
+    super.configureOptions(active);
     this.ctx.lineWidth = this.borderThickness;
 
     this.bottomLeft = {
@@ -549,9 +584,11 @@ class ParallelogramBox extends FlowchartBox {
     };
   }
 
+  /** ParallelogramBox.draw
+   */
   draw(active=false) {
-    this.configureOptions();
     super.draw(active);
+    this.configureOptions(active);
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -578,11 +615,8 @@ class ParallelogramBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState) {
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;
-    var y2 = cState.mouseMove.y;
+  static outline(cState, x1, y1, x2, y2) {
+    cState.ctx.strokeStyle = "#000";
     var skewSlope = 3;
 
     var bottomLeft = {
@@ -627,8 +661,8 @@ class Connector extends FlowchartBox {
     this.editor.style.padding = "0px";
   }
 
-  configureOptions() {
-    super.configureOptions();
+  configureOptions(active=false) {
+    super.configureOptions(active);
     this.ctx.lineWidth = this.borderThickness;
 
     var dx = Math.pow(this.x2 - this.x1, 2);
@@ -645,8 +679,8 @@ class Connector extends FlowchartBox {
   /**  Connector.draw
    */
   draw(active=false) {
-    this.configureOptions();
     super.draw(active);
+    this.configureOptions(active);
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -670,11 +704,8 @@ class Connector extends FlowchartBox {
   }
 
 
-  static outline(cState) {
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;
-    var y2 = cState.mouseMove.y;
+  static outline(cState, x1, y1, x2, y2) {
+    cState.ctx.strokeStyle = "#000";
 
     var dx = Math.pow(x2 - x1, 2);
     var dy = Math.pow(y2 - y1, 2);
@@ -732,6 +763,7 @@ class Arrow extends CanvasObject {
     return {
       thickness: this.thickness,
       dashed: this.dashed,
+      label: this.label + "_copy",
     };
   }
 
@@ -824,9 +856,9 @@ class CurvedArrow extends Arrow {
     return copy;  
   }
 
-  configureOptions() {
+  configureOptions(active=false) {
     this.ctx.lineWidth = this.thickness;
-    this.ctx.strokeStyle = this.strokeColor;
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.strokeColor;
 
     if (this.dashed)
       this.ctx.setLineDash(this.lineDash);
@@ -839,8 +871,7 @@ class CurvedArrow extends Arrow {
   /** CurvedArrow.draw
    */
   draw(active=false) {
-    this.configureOptions();
-    super.draw(active);
+    this.configureOptions(active);
 
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
@@ -873,19 +904,12 @@ class CurvedArrow extends Arrow {
     this.head.draw(active);
   }
 
-  static outline(cState) {
-    var ctx = cState.ctx;
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;
-    var y2 = cState.mouseMove.y;
-
-
-    ctx.strokeStyle = "#000";
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+  static outline(cState, x1, y1, x2, y2) {
+    cState.ctx.strokeStyle = "#000";
+    cState.ctx.beginPath();
+    cState.ctx.moveTo(x1, y1);
+    cState.ctx.lineTo(x2, y2);
+    cState.ctx.stroke();
   }
 
   /** return ending angle using bezier math (t = 1)
@@ -1018,8 +1042,7 @@ class RightAngleArrow extends Arrow {
    *    arrow can be more easily clicked)
    */
   draw(active=false) {
-    this.configureOptions();
-    super.draw(active);
+    this.configureOptions(active);
 
     var curX = this.x1;
     var curY = this.y1;
@@ -1071,11 +1094,7 @@ class RightAngleArrow extends Arrow {
     this.y2 += deltaY;
   }
 
-  static outline(cState) {
-    var x1 = cState.mouseDown.x;
-    var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseMove.x;     
-
+  static outline(cState, x1, y1, x2, y2) {
     cState.ctx.strokeStyle = "#000";
     cState.ctx.beginPath();
     cState.ctx.moveTo(x1, y1);
@@ -1119,21 +1138,20 @@ class ArrowHead extends CanvasChildObject {
   getStartCoordinates() {
     return {x: this.arrow.x2, y: this.arrow.y2};
   }
-  
-  configureOptions() {
-    this.ctx.strokeStyle = this.arrow.strokeColor;
+ 
+  /** ArrowHead.configureOptions
+   */
+  configureOptions(active=false) {
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.arrow.strokeColor;
     this.ctx.fillStyle = this.fill;
     this.hitCtx.fillStyle = this.hashColor;
   }
 
   /** ArrowHead.draw
    */
-  draw(active) {
-    this.configureOptions();
+  draw(active=false) {
+    this.configureOptions(active);
   
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
-
     this.ctx.save();
     this.ctx.beginPath();
     this.ctx.translate(this.arrow.x2, this.arrow.y2);
@@ -1314,10 +1332,11 @@ class ResizePoint extends CanvasChildObject {
     this.parentBox.resize(deltaX, deltaY);
   }
 
-  /** hover
+  /** ResizePoint.hover
    *    change mouse pointer to resize shape
    */
   hover() {
+    this.parentBox.hover();
     document.body.style.cursor = "nwse-resize";     
   }
 }
