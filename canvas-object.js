@@ -127,13 +127,6 @@ class CanvasObject {
     console.log("drag not implemented for", this.constructor.name);
   }
 
-  draw(active=false) {
-    if (active) {
-      this.drawLabel(); 
-      this.ctx.strokeStyle = this.cState.activeBorder;
-    }
-  }
-
   drawLabel() {
     // save fillStyle and font 
     var fs = this.ctx.fillStyle;
@@ -174,7 +167,7 @@ class CanvasChildObject {
   constructor(canvasState) {
     this.cState = canvasState;
     this.ctx = canvasState.ctx;
-    this.hitCtx = this.cState.hitCtx;
+    this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
     this.cState.registerCanvasObj(this);
