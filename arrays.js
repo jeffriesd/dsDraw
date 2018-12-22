@@ -150,9 +150,9 @@ class Array1D extends CanvasObject {
    *    set border, border color,
    *    font, and set style (cell or tower)
    */
-  configureOptions() {
+  configureOptions(active) {
     this.ctx.lineWidth = this.borderThickness;
-    this.ctx.strokeStyle = this.border;
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
 
     var font = "";
     if (this.fontStyle)
@@ -191,7 +191,7 @@ class Array1D extends CanvasObject {
   /** Array1D.draw
    */
   draw(active) {
-    super.draw(active);
+    this.configureOptions(active);
 
     var idx = 0;
     this.array.forEach((arrNode) => {
@@ -221,11 +221,9 @@ class Array1D extends CanvasObject {
    *    method to show hollow box as user drags mouse 
    *    to create new array
    */
-  static outline(cState) {
+  static outline(cState, x1, y1, x2, y2) {
     cState.ctx.strokeStyle = "#000";
-    var w = cState.mouseMove.x - cState.mouseDown.x;
-    var h = cState.mouseMove.y - cState.mouseDown.y;
-    cState.ctx.rect(cState.mouseDown.x, cState.mouseDown.y, w, h);
+    cState.ctx.rect(x1, y1, x2 - x1, y2 - y1);
     cState.ctx.stroke();
   }
 }
@@ -303,8 +301,8 @@ class ArrayNode extends CanvasChildObject {
     };
   }
 
-  configureOptions() {
-    this.ctx.strokeStyle = "#000";
+  configureOptions(active) {
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : "#000";
     this.ctx.fillStyle = this.fill;
     this.ctx.lineWidth = this.borderThickness;
 
@@ -316,16 +314,13 @@ class ArrayNode extends CanvasChildObject {
   /** ArrayNode.draw
    */
   draw(active, idx) {
-    this.configureOptions();
+    this.configureOptions(active);
 
     // determine x coordinate
     this.x = (idx * this.cellSize) + this.parentArray.x1;
 
     // draw box
     this.ctx.beginPath();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
     
     if (this.parentArray.displayStyle == "tower") {
       var yStart = this.y + this.cellSize;
