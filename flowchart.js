@@ -41,6 +41,8 @@ class FlowchartBox extends CanvasObject {
         "fontSize": "fontSize",
         "fs": "fontSize",
         "label": "label",
+        "va": "verticalAlign",
+        "ha": "horizontalAlign",
     };
   }
 
@@ -152,12 +154,12 @@ class FlowchartBox extends CanvasObject {
     this.ctx.textAlign = this.horizontalAlign;
 
     // change x coordinate for diff alignments
-    if (this.horizontalAlign == "left")
-      this.textX = this.x1 + this.textMargin;
-    else if (this.horizontalAlign == "right")
+    if (this.horizontalAlign == "right")
       this.textX = this.x2 - this.textMargin;
     else if (this.horizontalAlign == "center")
       this.textX = Math.floor((this.x1 + this.x2) / 2);
+    else 
+      this.textX = this.x1 + this.textMargin; // left align is default
 
     // change y coordinates for diff vertical alignments
     if (this.verticalAlign == "top") {
@@ -166,7 +168,8 @@ class FlowchartBox extends CanvasObject {
       // hack for vertical alignment of editor
       this.editor.style.paddingTop = "0px";
     }
-    else if (this.verticalAlign == "center") {
+    else {
+      // center is default
       var ht = this.ctx.measureText("_").width * 2;
       var textHeight = (this.wrappedText.length + 1) * ht;
       var boxHeight = this.y2 - this.y1;
@@ -184,33 +187,6 @@ class FlowchartBox extends CanvasObject {
     this.hitCtx.strokeStyle = this.hashColor;
   }
   
-  /**FlowchartBox.draw
-   * renders rectangular box on main canvas
-   * and hitCanvas and draws wrapped words
-   */
-  draw(active=false) {
-    this.configureOptions();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
-
-    this.ctx.beginPath();
-    this.ctx.rect(this.x1, this.y1, this.width, this.height);
-    this.ctx.fillRect(this.x1, this.y1, this.width, this.height);
-    this.ctx.stroke();
-    
-    // helper method for text
-    if (this.editor.hidden)
-      this.drawText();
-
-    // draw to hit detection canvas
-    this.hitCtx.beginPath();
-    this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
-    this.hitCtx.stroke();
-
-    this.resizePoint.draw();
-  }
-
   drawText() {
     this.textEntered();
 
@@ -353,6 +329,32 @@ class RectBox extends FlowchartBox {
     cState.ctx.stroke();
   }
 
+  /** RectBox.draw
+   *    renders rectangular box on main canvas
+   *    and hitCanvas and draws wrapped words
+   */
+  draw(active=false) {
+    this.configureOptions();
+    super.draw(active);
+
+    this.ctx.beginPath();
+    this.ctx.rect(this.x1, this.y1, this.width, this.height);
+    this.ctx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.ctx.stroke();
+    
+    // helper method for text
+    if (this.editor.hidden)
+      this.drawText();
+
+    // draw to hit detection canvas
+    this.hitCtx.beginPath();
+    this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.hitCtx.stroke();
+
+    this.resizePoint.draw();
+  }
+
+
 }
 
 class RoundBox extends FlowchartBox {
@@ -377,9 +379,7 @@ class RoundBox extends FlowchartBox {
    */
   draw(active=false) {
     this.configureOptions();
-    
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     // draw rounded box
     this.ctx.beginPath();
@@ -470,9 +470,7 @@ class DiamondBox extends FlowchartBox {
    */
   draw(active=false) {
     this.configureOptions();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     this.ctx.beginPath();
 
@@ -553,9 +551,7 @@ class ParallelogramBox extends FlowchartBox {
 
   draw(active=false) {
     this.configureOptions();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -646,11 +642,11 @@ class Connector extends FlowchartBox {
     this.hitCtx.strokeStyle = this.hashColor;
   }
 
+  /**  Connector.draw
+   */
   draw(active=false) {
     this.configureOptions();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -844,9 +840,7 @@ class CurvedArrow extends Arrow {
    */
   draw(active=false) {
     this.configureOptions();
-    
-    if (active) 
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
@@ -1025,9 +1019,7 @@ class RightAngleArrow extends Arrow {
    */
   draw(active=false) {
     this.configureOptions();
-
-    if (active)
-      this.ctx.strokeStyle = this.cState.activeBorder;
+    super.draw(active);
 
     var curX = this.x1;
     var curY = this.y1;
@@ -1309,7 +1301,7 @@ class ResizePoint extends CanvasChildObject {
    */
   draw() {
     // only draw to hit detect canvas
-    this,hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.beginPath();
     this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
     this.hitCtx.fill();
