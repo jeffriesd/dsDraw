@@ -146,10 +146,15 @@ class CommandConsole {
 
   bindKeys() {
     this.commandLine.onkeydown = (event) => {
-      // allow user to CTRL-Z from console
-      if (event.keyCode == Z && this.cState.hotkeys[CTRL]) {
-        event.preventDefault(); // dont undo typing
-        this.cState.undo();
+      // allow user to CTRL-Z/CTRL-Y from console
+      if (this.cState.hotkeys[CTRL]) {
+        if (event.keyCode == Z) {
+          event.preventDefault(); // dont undo typing
+          this.cState.undo();
+        }
+        if (event.keyCode == Y) {
+          this.cState.redo();
+        }
       }
 
       if (event.keyCode == ENTER) {
@@ -167,6 +172,10 @@ class CommandConsole {
     }
   }
 
+  /** CommandConsole.cycleCommands
+   *    display previous commands in console
+   *    input, controlled by arrow keys
+   */
   cycleCommands(direction) {
     var newIdx = this.cycleIndex + direction;
     this.cycleIndex = newIdx <= this.historyStack.length &&
@@ -187,14 +196,23 @@ class CommandConsole {
       this.commandLine.value = "";
   }
 
-  /*  commandEntered()
-   *    parse command and update canvasState
-   *    accordingly
-   *
-   *    TODO:
-   *    add try/catch for execute and
-   *    push new commands to undo stack
-   */
+  executeCommand() {
+    var cmdRet;
+    try {
+      cmdRet = cmdObj.execute();
+      this.cState.undoStack.push(cmdObj);
+      return cmdRet;
+    }
+    catch (error) {
+      err = "[ERROR]: " + error.toString();
+    }
+  }
+
+  /** CommandConsole.commandEntered()                       
+   *    parse command (possibly spanning multiple lines)
+   *    and execute it,
+   *    checking for parsing and execution exceptions
+   */     
   commandEntered() {
     this.cycleIndex = 0;
 
@@ -235,30 +253,30 @@ class CommandConsole {
       }
     }
 
+    var err;
+
     // try to parse line
     if (parseFunc && rawCommand) {
       try {
         cmdObj = parseFunc(rawCommand);
       }
       catch (error) {
-        line = "[ERROR]: " + error.toString();
+        err = "[ERROR]: " + error.toString();
       }
     }
 
     // if command obj instantiated
-    if (cmdObj) {
-      try {
-        cmdObj.execute();
-        this.cState.undoStack.push(cmdObj);
-      }
-      catch (error) {
-        line = "[ERROR]: " + error.toString();
-      }
+    if (cmdObj && ! err) {
+      this.executeCommand(cmdObj);
     }
 
     // add to command history 
     if (line && line.trim()) 
       this.historyStack.push(line);
+
+
+    if (err)
+      this.historyStack.push(err);
 
     // redraw command history
     this.showHistory();
@@ -317,8 +335,8 @@ class CommandInterpreter {
     // by following lines
     console.log("firstLine = ", firstLine);
     var creator = this.parseLine(firstLine);
-    if (creator)
-      var newObj = creator.execute();
+    if (creator) 
+      var newObj = this.executeCommand(creator);
     else
       throw "Invalid command: " + firstLine;
 
