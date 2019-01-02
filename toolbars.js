@@ -28,19 +28,20 @@ class Toolbar {
     if (this.element)
       this.element.attr("hidden", false);
     this.showSelectOptions();
-
-    console.log("showing ", this.constructor.name);
   }
 
   showSelectOptions() {
     if (this.activeOptions) 
       this.activeOptions.hide();
 
-    this.activeOptions = this.cState.activeParent().getOptions();
+    if (this.cState.activeParent())
+      this.activeOptions = this.cState.activeParent().getOptions();
 
-    if (this.activeOptions) {
+    // show active options or default buttons
+    if (this.activeOptions) 
       this.activeOptions.show();
-    }
+    else 
+      ToolOptions.getInstance(this.cState).show();
   }
 }
 
@@ -72,7 +73,6 @@ class ToolOptions {
       
     if (this.element)
       this.element.attr("hidden", false);
-    console.log("optios element = ", this.element);
     this.setSelectOptions();
   }
 
@@ -230,11 +230,6 @@ class FlowchartToolbar extends Toolbar {
 
     // initialize references to buttons
     this.initButtons();
-  }
-
-  show() {
-    super.show();
-    console.log("showing from :", this.constructor.name);
   }
 
   static getInstance(cState) {
