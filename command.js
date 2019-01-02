@@ -163,6 +163,7 @@ class CloneCommand extends DrawCommand {
       if (! receiver.getParent().locked) {
         // check that label isn't already taken
         var cl = receiver.getParent().clone();
+
         // save clones for undoing
         this.clones.push(cl);
         cl.move(this.deltaX, this.deltaY);
@@ -278,7 +279,6 @@ class ConsoleDestroyCommand {
     this.cState.addCanvasObj(this.receiver);
     this.receiver.label = this.objLabel;
   }
-
 }
 
 // allow multiple names to be used
@@ -288,6 +288,12 @@ const classNames = {
   "array1d": Array1D, 
   "rectbox": RectBox,
   "rbox": RectBox,
+  "roundbox": RoundBox,
+  "rdbox": RoundBox,
+  "dbox": DiamondBox,
+  "pbox": ParallelogramBox,
+  "conn": Connector,
+  "arrow": CurvedArrow,
 }
 
 class ConsoleCreateCommand {
