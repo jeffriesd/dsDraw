@@ -178,9 +178,12 @@ class CloneCommand extends DrawCommand {
   }
 }
 
-/** ClickDestryCommand
+/** ClickDestroyCommand
  *    Delete an object from canvas by clicking delete
  *    button in toolbar.
+ *
+ *    TODO:
+ *    make group delete command (undo in single press)
  */
 class ClickDestroyCommand {
   constructor(cState, receiver) {
@@ -196,7 +199,7 @@ class ClickDestroyCommand {
   }
 
   undo() {
-    this.cState.addCanvasObj(this.receiver);
+    this.receiver.restore();
     this.receiver.label = this.objLabel; 
   }
 }
@@ -276,7 +279,7 @@ class ConsoleDestroyCommand {
   }
 
   undo() {
-    this.cState.addCanvasObj(this.receiver);
+    this.receiver.restore();
     this.receiver.label = this.objLabel;
   }
 }
@@ -461,11 +464,13 @@ class Array1DCommand {
     this.receiver = receiver;
   }
 
-  checkIndices(index1, index2) {
+  checkIndices(...indices) {
     var len = this.receiver.array.length;
     
-    if (index1 >= len || index1 < 0 || index2 >= len || index2 < 0)
-      throw `Invalid indices: ${index1}, ${index2}.`;
+    indices.forEach(i => {
+      if (i >= len || i < 0)
+        throw `Invalid index: ${i}`;
+    });
   }
 }
 
@@ -580,7 +585,6 @@ class Array1DArrowCommand extends Array1DCommand {
       
       // create new locked arrow
       var anchors = {from: fromAnchor, to: toAnchor};
-      console.log("anchors = ", anchors);
 
       this.arrow = 
         new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
@@ -610,6 +614,82 @@ class Array1DArrowCommand extends Array1DCommand {
     // arrow doesn't exist
     else
       this.execute();
+  }
+}
+
+
+/** LinkedList commands
+ */
+class LinkedListCommand {
+  constructor(receiver) {
+    this.receiver = receiver;
+  }
+
+  checkIndices(...indices) {
+    indices.forEach(i => {
+      if (! (i in this.receiver.list))
+        throw `Invalid indices: ${index1}, ${index2}.`;
+    });
+  }
+}
+
+class LinkedListInsertCommand extends LinkedListCommand {
+  constructor(receiver, fromIndex, value) {
+    super(receiver);
+
+    this.checkIndices(fromIndex);
+
+    this.value = value;
+    this.fromNode = this.receiver.list[fromIndex];
+    this.newNode = null;
+  }
+
+  execute() {
+    // addNode creates new node and new edge
+    this.newNode = this.receiver.addNode(this.fromNode, this.value);
+  }
+
+  undo() {
+    // remove node and newly created edge
+    this.receiver.removeNode(this.newNode);
+  }
+}
+
+class LinkedListLinkCommand extends LinkedListCommand {
+  constructor(receiver, fromIndex, toIndex) {
+    super(receiver);
+
+    this.checkIndices(fromIndex, toIndex);
+  
+    this.fromNode = this.receiver.list[fromIndex];
+    this.toNode = this.receiver.list[toIndex];
+  }
+
+  execute() {
+    this.receiver.addEdge(this.fromNode, this.toNode);
+  }
+
+  undo() {
+    this.receiver.removeEdge(this.fromNode, this.toNode);
+  }
+}
+
+class LinkedListCutCommand extends LinkedListCommand {
+  constructor(receiver, fromIndex, toIndex) {
+    super(receiver);
+
+    this.checkIndices(fromIndex, toIndex);
+
+    this.fromNode = this.receiver.list[fromIndex];
+    this.toNode = this.receiver.list[toIndex];
+  }
+
+  execute() {
+    this.receiver.removeEdge(this.fromNode, this.toNode);
+  }
+
+  undo() {
+    this.receiver.addEdge(this.fromNode, this.toNode);
   }
 }
 
