@@ -22,6 +22,7 @@ class FlowchartBox extends CanvasObject {
     this.textY = this.y1;
 
     this.showBorder = false;
+    this.borderThickness = 2;
 
     // attribute to allow for slight space between edge
     // of text box and text itself
@@ -146,9 +147,10 @@ class FlowchartBox extends CanvasObject {
 
   /** FlowchartBox.configureOptions
    */
-  configureOptions(active=false) {
+  configureOptions(active) {
     this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
     this.ctx.lineWidth = this.borderThickness;
+
     this.ctx.fillStyle = this.fill;
     
     var font = "";
@@ -292,13 +294,14 @@ class FlowchartBox extends CanvasObject {
    */
   hover() {
     super.hover();
+    this.drawLabel();
     this.showBorder = true;
   }
 
   /** FlowchartBox.draw
    *    only here to show border
    */
-  draw(active=false) {
+  draw(active) {
     // check for transparency
     if (!active && this.showBorder && this.border.startsWith("#")) {
       // border color is #xxx0 or #xxxxxx00
@@ -359,13 +362,6 @@ class FlowchartBox extends CanvasObject {
 
 class RectBox extends FlowchartBox {
 
-  constructor(canvasState, x1, y1, x2, y2) {
-    super(canvasState, x1, y1, x2, y2);
-
-    // set borderThickness lower for rect command
-    this.borderThickness = 2;
-  }
-
   static outline(cState, x1, y1, x2, y2) {
     cState.ctx.strokeStyle = "#000";
     cState.ctx.beginPath();
@@ -377,7 +373,7 @@ class RectBox extends FlowchartBox {
    *    renders rectangular box on main canvas
    *    and hitCanvas and draws wrapped words
    */
-  draw(active=false) {
+  draw(active) {
     super.draw(active);
     this.configureOptions(active);
 
@@ -405,22 +401,17 @@ class RoundBox extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
 
-
     this.radius = 10;
-
-    // need extra border thickness parameter
-    // because using custom path instead of ctx.rect()
-    this.borderThickness = 2;
   } 
 
-  configureOptions(active=false) {
+  configureOptions(active) {
     super.configureOptions(active);
-    this.ctx.lineWidth = this.borderThickness;
+
   }
 
   /** RoundBox.draw
    */
-  draw(active=false) {
+  draw(active) {
     super.draw(active);
     this.configureOptions(active);
 
@@ -475,21 +466,12 @@ class RoundBox extends FlowchartBox {
 
 class DiamondBox extends FlowchartBox {
 
-  constructor(canvasState, x1, y1, x2, y2) {
-    super(canvasState, x1, y1, x2, y2);
-
-
-    // need extra border thickness parameter
-    // because using custom path instead of ctx.rect()
-    this.borderThickness = 2;
-  } 
-
   /** configureOptions  
    *    set style options for drawing and redefine edge points
    */
-  configureOptions(active=false) {
+  configureOptions(active) {
     super.configureOptions(active);
-    this.ctx.lineWidth = this.borderThickness;
+
 
     var hw = Math.floor(this.width / 2);
     var hh = Math.floor(this.height / 2);
@@ -507,7 +489,7 @@ class DiamondBox extends FlowchartBox {
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
    */
-  draw(active=false) {
+  draw(active) {
     super.draw(active);
     this.configureOptions(active);
 
@@ -562,16 +544,12 @@ class ParallelogramBox extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
 
-    // need extra border thickness parameter
-    // because using custom path instead of ctx.rect()
-    this.borderThickness = 2;
-
     this.skewSlope = 3;
   } 
 
-  configureOptions(active=false) {
+  configureOptions(active) {
     super.configureOptions(active);
-    this.ctx.lineWidth = this.borderThickness;
+
 
     this.bottomLeft = {
       x: this.x1 - Math.floor((this.y2 - this.y1) / this.skewSlope),
@@ -586,7 +564,7 @@ class ParallelogramBox extends FlowchartBox {
 
   /** ParallelogramBox.draw
    */
-  draw(active=false) {
+  draw(active) {
     super.draw(active);
     this.configureOptions(active);
 
@@ -655,15 +633,14 @@ class Connector extends FlowchartBox {
     // default fill
     this.fill = "#fff";
     this.border = "#000";
-    this.borderThickness = 2;
+
 
     this.textMargin = 1;
     this.editor.style.padding = "0px";
   }
 
-  configureOptions(active=false) {
+  configureOptions(active) {
     super.configureOptions(active);
-    this.ctx.lineWidth = this.borderThickness;
 
     var dx = Math.pow(this.x2 - this.x1, 2);
     var dy = Math.pow(this.y2 - this.y1, 2);
@@ -678,7 +655,7 @@ class Connector extends FlowchartBox {
 
   /**  Connector.draw
    */
-  draw(active=false) {
+  draw(active) {
     super.draw(active);
     this.configureOptions(active);
 
@@ -736,7 +713,7 @@ class Connector extends FlowchartBox {
  */
 class Arrow extends CanvasObject {
 
-  constructor(canvasState, x1, y1, x2, y2) {
+  constructor(canvasState, x1, y1, x2, y2, locked=null) {
     super(canvasState, x1, y1, x2, y2);
 
     this.x1 = x1;
@@ -755,28 +732,66 @@ class Arrow extends CanvasObject {
     // default hit thickness
     this.hitThickness = 8;
 
-    // arrow may be 'locked' into place by parent
-    this.locked = false;
+    // head options
+    this.hollow = true;
+    this.headFill = "#fff";
+    this.headWidth = 10;
+    this.headHeight = 10;
+
+    // arrow may be 'locked' into place by parents
+    this.locked = locked;
+    if (locked) {
+      this.lockedFrom = locked.from;
+      this.lockedTo = locked.to;
+    }
+
+    this.startPoint = new DragPoint(this.cState, this, this.x1, this.y1);
   }
 
+  propNames() {
+    return {
+      "label": "label",
+      "thickness": "thickness",
+      "st": "thickness",
+      "color": "strokeColor",
+      "sc": "strokeColor",
+      "dash": "dashed",
+      "headFill": "headFill",
+      "hc": "headFill",
+      "hf": "headFill",
+      "hollow": "hollow",
+      "hw": "headWidth",
+      "hh": "headHeight",
+    };
+  }
+
+  static defaultCoordinates(cState) {
+    var center = cState.getCenter();
+    var w = 200;
+    return {
+      x1: center.x,
+      y1: center.y,
+      x2: center.x + w,
+      y2: center.y,
+    };
+  }
+
+  /** CurvedArrow.config
+   */
   config() {
     return {
       thickness: this.thickness,
       dashed: this.dashed,
+      hollow: this.hollow,
+      headFill: this.headFill,
+      headWidth: this.headWidth,
+      headHeight: this.headHeight,
       label: this.label + "_copy",
     };
   }
 
-  /** Arrow.clone
+  /** CurvedArrow.destroy
    */
-  clone() {
-    var copy = super.clone();
-
-    copy.head = this.head.clone();
-    copy.head.arrow = copy;
-    return copy;
-  }
-
   destroy() {
     super.destroy();
     // remove from parent anchor if exists
@@ -788,7 +803,6 @@ class Arrow extends CanvasObject {
         }
       }
     }
-
   }
 
   getToolbar() {
@@ -820,8 +834,8 @@ class Arrow extends CanvasObject {
  *    draws curved arc with 2 control points
  */
 class CurvedArrow extends Arrow {
-  constructor(canvasState, x1, y1, x2, y2) {
-    super(canvasState, x1, y1, x2, y2);
+  constructor(canvasState, x1, y1, x2, y2, locked=null) {
+    super(canvasState, x1, y1, x2, y2, locked);
 
     // initialize control points at
     // start and end points
@@ -852,11 +866,15 @@ class CurvedArrow extends Arrow {
     copy.cp1.y = this.cp1.y;
     copy.cp2.x = this.cp2.x;
     copy.cp2.y = this.cp2.y;
-    
+
     return copy;  
   }
 
-  configureOptions(active=false) {
+  /** CurvedArrow.configureOptions
+   *    set drawing options and update endpoints
+   *    if locked to parent
+   */
+  configureOptions(active) {
     this.ctx.lineWidth = this.thickness;
     this.ctx.strokeStyle = active ? this.cState.activeBorder : this.strokeColor;
 
@@ -865,12 +883,19 @@ class CurvedArrow extends Arrow {
 
     this.hitCtx.strokeStyle = this.hashColor;
     this.hitCtx.lineWidth = this.hitThickness;
+
+    // allow parent objects to position arrow endpoints
+    // when locked
+    if (this.locked) {
+      this.lockedFrom.lockArrow(this, "from");
+      this.lockedTo.lockArrow(this, "to");
+    }
   }
 
 
   /** CurvedArrow.draw
    */
-  draw(active=false) {
+  draw(active) {
     this.configureOptions(active);
 
     var ctx = this.cState.ctx;
@@ -893,6 +918,9 @@ class CurvedArrow extends Arrow {
       this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.x2, this.y2
     );
     hitCtx.stroke();
+
+    // draw starting point to hit canvas
+    this.startPoint.draw();
 
     // draw control points if active
     if (this === this.cState.activeParent()) {
@@ -940,6 +968,9 @@ class CurvedArrow extends Arrow {
       this.cp2.x += deltaX;
       this.cp1.y += deltaY;
       this.cp2.y += deltaY;
+
+      this.startPoint.x += deltaX;
+      this.startPoint.y += deltaY;
     }
   }
 }
@@ -1041,7 +1072,7 @@ class RightAngleArrow extends Arrow {
    *    (draw slightly thicker on hit canvas so
    *    arrow can be more easily clicked)
    */
-  draw(active=false) {
+  draw(active) {
     this.configureOptions(active);
 
     var curX = this.x1;
@@ -1112,7 +1143,7 @@ class ArrowHead extends CanvasChildObject {
   constructor(canvasState, parentArrow) {
     super(canvasState);
 
-    this.arrow = parentArrow;
+    this.parentArrow = parentArrow;
 
     this.hollow = true;
     this.fill = "#fff";
@@ -1121,63 +1152,42 @@ class ArrowHead extends CanvasChildObject {
     this.height = 10;
   }
 
-  /** ArrowHead.config
-   *    Configurable options for cloning
-   */
-  config() {
-    return {
-      hollow: this.hollow,
-      fill: this.fill,
-    };
-  }
-
   getParent() {
-    return this.arrow.getParent();
+    return this.parentArrow.getParent();
   }
 
   getStartCoordinates() {
-    return {x: this.arrow.x2, y: this.arrow.y2};
+    return {x: this.parentArrow.x2, y: this.parentArrow.y2};
   }
  
   /** ArrowHead.configureOptions
    */
-  configureOptions(active=false) {
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.arrow.strokeColor;
-    this.ctx.fillStyle = this.fill;
+  configureOptions(active) {
+    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.parentArrow.strokeColor;
+    this.ctx.fillStyle = this.getParent().headFill;
     this.hitCtx.fillStyle = this.hashColor;
+
+    this.width = this.getParent().headWidth;
+    this.height = this.getParent().headHeight;
   }
 
   /** ArrowHead.draw
    */
-  draw(active=false) {
+  draw(active) {
     this.configureOptions(active);
+
+    var arrow = this.getParent();
   
     this.ctx.save();
     this.ctx.beginPath();
-    this.ctx.translate(this.arrow.x2, this.arrow.y2);
-    this.ctx.rotate(this.arrow.endingAngle());
+    this.ctx.translate(arrow.x2, arrow.y2);
+    this.ctx.rotate(arrow.endingAngle());
 
     var hw = Math.floor(this.width / 2);
-    // this.ctx.moveTo(0, -hw);
-    // if (this.hollow) {
-    //   this.ctx.lineTo(this.height, 0);
-    //   this.ctx.lineTo(0, hw);
-    //   this.ctx.moveTo(this.height, 0);
-    //   this.ctx.lineTo(0, -hw);
-    //   this.ctx.moveTo(this.height, 0);
-    //   this.ctx.lineTo(0, 0);
-    // }
-    // else {
-    //   this.ctx.lineTo(this.height, 0);
-    //   this.ctx.lineTo(0, hw);
-    //   this.ctx.lineTo(0, -hw);
-    //   this.ctx.fill();
-    // }
     
-    if (this.hollow) {
-      this.ctx.moveTo(0, 0);
-      this.ctx.lineTo(-this.height, -hw);
-      this.ctx.moveTo(0, 0);
+    if (arrow.hollow) {
+      this.ctx.moveTo(-this.height, -hw);
+      this.ctx.lineTo(0, 0);
       this.ctx.lineTo(-this.height, hw);
     }
     else {
@@ -1186,6 +1196,7 @@ class ArrowHead extends CanvasChildObject {
       this.ctx.lineTo(-this.height, hw);
       this.ctx.lineTo(0, 0);
       this.ctx.fill();
+      this.ctx.closePath();
     }
     
     this.ctx.stroke();
@@ -1193,8 +1204,8 @@ class ArrowHead extends CanvasChildObject {
 
     this.hitCtx.save();
     this.hitCtx.beginPath();
-    this.hitCtx.translate(this.arrow.x2, this.arrow.y2);
-    this.hitCtx.rotate(this.arrow.endingAngle());
+    this.hitCtx.translate(arrow.x2, arrow.y2);
+    this.hitCtx.rotate(arrow.endingAngle());
 
     // draw twice as big as actual arrow head
     this.hitCtx.moveTo(0, 0);
@@ -1206,8 +1217,8 @@ class ArrowHead extends CanvasChildObject {
   }
 
   release() {
-    if (this.arrow instanceof RightAngleArrow)
-      this.arrow.addedNewAngle = false;
+    if (this.parentArrow instanceof RightAngleArrow)
+      this.parentArrow.addedNewAngle = false;
   }
 
   /** ArrowHead.drag
@@ -1215,26 +1226,26 @@ class ArrowHead extends CanvasChildObject {
    *    and add a new anglePoint if RightAngleArrow 
    */
   drag(deltaX, deltaY, fromParent=false) {
-    if (this.arrow instanceof RightAngleArrow) {
-      var ori = this.arrow.endingOrientation();
+    if (this.parentArrow instanceof RightAngleArrow) {
+      var ori = this.parentArrow.endingOrientation();
       
       var addNew = this.cState.hotkeys[SHIFT];
 
-      if (addNew && !this.arrow.addedNewAngle) {
+      if (addNew && !this.parentArrow.addedNewAngle) {
         // dont allow user to add more than one angle per drag
-        this.arrow.addedNewAngle = true;
+        this.parentArrow.addedNewAngle = true;
 
-        this.arrow.anglePoints.push({x: this.arrow.x2, y: this.arrow.y2});
+        this.parentArrow.anglePoints.push({x: this.parentArrow.x2, y: this.parentArrow.y2});
         if (ori == "U" || ori == "D") {
-          this.arrow.x2 += deltaX;
+          this.parentArrow.x2 += deltaX;
         } else {
-          this.arrow.y2 += deltaY;    
+          this.parentArrow.y2 += deltaY;    
         }
       } else {
         if (ori == "U" || ori == "D") {
-          this.arrow.y2 += deltaY;    
+          this.parentArrow.y2 += deltaY;    
         } else {
-          this.arrow.x2 += deltaX;
+          this.parentArrow.x2 += deltaX;
         }
       }
 
@@ -1243,9 +1254,9 @@ class ArrowHead extends CanvasChildObject {
       //  need to consider case where arrow is created later
       //  and thus its color is on top
       //  -> easy fix: just check color 1 pixel ahead of arrow
-      // var ori = this.arrow.endingOrientation();
-      // var x = this.arrow.x2;
-      // var y = this.arrow.y2;
+      // var ori = this.parentArrow.endingOrientation();
+      // var x = this.parentArrow.x2;
+      // var y = this.parentArrow.y2;
 
       // var anchorRadius = 10;
 
@@ -1259,8 +1270,8 @@ class ArrowHead extends CanvasChildObject {
       //     y += (this.height + anchorRadius);
 
       // var hoverObj = this.cState.getClickedObject(x, y);
-      // var newX = this.arrow.x2;
-      // var newY = this.arrow.y2;
+      // var newX = this.parentArrow.x2;
+      // var newY = this.parentArrow.y2;
       //     
       // if (hoverObj instanceof FlowchartBox) {
       //   // set arrow end to center of anchor - arrow tip height
@@ -1273,16 +1284,16 @@ class ArrowHead extends CanvasChildObject {
       //   if (ori == "D")
       //     newY = hoverObj.y1 - this.height;
       //   
-      //   this.arrow.x2 = newX;
-      //   this.arrow.y2 = newY;
-      //   hoverObj.anchoredArrow = this.arrow;
+      //   this.parentArrow.x2 = newX;
+      //   this.parentArrow.y2 = newY;
+      //   hoverObj.anchoredArrow = this.parentArrow;
       // }
     }
-    else if (this.arrow instanceof CurvedArrow) {
-      if (! this.arrow.locked || fromParent) {
+    else if (this.parentArrow instanceof CurvedArrow) {
+      if (! this.parentArrow.locked || fromParent) {
         // just move end point to new location
-        this.arrow.x2 += deltaX;
-        this.arrow.y2 += deltaY;
+        this.parentArrow.x2 += deltaX;
+        this.parentArrow.y2 += deltaY;
       }
     }
   }
@@ -1290,10 +1301,9 @@ class ArrowHead extends CanvasChildObject {
   /**Arrowhead.move
    */
   move(deltaX, deltaY) {
-    this.arrow.move(deltaX, deltaY);
+    this.parentArrow.move(deltaX, deltaY);
   }
 }
-
 
 class ResizePoint extends CanvasChildObject {
   constructor(canvasState, parentBox, x, y) {
@@ -1341,6 +1351,43 @@ class ResizePoint extends CanvasChildObject {
   }
 }
 
+class DragPoint extends CanvasChildObject {
+  constructor(canvasState, parentObj, x, y) {
+    super(canvasState);
+    this.parentObj = parentObj;
+
+    this.x = x;
+    this.y = y;
+
+    this.radius = 15;
+  }
+
+  getParent() {
+    return this.parentObj;
+  }
+
+  /** DragPoint.draw 
+   */
+  draw() {
+    // only draw to hit detect canvas
+    this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.beginPath();
+    this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+    this.hitCtx.fill();
+  }
+
+  /** DragPoint.drag
+   *    Move (x1, y1) of parent (move arrow start position)
+   */
+  drag(deltaX, deltaY) {
+    if (! this.getParent().locked) {
+      this.x += deltaX;
+      this.y += deltaY;
+      this.parentObj.x1 += deltaX;
+      this.parentObj.y1 += deltaY;
+    }
+  }
+}
 
 /** ControlPoint
  *    used to define curvature of CurvedArrow (bezier curve)
@@ -1396,4 +1443,5 @@ class ControlPoint extends CanvasChildObject {
     this.x += deltaX;
     this.y += deltaY;
   }
+
 }
