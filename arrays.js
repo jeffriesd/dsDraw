@@ -38,13 +38,12 @@ class Array1D extends LinearCanvasObject {
   }
 
   propNames() {
-    var superProps = super.propNames();
-    var props = {
-        "display": "displayStyle",
-        "ds": "displayStyle",
+    var parentProps = super.propNames();
+    return {
+      ...parentProps, 
+      "display": "displayStyle",
+      "ds": "displayStyle",
     };
-
-    return {...superProps, ...props};
   }
 
   clone() {
@@ -53,6 +52,7 @@ class Array1D extends LinearCanvasObject {
     // copy config of array cells
     var idx = 0;
     this.array.forEach((arrNode) => {
+      copy.array[idx] = new ArrayNode(this.cState, copy, 0);
       Object.assign(copy.array[idx], arrNode.config());
       idx++;
     });
@@ -61,8 +61,20 @@ class Array1D extends LinearCanvasObject {
     copy.array = copy.array.slice(0, idx);
 
     // copy arrows
-    for (var index in this.arrows) 
-      copy.arrows[index] = this.arrows[index].clone();
+    for (var index in this.arrows) {
+      var cparrow = this.arrows[index].clone();
+      
+      // index is 'a,b'
+      var i1 = parseInt(index[0]);
+      var i2 = parseInt(index[2]);
+  
+      // copy anchors
+      cparrow.lockedFrom = copy.array[i1];
+      cparrow.lockedTo = copy.array[i2];
+      cparrow.locked = copy;
+
+      copy.arrows[index] = cparrow;
+    }
 
     return copy;
   }
@@ -203,11 +215,12 @@ class ArrayNode extends NodeObject {
     var midX = this.x + Math.floor(cs / 2);
     var topY = this.y;
 
-    console.log("locking arrow position");
-
     if (dir == "from") {
       arrow.x1 = midX;
       arrow.y1 = topY;
+
+      arrow.startPoint.x = midX;
+      arrow.startPoint.y = topY;
     }
     else {
       arrow.x2 = midX;
