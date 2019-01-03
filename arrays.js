@@ -10,10 +10,9 @@
  *    border highlighting are bound to 
  *    individual cells
  */
-class Array1D extends CanvasObject {
+class Array1D extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
-    this.cellSize = 30;
 
     // round to even multiple of cellSize 
     var width = this.x2 - this.x1;
@@ -24,14 +23,6 @@ class Array1D extends CanvasObject {
     this.array = [];
     this.cellType = typeof 0;
 
-    this.fontFamily = "Monospace";
-    this.fontSize = 12;
-    this.fontStyle = "";
-    this.border = "#000";
-    this.displayStyle = "cell";
-    this.indexPlacement = "above";
-    this.borderThickness = 0;
-
     // keep track of anchored arrows 
     // (keyed by start and endpoints)
     this.arrows = {};
@@ -39,36 +30,21 @@ class Array1D extends CanvasObject {
     this.initCells();
   }
 
-  propNames() {
-    return {
-        "ff": "fontFamily",
-        "fontFamily": "fontFamily",
-        "font": "fontSize",
-        "fontSize": "fontSize",
-        "fs": "fontSize",
-        "label": "label",
-        "display": "displayStyle",
-        "ds": "displayStyle",
-        "cellSize": "cellSize",
-        "cs": "cellSize",
-        "ind": "indexPlacement",
-    };
+  /** Array1D.nodes
+   *    getter method for super class
+   */
+  get nodes() {
+    return this.array;
   }
 
-  /** Array1D.config
-   */
-  config() {
-    return {
-      fontStyle: this.fontStyle,
-      fontFamily: this.fontFamily,
-      fontStyle: this.fontStyle,
-      border: this.border,
-      borderThickness: this.borderThickness,
-      displayStyle: this.displayStyle,
-      indexPlacement: this.indexPlacement,
-      cellSize: this.cellSize,
-      label: this.label + "_copy",
+  propNames() {
+    var superProps = super.propNames();
+    var props = {
+        "display": "displayStyle",
+        "ds": "displayStyle",
     };
+
+    return {...superProps, ...props};
   }
 
   clone() {
@@ -135,34 +111,12 @@ class Array1D extends CanvasObject {
     this.array.push(arrNode); 
   }
 
-  /** Array1D.getChildren
-   *    return subarray from [low, high) 
-   *
-   *    if no args provided, return full array
-   */
-  getChildren(low, high) {
-    if (low == null)
-      return this.array.slice(0, this.array.length);
-    return this.array.slice(low, high);
-  }
-
   /** Array1D.configureOptions
    *    set border, border color,
    *    font, and set style (cell or tower)
    */
   configureOptions(active) {
-    this.ctx.lineWidth = this.borderThickness;
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
-
-    var font = "";
-    if (this.fontStyle)
-      font += this.fontStyle + " ";
-    font += this.fontSize + "px ";
-    font += this.fontFamily;
-    this.ctx.font = font;
-
-    // always draw cell text with left align
-    this.ctx.textAlign = "left";
+    super.configureOptions(active);
 
     this.cellSize = parseInt(this.cellSize);
 
@@ -198,23 +152,6 @@ class Array1D extends CanvasObject {
       arrNode.draw(active, idx);
       idx++;
     });
-
-    for (var index in this.arrows)
-      this.arrows[index].draw();
-  }
-
-  /** Array1D.move
-   *    update x, y for all cells in array
-   */  
-  move(deltaX, deltaY) {
-    super.move(deltaX, deltaY);
-    this.array.forEach((arrNode) => {
-      arrNode.x += deltaX;
-      arrNode.y += deltaY; 
-    });
-
-    for (var index in this.arrows)
-      this.arrows[index].move(deltaX, deltaY, true);
   }
 
   /*  outline
@@ -234,32 +171,18 @@ class Array1D extends CanvasObject {
  *      - border thickness
  *      - value
  */
-class ArrayNode extends CanvasChildObject {
-  constructor(canvasState, parentArray, value) {
-    super(canvasState);
-
-    this.parentArray = parentArray;
-
-    // drawing options
-    this.fill = "#fff";
-    this.textColor = "#000";
-    this.value = value;
-    this.borderThickness = 1;
-
-    this.showIndices = false;
-    this.showValues = true;
-  }
+class ArrayNode extends NodeObject {
 
   /** ArrayNode.set value
    *    checks for correct type
    *    and sets _value = newVal
    */
   set value(newVal) {
-    if (this.parentArray.cellType === "number") 
+    if (this.getParent().cellType === "number") 
         newVal = Number(newVal);
 
-    if (typeof newVal !== this.parentArray.cellType || isNaN(newVal))
-      throw `Invalid type: ${this.parentArray.cellType} expected.`;
+    if (typeof newVal !== this.getParent().cellType || isNaN(newVal))
+      throw `Invalid type: ${this.getParent().cellType} expected.`;
     this._value = newVal;
   }
 
@@ -267,62 +190,47 @@ class ArrayNode extends CanvasChildObject {
     return this._value;
   }
 
-  getParent() {
-    return this.parentArray;
-  }
-
   getStartCoordinates() {
     return {x: this.x, y: this.y};
   }
 
-  propNames() {
-    return {
-        "bg": "fill",
-        "background": "fill",
-        "fill": "fill",
-        "=": "value",
-        "value": "showValues",
-        "val": "showValues",
-        "border": "borderThickness",
-        "fg": "textColor",
-        "fg": "textColor",
-        "ind": "showIndices",
-    };
+  /** Array1D.lockArrow
+   *    centers arcs on top of cells by defualt
+   */
+  lockArrow(arrow, dir) {
+    // center on top of cell
+    var cs = this.cellSize;
+    var midX = this.x + Math.floor(cs / 2);
+    var topY = this.y;
+
+    console.log("locking arrow position");
+
+    if (dir == "from") {
+      arrow.x1 = midX;
+      arrow.y1 = topY;
+    }
+    else {
+      arrow.x2 = midX;
+      arrow.y2 = topY;
+    }
   }
 
-  config() {
-    return {
-      value: this.value,
-      fill: this.fill,
-      textColor: this.textColor,
-      borderThickness: this.borderThickness,
-      showIndices: this.showIndices,
-      showValues: this.showValues,
-    };
-  }
+  configureOptions(active, idx) {
+    super.configureOptions(active);
 
-  configureOptions(active) {
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : "#000";
-    this.ctx.fillStyle = this.fill;
-    this.ctx.lineWidth = this.borderThickness;
-
-    this.y = this.parentArray.y1;
-
-    this.cellSize = this.parentArray.cellSize;
+    this.x = (idx * this.cellSize) + this.getParent().x1;
+    this.y = this.getParent().y1;
   }
 
   /** ArrayNode.draw
    */
   draw(active, idx) {
-    this.configureOptions(active);
-
-    // determine x coordinate
-    this.x = (idx * this.cellSize) + this.parentArray.x1;
+    this.configureOptions(active, idx);
 
     // draw box
     this.ctx.beginPath();
     
-    if (this.parentArray.displayStyle == "tower") {
+    if (this.getParent().displayStyle == "tower") {
       var yStart = this.y + this.cellSize;
       var height = this.towerHeight;
     }
@@ -333,63 +241,17 @@ class ArrayNode extends CanvasChildObject {
     this.ctx.rect(this.x, yStart, this.cellSize, height);
     this.ctx.fillRect(this.x, yStart, this.cellSize, height);
     this.ctx.stroke();
+
+    if (this.showValues)
+      this.drawValue();
     
-    var valStr = this.value.toString();
-    var textWidth = this.ctx.measureText(valStr).width;
-    // make sure width doesnt exceed containing cell
-    if (textWidth > this.cellSize) {
-      valStr = "..";
-      textWidth = this.ctx.measureText(valStr).width;
-    }
-    var textOffX = (this.cellSize - textWidth) / 2;
-
-    var textHeight = this.ctx.measureText("_").width;
-    var textOffY = (this.cellSize - textHeight) / 2;
-    this.ctx.textBaseline = "top";
-
-    // draw value
-    if (this.showValues) {
-      this.ctx.fillStyle = this.textColor;
-      this.ctx.fillText(valStr,
-                        this.x + textOffX,
-                        this.y + textOffY);
-    }
-
-    // draw indices
-    if (this.showIndices) {
-      // set baseline back to default
-      this.ctx.textBaseline = "alphabetic";
-      this.ctx.fillStyle = "#000";
-      
-      var yOffset = -textOffY;
-      // draw above or below
-      if (this.parentArray.indexPlacement == "below") {
-        yOffset = textOffY + this.cellSize;
-        this.ctx.textBaseline = "top";        
-      }
-
-      this.ctx.fillText(idx, 
-            this.x + textOffX, this.y + yOffset);
-    }
+    if (this.showIndices) 
+      this.drawIndex(idx);
 
     // draw to hit detection canvas
     this.hitCtx.beginPath();
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.fillRect(this.x, yStart, this.parentArray.cellSize, height);
+    this.hitCtx.fillRect(this.x, yStart, this.getParent().cellSize, height);
     this.hitCtx.stroke();
-  }
- 
-  /** ArrayNode.move
-   */  
-  move(deltaX, deltaY) {
-    this.getParent().move(deltaX, deltaY);
-  }
-
-  /** ArrayNode.click
-   *    TODO:
-   *    bring up editor
-   */
-  click(event) {
   }
 }
 
