@@ -47,8 +47,17 @@ class CanvasObject {
   set label(value) {
     if (value == "" || value == "TEMP")
       return;
+
+    // object label must begin with 
+    // alphabetic character
+    var alpha = /^[a-zA-Z]+/
+    if (! value.match(alpha))
+      throw "Label must begin with alphabetic character";
+
+    // if 'myname1' already exists, 
+    // set to 'myname2'
     while (this.cState.labeled.get(value)) {
-      var numPattern = /[0-9]*$/;
+      var numPattern = /\d*$/;
       var match = value.match(numPattern);
       var matchStr = match[0];
       var num = parseInt(matchStr);
