@@ -705,11 +705,6 @@ class Connector extends FlowchartBox {
  *
  *  Can be curved or composed of several
  *  straight segments with anchor points.
- *
- *  Main attributes:
- *    - thickness
- *    - solid/dashed
- *
  */
 class Arrow extends CanvasObject {
 
@@ -739,10 +734,10 @@ class Arrow extends CanvasObject {
     this.headHeight = 10;
 
     // arrow may be 'locked' into place by parents
-    this.locked = locked;
     if (locked) {
       this.lockedFrom = locked.from;
       this.lockedTo = locked.to;
+      this.locked = locked.from.getParent();
     }
 
     this.startPoint = new DragPoint(this.cState, this, this.x1, this.y1);
@@ -798,6 +793,7 @@ class Arrow extends CanvasObject {
     if (this.locked) {
       for (var idx in this.locked.arrows) {
         if (this.locked.arrows[idx] === this) {
+          console.log("deleting arrow");
           delete this.locked.arrows[idx];
           break;
         }
@@ -839,17 +835,11 @@ class CurvedArrow extends Arrow {
 
     // initialize control points at
     // start and end points
-    this.cp1 = {
-      x: this.x1,
-      y: this.y1,
-    };
-    this.cp2 = {
-      x: this.x2,
-      y: this.y2,
-    };
-  
-    this.cp1 = new ControlPoint(this.cState, this, this.x1, this.y1);
-    this.cp2 = new ControlPoint(this.cState, this, this.x2, this.y2);
+    var midX = Math.floor((this.x1 + this.x2) / 2);
+    var midY = Math.floor((this.y1 + this.y2) / 2);
+    
+    this.cp1 = new ControlPoint(this.cState, this, midX, midY);
+    this.cp2 = new ControlPoint(this.cState, this, midX, midY);
 
     // this.activePoint = this.cp1;
 
@@ -866,7 +856,7 @@ class CurvedArrow extends Arrow {
     copy.cp1.y = this.cp1.y;
     copy.cp2.x = this.cp2.x;
     copy.cp2.y = this.cp2.y;
-
+    
     return copy;  
   }
 
@@ -940,7 +930,8 @@ class CurvedArrow extends Arrow {
     cState.ctx.stroke();
   }
 
-  /** return ending angle using bezier math (t = 1)
+  /** CurvedArrow.endingAngle
+   *    return ending angle from 2nd control point to end point
    */
   endingAngle() {
     var dx = this.x2 - this.cp2.x;
@@ -951,6 +942,20 @@ class CurvedArrow extends Arrow {
       dy = this.y2 - this.y1;
     }
       
+    return -Math.atan2(dx, dy) + 0.5*Math.PI;
+  }
+
+  /** CurvedArrow.startingAngle
+   *    return angle from start point to first control point
+   */
+  startingAngle() {
+    var dx = this.x1 - this.cp1.x;
+    var dy = this.y1 - this.cp1.y;
+    
+    if (this.cp1.x == this.x1 && this.cp1.y == this.y1) {
+      dx = this.x1 - this.x1;
+      dy = this.y1 - this.y1;
+    }
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
   }
 
