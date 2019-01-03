@@ -8,6 +8,9 @@ objectCommands = {
   "Array1Dresize": Array1DResizeCommand,
   "Array1Dswap": Array1DSwapCommand,
   "Array1Darc": Array1DArrowCommand,
+  "LinkedListinsert": LinkedListInsertCommand,
+  "LinkedListlink": LinkedListLinkCommand,
+  "LinkedListcut": LinkedListCutCommand,
 }
 
 
@@ -196,15 +199,14 @@ class CommandConsole {
       this.commandLine.value = "";
   }
 
-  executeCommand() {
-    var cmdRet;
+  executeCommand(cmdObj) {
     try {
-      cmdRet = cmdObj.execute();
+      cmdObj.execute();
       this.cState.undoStack.push(cmdObj);
-      return cmdRet;
     }
     catch (error) {
-      err = "[ERROR]: " + error.toString();
+      throw error;
+      return "[ERROR]: " + error.toString();
     }
   }
 
@@ -267,7 +269,7 @@ class CommandConsole {
 
     // if command obj instantiated
     if (cmdObj && ! err) {
-      this.executeCommand(cmdObj);
+      err = this.executeCommand(cmdObj);
     }
 
     // add to command history 
