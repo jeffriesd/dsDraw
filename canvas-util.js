@@ -69,7 +69,7 @@ class CanvasState {
     this.mouseMove = null;
 
     // keeping track of canvas objects
-    this.drawMode = "Array1D";
+    this.drawMode = "SelectTool";
     this.objects = [];
     this.labeled = new Map();
     this.objectFactory = new CanvasObjectFactory(this);
@@ -202,14 +202,14 @@ class CanvasState {
     removeObj.deactivate();
   }
 
-  /**  set start state for DrawCommand
-   *  whenever mouse press happens
+  /** CanvasState.setCommandStartState
+   *    set start state for DrawCommand
+   *    whenever mouse press happens
    */
   setCommandStartState() {
     this.hotkeyStartState = Object.assign({}, this.hotkeys);
     this.startPoint = this.mouseDown;
   }
-
 
   /** CanvasState.addDrawCommand
    *    call createDrawCommand and push it 
@@ -347,6 +347,10 @@ class CanvasState {
     }
   }
 
+  /** CanvasState.initButtons
+   *    TODO
+   *    Move to toolbars.js
+   */
   initButtons() {
     this.buttons = [
       "rectBox",
@@ -371,21 +375,23 @@ class CanvasState {
     var deleteButton = document.getElementById("deleteButton");
     deleteButton.onclick = () => {
       var activeP = this.activeParent();
+      var toDestroy = activeP ? [activeP] : this.selectGroup;
       
       // remove from canvas, hide options, and set activeObj to null
-      if (activeP) {
+      toDestroy.forEach((activeObj) => {
         // create command for undoing
-        var destroyCmd = new ClickDestroyCommand(this, activeP);
+        var destroyCmd = new ClickDestroyCommand(this, activeObj);
         this.undoStack.push(destroyCmd);
         destroyCmd.execute();
 
         this.activeObj = null;
-      }
+      });
     }
   }
 
   initToolbars() {
     this.toolbars["flowchart"] = new FlowchartToolbar(this);
+    this.toolbars["default"] = this.toolbars["flowchart"];
   }
 
   /*  showToolbars
@@ -394,10 +400,13 @@ class CanvasState {
    */
   showToolbar() {
     var active = this.activeParent();
-    if (active.getToolbar) {
-      var activeToolbar = active.getToolbar();
-      activeToolbar.show();
-    }
+    var activeToolbar;
+    if (active && active.getToolbar) 
+      activeToolbar = active.getToolbar();
+    else
+      activeToolbar = this.toolbars["default"];
+
+    activeToolbar.show();
   }
 
 }
@@ -565,6 +574,9 @@ class CanvasEventHandler {
     // create DrawCommand object and push onto undo stack
     this.cState.addDrawCommand();
     this.cState.activeCommandType = "";
+
+    if (this.cState.selectGroup.size)
+      this.cState.showToolbar();
 
     this.cState.mouseDown = null;
 
