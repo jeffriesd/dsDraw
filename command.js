@@ -286,6 +286,7 @@ class ConsoleDestroyCommand {
 const classNames = {
   "array": Array1D,
   "array1d": Array1D, 
+  "list": LinkedList,
   "rectbox": RectBox,
   "rbox": RectBox,
   "roundbox": RoundBox,
@@ -554,13 +555,17 @@ class Array1DArrowCommand extends Array1DCommand {
   }
 
   /** Array1DArrowCommand.execute
-   *    add an arc from i1 to i2 unless one already exists
+   *    add an arc from i1 to i2
+   *    if one already exists, undo it
    */
   execute() {
     if (this.receiver.arrows[[this.i1, this.i2]]) {
       this.undo();
       return;
     }
+
+    var fromAnchor = this.receiver.array[this.i1];
+    var toAnchor = this.receiver.array[this.i2];
 
     if (this.arrow == null) {
       var cs = this.receiver.cellSize;
@@ -573,11 +578,12 @@ class Array1DArrowCommand extends Array1DCommand {
     
       var y = this.receiver.y1;
       
-      this.arrow = 
-        new CurvedArrow(this.receiver.cState, x1, y, x2, y);
+      // create new locked arrow
+      var anchors = {from: fromAnchor, to: toAnchor};
+      console.log("anchors = ", anchors);
 
-      // lock arrow to parent
-      this.arrow.locked = this.receiver;
+      this.arrow = 
+        new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
 
       // set control points so arc goes above by default
       var mid = Math.floor((x1 + x2) / 2);
