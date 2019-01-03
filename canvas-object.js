@@ -111,6 +111,10 @@ class CanvasObject {
     this.cState.remove(this);
   }
 
+  restore() {
+    this.cState.addCanvasObj(this);
+  }
+
   deactivate() {
     this.getOptions().hide();
   }
