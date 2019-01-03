@@ -7,7 +7,7 @@
 </head>
 <body>
   <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">Draw mode: Array1D</label>
+    <label class="toolbarLabel" id="drawMode">Draw mode: SelectTool</label>
     <!-- <button class="toolbarButton" id="rightAngleArrow"></button> -->
     <button class="toolbarButton" id="selectTool"></button>
     <button class="toolbarButton" id="curvedArrow"></button>
@@ -46,10 +46,10 @@
     <div hidden class="subToolbar" id="textOptions">
       <select class="toolbarSelect" id="fontSize">
         <optgroup label="Font size:">
-          <option value="12px">12px</option>
-          <option value="14px">14px</option>
-          <option value="16px">16px</option>
-          <option value="18px">18px</option>
+          <option value="12">12px</option>
+          <option value="14">14px</option>
+          <option value="16">16px</option>
+          <option value="18">18px</option>
         </optgroup>
       </select>
       <select class="toolbarSelect" id="fontFamily">
@@ -84,6 +84,8 @@
   <script src="canvas-object.js"></script>
   <script src="toolbars.js"></script>
   <script src="flowchart.js"></script>
+  <script src="linear-ds.js"></script>
+  <script src="list.js"></script>
   <script src="ds.js"></script>
   <script src="arrays.js"></script>
   <script src="command.js"></script>
