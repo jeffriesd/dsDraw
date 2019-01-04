@@ -1372,13 +1372,16 @@ class DragPoint extends CanvasChildObject {
   }
 
   /** DragPoint.draw 
+   *    only draw to hit detect canvas
    */
   draw() {
-    // only draw to hit detect canvas
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.beginPath();
-    this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-    this.hitCtx.fill();
+    // don't draw if locked to parent
+    if (! this.getParent().locked) {
+      this.hitCtx.fillStyle = this.hashColor;
+      this.hitCtx.beginPath();
+      this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+      this.hitCtx.fill();
+    }
   }
 
   /** DragPoint.drag
