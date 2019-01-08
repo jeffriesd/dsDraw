@@ -8,12 +8,6 @@ body {
   /* margin: 10px; */
 }
 
-#playCanvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
 #hitCanvas {
   border: 1px solid #000;
   width: 100%;
@@ -21,11 +15,6 @@ body {
   # margin: 10px;
 }
 
-button {
-  height: 5%;
-  width: 80%;
-  margin: 10%;
-}
 
 #commandConsole {
   position: absolute;
@@ -205,7 +194,67 @@ textarea {
 
 #video {
   position: absolute;
-  top: 0;
+  bottom: 0;
   width: 100%;
+  float: left;
   object-fit: cover;
 }
+
+#videoContainer {
+  white-space: nowrap;
+  position: fixed;
+  width: 100%;
+  height: 40px;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#videoContainer, #playPause, #mute,
+#currentTime, #duration, #seeker, #volume {
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+#controlBar {
+  display: inline-block;
+  background: black;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+}
+
+#playPause, #mute {
+  display: inline-block;
+  width: 5%;
+  height: 100%;
+  margin: auto;
+}
+
+#currentTime, #duration {
+  display: inline-block;
+  color: white;
+  width: 5%;
+  text-align: center;
+  vertical-align: middle;
+}
+
+#seeker {
+  display: inline-block;
+  vertical-align: middle;
+  width: 60%;
+}
+
+#volume {
+  width: 16%;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: auto;
+  margin-right: auto;
+}
+
