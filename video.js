@@ -43,7 +43,9 @@ class VideoManager {
 
     // merge clips and remove other clips
     if (clips.length > 1) 
-      clipPath = VideoManager.mergeClips(ws, clips);
+      VideoManager.mergeClips(ws, clips);
+    else
+      ws.send(clipPath);
   }
 
   /** VideoManager.mergeClips
@@ -61,11 +63,11 @@ class VideoManager {
     // create new clip Id
     var mergedPath = filePaths[0].replace(
       /\/\d+\.webm$/, `/${VideoClip.assignClipId()+1}.webm`);
-    console.log("merging clips to ", mergedPath);
 
     var merged = new ffmpeg();
     merged.on("end",  
       () => {
+        console.log("done merging", mergedPath);
         // remove other clips after merging
         VideoManager.removeClips(filePaths);
         // send updated URL once webm is written
@@ -104,7 +106,7 @@ class VideoClip {
 
   get clipPath() {
     if (! fs.existsSync(this.dir))
-      fs.mkdir(this.dir, 
+      fs.mkdirSync(this.dir, 
         { recursive: true }, (err) => console.log("readdir error:", err));
     return path.join(this.dir, String(this.clipId) + ".webm");
   }
