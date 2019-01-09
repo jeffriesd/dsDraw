@@ -165,6 +165,7 @@ class CanvasState {
    *    for event detection. 
    */
   registerCanvasObj(canvasObj) {
+    if (canvasObj.hashColor) return;
     var rgbArr = newColor(this.uniqueColors);
     var rgbStr = rgbArr.join(" ");
 
@@ -218,10 +219,13 @@ class CanvasState {
    */
   addDrawCommand() {
     var drawCommand = this.createDrawCommand();
-    if (drawCommand)
+    if (drawCommand) {
+      if (drawCommand.hasDrag)
+        CommandRecorder.recordCommand(drawCommand, "execute");
+      else
+        CommandRecorder.execute(drawCommand);
       this.undoStack.push(drawCommand);
-    // else
-    //   console.log("Error: Cannot create draw command.");
+    }
 
     // clear redo stack
     this.redoStack = [];
@@ -249,13 +253,13 @@ class CanvasState {
           return new SelectCommand(this);
       }
     }
-    return null;
   }
 
   undo() {
     if (this.undoStack.length) {
       var lastCommand = this.undoStack.pop();
-      lastCommand.undo();
+      // lastCommand.undo();
+      CommandRecorder.undo(lastCommand);
       console.log("undoing: ", lastCommand.constructor.name);
       this.redoStack.push(lastCommand);
     }
@@ -266,7 +270,7 @@ class CanvasState {
   redo() {
     if (this.redoStack.length) {
       var lastCommand = this.redoStack.pop();
-      lastCommand.execute();
+      CommandRecorder.execute(lastCommand);
       this.undoStack.push(lastCommand);
     }
     else 
@@ -383,7 +387,8 @@ class CanvasState {
         // create command for undoing
         var destroyCmd = new ClickDestroyCommand(this, activeObj);
         this.undoStack.push(destroyCmd);
-        destroyCmd.execute();
+        // destroyCmd.execute();
+        CommandRecorder.execute(destroyCmd);
 
         this.activeObj = null;
       });
