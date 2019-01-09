@@ -12,13 +12,11 @@ const hitCanvas = document.getElementById("hitCanvas");
 
 const screenWidth = window.innerWidth | 0;
 const screenHeight = window.innerHeight | 0;
-const video = document.getElementById("video");
-const pc = document.getElementById("playCanvas");
 
 canvas.width = screenWidth;
 hitCanvas.width = canvas.width;
-// save room for control bar
-canvas.height = screenHeight - video.height;
+                            
+canvas.height = screenHeight;
 hitCanvas.height = canvas.height;
 
 // initialize controller objects
