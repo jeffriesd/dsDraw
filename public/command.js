@@ -12,6 +12,8 @@ class DrawCommand {
     this.cState = cState;
     this.receiver = receiver;
     this.state = this.getState();
+
+    this.hasDrag = false;
   }
 
   /*  CanvasState class stores state of canvas when click starts
@@ -27,11 +29,11 @@ class DrawCommand {
   }
 
   execute() {
-    console.log("Execute not implemented for ", this.constructor.name);
+    throw "Execute not implemented for " + this.constructor.name;
   }
 
   undo() {
-    console.log("Undo not implemented for ", this.constructor.name);
+    throw "Undo not implemented for " + this.constructor.name;
   }
 }
 
@@ -59,6 +61,8 @@ class ClickCreateCommand extends DrawCommand {
 class MoveCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
+    this.hasDrag = true;
+
     this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
     this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
 
@@ -85,6 +89,8 @@ class MoveCommand extends DrawCommand {
 class DragCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
+    this.hasDrag = true;
+
     this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
     this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
   }
@@ -102,6 +108,8 @@ class DragCommand extends DrawCommand {
 class CloneCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
+    this.hasDrag = true;
+
     this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
     this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
 
@@ -112,8 +120,8 @@ class CloneCommand extends DrawCommand {
 
     this.clones = [];
 
-    // happens after mouse up, so execute here
-    this.execute();
+    // happens after mouse up, so execute here 
+    CommandRecorder.execute(this);
   }
  
   /** CloneCommand.execute
@@ -126,6 +134,7 @@ class CloneCommand extends DrawCommand {
       if (! receiver.getParent().locked) {
         // check that label isn't already taken
         var cl = receiver.getParent().clone();
+        this.cState.addCanvasObj(cl);
 
         // save clones for undoing
         this.clones.push(cl);
@@ -176,10 +185,8 @@ class SelectCommand {
     this.x2 = cState.mouseUp.x;
     this.y2 = cState.mouseUp.y;
 
-    console.log("new select");
-
-    // happens after mouseup, so execute here
-    this.execute();
+    // happens after mouseUp, so execute here
+    CommandRecorder.execute(this);
   }
 
   /** SelectCommand.execute
@@ -198,8 +205,6 @@ class SelectCommand {
         this.cState.selectGroup.add(pObj);
     });
 
-    console.log("selected = ", this.cState.selectGroup);
-
     // if only one thing selected, set it
     // as active and show options
     if (this.cState.selectGroup.size == 1) {
@@ -212,14 +217,11 @@ class SelectCommand {
 
   /** SelectCommand.undo
    *    if selection is not already undone, 
-   *    then clear selection, otherwise
-   *    just move onto the next undo
+   *    then clear selection
    */
   undo() {
     if (this.cState.selectGroup.size)
       this.cState.selectGroup.clear();
-    else
-      this.cState.undo();
   }
 }
 
@@ -283,15 +285,13 @@ class ConsoleCreateCommand {
     if (this.cState.labeled.get(this.label)) 
       throw `Object with label '${this.label}' already exists.`;
 
-    // been done before (undo has happened)
-    if (this.obj) {
-      this.cState.addCanvasObj(this.obj);
-    }
-    else {
+    // check if undo has happened
+    if (this.obj == null) {
       this.obj = 
         new this.objClass(this.cState, this.coords.x1, this.coords.y1,
                             this.coords.x2, this.coords.y2);  
     }
+    this.cState.addCanvasObj(this.obj);
 
     console.log("created obj:", this.obj);
    
@@ -551,6 +551,7 @@ class Array1DArrowCommand extends Array1DCommand {
 
       this.arrow = 
         new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
+      this.receiver.cState.addCanvasObj(this.arrow);
 
       // set control points so arc goes above by default
       var mid = Math.floor((x1 + x2) / 2);
@@ -666,11 +667,21 @@ class LinkedListCutCommand extends LinkedListCommand {
 }
 
 /** Util commands
- *  e.g. save
+ *  - not recorded when passed to CommandRecorder.execute
  */
 
-class ExportToImageCommand {
+class UtilCommand {
+  execute() {
+    throw "Execute not implemented for " + this.constructor.name;
+  }
+
+  undo() {
+  }
+}
+
+class ExportToImageCommand extends UtilCommand {
   constructor(cState) {
+    super();
     this.cState = cState;
   }
 
@@ -680,14 +691,11 @@ class ExportToImageCommand {
     link.setAttribute("href", this.cState.canvas.toDataURL());
     link.click();
   }
-
-  undo() {
-    
-  }
 }
 
-class VideoCommand { 
+class VideoCommand extends UtilCommand {
   constructor(cState) {
+    super();
     this.mc = MediaController.getInstance(cState);
   }
 }
