@@ -55,21 +55,5 @@ wsserver.on("connection", ((ws) => {
 
 }));
 
-// var f1 = __dirname + "/public/temp/1/v1.webm";
-// var f2 = __dirname + "/public/temp/1/v2.webm";
-// var m = __dirname + "/public/temp/1/merged.webm";
-// var temp = __dirname + "/temp";
-// 
-// var merged = new ffmpeg()
-//               .mergeAdd(f1)
-//               .mergeAdd(f2)
-//               .on("error", (err) => console.log(err))
-//               .on("end", () => console.log("done merging"))
-//               .mergeToFile(m, temp);
-   
-// s.input(p1).seekInput(2)
-//   .on("error", (err) => console.log(err))
-//   .on("end", () => console.log("finished"))
-//   .mergeToFile(m, temp);
 
 app.listen(3000);
