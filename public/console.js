@@ -205,8 +205,10 @@ class CommandConsole {
 
   executeCommand(cmdObj) {
     try {
-      cmdObj.execute();
+      CommandRecorder.execute(cmdObj);
       this.cState.undoStack.push(cmdObj);
+
+      this.cState.redoStack = [];
     }
     catch (error) {
       throw error;
