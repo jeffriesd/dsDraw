@@ -1,11 +1,15 @@
 class MediaController {
   constructor(canvasState) {
     this.cState = canvasState;
-    // capture and replay at 100ms framerate
-    this.framerate = 20;
 
+    // update every 50ms (20fps)
+    this.framerate = 50;
+
+    this.cmdRecorder = CommandRecorder.getInstance(this.framerate);
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
+    this.requestAudio();
+
     this.recorder = new MediaRecorder(this.cStream, { mimeType: "video/webm;codecs=vp8"});
     this.init();
 
@@ -22,10 +26,19 @@ class MediaController {
     this.instance = null;
   }
 
+  requestAudio() {
+    navigator.mediaDevices.getUserMedia({ audio : true })
+      .then((stream) => {
+        this.cStream.addTrack(stream.getAudioTracks()[0]);
+      })
+      .catch((err) => console.log("[AUDIO ERROR]:", err));
+  }
+
   /** MediaController.init
    *    bind events to recorder and video 
    */
   init() {
+
     this.recorder.ondataavailable = (event) => {
       console.log("data available");
       this.chunks.push(event.data);
@@ -33,16 +46,66 @@ class MediaController {
     };
 
     this.recorder.onstop = (event) => {
-      var blob = new Blob(this.chunks, { "type" : "video/webm; codecs=vp9"});
+      var blob = new Blob(this.chunks, { "type" : "video/webm; codecs=vp8" });
       this.websock.send(blob);
       this.chunks = [];
 
-      // fast forward editor to current time (to end)
+      // wait for merge/write to complete before updating 
+      // video src url
+      this.waiting = true;
+
+      // stop rec timer
+      this.cmdRecorder.stopTimer();
     };
 
+    this.recorder.onstart = (event) => {
+      var startTime = this.player.video.duration;
+      if (isNaN(this.player.video.duration))
+        startTime = 0;
+      console.log("rec start time = ", startTime);
+
+      this.cmdRecorder.startTimer(startTime);
+    };
+
+    // go back to pause/edit state when video ends
     this.player.video.onended = (event) => {
-      this.togglePlayback();
-    }
+      if (this.getState() === this.playState)
+        this.togglePlayback();
+      this.cmdRecorder.seekTo(this.player.video.currentTime); 
+    };
+
+    // update controls while video plays
+    this.player.video.ontimeupdate = (event) => {
+      this.player.updateTime();
+
+      // seeker controls time when paused
+      if (this.getState() === this.playState) 
+        this.player.updateSeeker();
+
+    };
+
+    // update time once meta data has loaded (avoid NaN)
+    this.player.video.onloadeddata = (event) => {
+      this.player.updateTime();
+    };
+
+    // when user drags seek bar
+    // seek video and set video time
+    this.player.seeker.onchange = (event) => {
+      // seeker bar has range of 100
+      var frac = this.player.seeker.value / this.player.seeker.max;
+      var dur = this.player.video.duration;
+      // round to hundreths of a sec 
+      var secs = Math.min(dur, Math.round(frac * dur * 100) / 100);
+      if (frac == 1) secs = dur;
+
+      // suppress firefox AbortError bug
+      // if (this.player.video.readyState > 1)
+        this.player.video.currentTime = secs;
+
+      // seek commands
+      this.cmdRecorder.seekTo(this.player.video.currentTime); 
+    };
   }
 
   processWSMessage(msg) {
@@ -54,6 +117,10 @@ class MediaController {
     console.log("setting video url to", url);
     url = url.replace(/^public\//, "");
     this.player.video.src = url;
+
+    this.player.seeker.value = 0;
+    this.player.updateTime();
+    this.waiting = false;
   }
 
   /** MediaController.getState
@@ -97,23 +164,66 @@ class VideoPlayer {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.video = document.getElementById("video");
+    this.seeker = document.getElementById("seeker");
+    this.currentTimeLabel = document.getElementById("currentTime");
+    this.durationLabel = document.getElementById("duration");
+    this.playButton = document.getElementById("playPause");
+
     this.framerate = framerate;
   }
 
+  /** VideoPlayer.updateTime
+   *    set current time and update duration for control bar
+   *    based on current time of video. If video duration
+   *    is NaN, don't update it.
+   */
+  updateTime() {
+    var time = this.video.currentTime;
+    var mins = Math.floor(time / 60);
+    var secs = Math.floor(time - (mins * 60));
+    var hs = Math.round(time * 100) % 100;
+    secs = String(secs).padStart(2, "0");
+    hs = String(hs).padStart(2, "0");
+    this.currentTimeLabel.innerHTML = `${mins}:${secs}.${hs}`;
+
+    var dtime = this.video.duration;
+    if (isNaN(dtime)) return;
+
+    var dmins = Math.floor(dtime / 60);
+    var dsecs = Math.floor(dtime - (dmins * 60));
+    var dhs = Math.round(dtime * 100) % 100;
+    dsecs = String(dsecs).padStart(2, "0");
+    dhs = String(dhs).padStart(2, "0");
+    this.durationLabel.innerHTML = `${dmins}:${dsecs}.${dhs}`;
+  }
+
+  updateSeeker() {
+    this.seeker.value = 
+      Math.floor(this.video.currentTime / this.video.duration * this.seeker.max);
+  }
+
   play() {
-    this.video.play();
-    this.drawToCanvas();
+    if (this.video.src) {
+      this.frame = 0;
+      this.video.play();
+      this.ctx.fillRect(this.canvas.style.backgroundColor, 
+          0, 0, this.canvas.width, this.canvas.height);
+      this.drawToCanvas();
+    }
+
+    // set icon
+    this.playButton.style.backgroundImage = PAUSEBTN;
   }
 
   pause() {
     this.video.pause();
+    this.playButton.style.backgroundImage = PLAYBTN;
   }
 
   drawToCanvas() {
     // stop playing when video does 
     if (this.video.paused || this.video.ended) 
       return;
-    console.log("drawing");
     this.ctx.drawImage(this.video,0,0,
       this.canvas.width, this.canvas.height);
 
@@ -121,7 +231,7 @@ class VideoPlayer {
   }
 
   ended() {
-    console.log("ct = ", this.video.currentTime, "; dur=", this.video.duration);
+    console.log("cur time = ", this.video.currentTime, ", dur = ", this.video.duration);
     return isNaN(this.video.duration) || this.video.currentTime == this.video.duration;
   }
 }
@@ -139,29 +249,33 @@ class MediaState {
 class PauseState extends MediaState { 
   /** PauseState.record
    *    only record if player is seeked to end
+   *    and clips are no longer being merged
    */
   record(context) {
-
-    // if (context.player.ended()) {
+    if (context.player.ended() && ! context.waiting) {
       context.recorder.start(); 
       context.setState(context.recordState);
 
       console.log("recording");
-    // }
-    // else {
-    //   console.log("cannot record, not at end of video");
-    // }
+    }
+    else 
+      alert("cannot record, not at end of video");
   }
 
   togglePlayback(context) {
-    context.player.play();
-    context.setState(context.playState);
+    if (! context.waiting) {
+      context.player.play();
+      context.setState(context.playState);
+    }
+    else
+      alert("Merging clips...");
   }
 }
 
 class PlayState extends MediaState {
   togglePlayback(context) {
     context.player.pause();
+    context.cmdRecorder.seekTo(context.player.video.currentTime);
     context.setState(context.pauseState);
   }
 } 
@@ -184,23 +298,90 @@ class RecordState extends MediaState {
  *    by redoing/undoing commands 
  */
 class CommandRecorder {
-  constructor() {
+  constructor(framerate) {
+    this.pastCmds = [];
+    this.futureCmds = [];
+    this.framerate = framerate;
+
     this.instance = null;
-    this.executed = [];
-    this.undone = [];
+
+    this.secs = 0;
+    this.recording = false;
   }
 
-  static getInstance() {
+  /** CommandRecorder.getInstance
+   */
+  static getInstance(framerate) {
     if (this.instance == null)
-      this.instance = new CommandRecorder();
+      this.instance = new CommandRecorder(framerate);
     return this.instance;
   }
 
-  /** CommandRecorder.execute
-   *    execute command and add it to commandList
-   */
-  execute(cmdObj) {
-    cmdObj.execute();
+  stopTimer() {
+    this.recording = false;
+  }
 
+  startTimer(startTime) {
+    this.recording = true;
+    this.secs = startTime;
+    this.tick();
+  }
+
+  tick() {
+    if (! this.recording) return;
+    
+    // convert 50ms to 0.05s
+    this.secs += this.framerate / 1000;
+    setTimeout(() => this.tick(), this.framerate);
+  }
+
+  /** CommandRecorder.execute
+   *    execute command and add it to pastCmds
+   */
+  static execute(cmdObj) {
+    cmdObj.execute();
+    if (cmdObj instanceof UtilCommand) return;
+    this.recordCommand(cmdObj, "execute");
+  }
+
+  /** CommandRecorder.undo
+   *    undo command and add it to pastCmds
+   */
+  static undo(cmdObj) {
+    cmdObj.undo();
+    if (cmdObj instanceof UtilCommand) return;
+    this.recordCommand(cmdObj, "undo");
+  }
+
+  static recordCommand(cmdObj, type) {
+    if (! this.instance.recording) return;
+    this.instance.pastCmds.push(
+      { command: cmdObj, 
+        time: this.instance.secs, 
+        type: type });
+  }
+
+  /** CommandRecorder.seekTo
+   *    update stacks and redo/undo commands
+   */
+  seekTo(secs) {
+    if (this.recording)
+      throw "Cannot seek while recording";
+
+    // console.log("seeking commands to ", secs);
+
+    while (this.futureCmds.peek() && this.futureCmds.peek().time < secs) {
+      var cmdTime = this.futureCmds.pop();
+      if (cmdTime.type == "execute") cmdTime.command.execute();
+      if (cmdTime.type == "undo") cmdTime.command.undo();
+      this.pastCmds.push(cmdTime);
+    }
+
+    while (this.pastCmds.peek() && this.pastCmds.peek().time > secs) {
+      var cmdTime = this.pastCmds.pop();
+      if (cmdTime.type == "execute") cmdTime.command.undo();
+      if (cmdTime.type == "undo") cmdTime.command.execute();
+      this.futureCmds.push(cmdTime);
+    }
   }
 }
