@@ -19,18 +19,19 @@ class CanvasObject {
     this.width = this.x2 - this.x1;
     this.height = this.y2 - this.y1;
 
-    this.cState.addCanvasObj(this);
+    this.cState.registerCanvasObj(this);
+    // this.cState.addCanvasObj(this);
     
-    // convert 'rgb(1, 2, 3)' to 123
-    var hashStr = this.hashColor.split("rgb(")[1];
-    hashStr = hashStr.split(")")[0];
-    var hashCode = hashStr.replace(/[,\s]/g, "");
-
     this._label = "";
-    
-    // property for adding to 
-    // canvasState mapping from (name => object)
-    this.label = this.constructor.name + "_" + hashCode;
+    // // convert 'rgb(1, 2, 3)' to 123
+    // var hashStr = this.hashColor.split("rgb(")[1];
+    // hashStr = hashStr.split(")")[0];
+    // var hashCode = hashStr.replace(/[,\s]/g, "");
+
+    // 
+    // // property for adding to 
+    // // canvasState mapping from (name => object)
+    // this.label = this.constructor.name + "_" + hashCode;
   }
 
   clone() {
@@ -83,6 +84,14 @@ class CanvasObject {
   }
 
   get label() {
+    if (this._label == "") {
+      // convert 'rgb(1, 2, 3)' to 123
+      var hashStr = this.hashColor.split("rgb(")[1];
+      hashStr = hashStr.split(")")[0];
+      var hashCode = hashStr.replace(/[,\s]/g, "");
+      
+      this._label = this.constructor.name + "_" + hashCode;
+    }
     return this._label;
   }
 
