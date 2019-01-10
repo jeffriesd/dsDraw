@@ -3,11 +3,12 @@
   "version"       : "0.0.0",
   "description"   : "app description",
   "main"          : "server.js",
-	"author"        : "Daniel",
+	"author"        : "Daniel Jeffries",
   "dependencies" : {
     "fluent-ffmpeg"   : "~2.1.2",
     "express"         : "~4.16.4",
     "ws"              : "~6.1.2",
-    "fs"              : "~0.0.1"
+    "fs"              : "~0.0.1-security",
+    "client-sessions" : "~0.8.0"
   }
 }
