@@ -61,9 +61,10 @@ body {
   float: left;
 }
 
+
 .toolbarButton, .toolbarButton::-moz-focus-inner {
   position: relative;
-  display: block;
+  display: inline-block;
   float: left;
   width: 20px;
   height: 100%;
@@ -77,6 +78,7 @@ body {
   margin-left: 2px;
   margin-right: 2px;
 }
+
 
 .toolbarButton:hover {
   border: 1px solid black;
@@ -239,7 +241,7 @@ textarea {
   border: none;
   background-repeat: no-repeat;
   background-image: url("../images/play.png");
-  background-size: 20% 40%;
+  background-size: 15% 40%;
   background-position: center;
   width: 5%;
   height: 100%;
