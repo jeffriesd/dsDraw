@@ -8,10 +8,8 @@ function cleanTempDir() {
 
   fs.readdirSync(temp).forEach((dir) => {
     var subdir = temp + dir;
-    fs.readdirSync(subdir).forEach((clips) => {
-      fs.unlink(path.join(subdir, c), (err) => {
-        if (err) console.log("cleanup error:", err);
-      });
+    fs.readdirSync(subdir).forEach((clip) => {
+      fs.unlinkSync(path.join(subdir, clip));
     });
     // remove now-empty folder 
     fs.rmdirSync(subdir);
