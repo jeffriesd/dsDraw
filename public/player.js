@@ -8,12 +8,10 @@ class MediaController {
     this.cmdRecorder = CommandRecorder.getInstance(this.framerate);
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
-    this.requestAudio();
+    // this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, { mimeType: "video/webm;codecs=vp8"});
     this.init();
-
-    this.websock = null;
 
     this.playState = new PlayState();
     this.pauseState = new PauseState();
@@ -38,7 +36,9 @@ class MediaController {
    *    bind events to recorder and video 
    */
   init() {
-
+    /** 
+     *  MediaRecorder bindings
+     */
     this.recorder.ondataavailable = (event) => {
       console.log("data available");
       this.chunks.push(event.data);
@@ -47,7 +47,7 @@ class MediaController {
 
     this.recorder.onstop = (event) => {
       var blob = new Blob(this.chunks, { "type" : "video/webm; codecs=vp8" });
-      this.websock.send(blob);
+      WebSocketConnection.getInstance().sendBlob(blob);
       this.chunks = [];
 
       // wait for merge/write to complete before updating 
@@ -67,6 +67,10 @@ class MediaController {
       this.cmdRecorder.startTimer(startTime);
     };
 
+    /** 
+     *  Video bindings
+     */
+
     // go back to pause/edit state when video ends
     this.player.video.onended = (event) => {
       if (this.getState() === this.playState)
@@ -81,12 +85,25 @@ class MediaController {
       // seeker controls time when paused
       if (this.getState() === this.playState) 
         this.player.updateSeeker();
-
     };
 
     // update time once meta data has loaded (avoid NaN)
     this.player.video.onloadeddata = (event) => {
       this.player.updateTime();
+    };
+
+
+    /** 
+     *  Control bar and seek input bindings
+     */
+
+    this.player.playButton.onclick = (event) => {
+      this.togglePlayback();
+    };
+
+    this.player.volume.onchange = (event) => {
+      // volume range is 0-100
+      this.player.video.volume = this.player.volume.value / 100;
     };
 
     // when user drags seek bar
@@ -106,11 +123,6 @@ class MediaController {
       // seek commands
       this.cmdRecorder.seekTo(this.player.video.currentTime); 
     };
-  }
-
-  processWSMessage(msg) {
-    // default
-    this.setVideoURL(msg);
   }
 
   setVideoURL(url) {
@@ -168,6 +180,7 @@ class VideoPlayer {
     this.currentTimeLabel = document.getElementById("currentTime");
     this.durationLabel = document.getElementById("duration");
     this.playButton = document.getElementById("playPause");
+    this.volume = document.getElementById("volume");
 
     this.framerate = framerate;
   }
