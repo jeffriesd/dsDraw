@@ -1,59 +1,52 @@
-const ffmpeg = require("fluent-ffmpeg");
-const fs = require("fs");
-const path = require("path");
 const express = require("express");
-const WSServer = require("ws").Server;
-const vid = require("./video");
+const session = require("client-sessions");
 
-// init express app
+const vid = require("./video");
+const util = require("./server-util");
+const connManager = require("./server-connection");
+
+const secret = "my23 kjnads9y super ;klsdaf0[u723rsecret";
+
+// init express app and express Websockets
 const app = express();
+const expressWS = require("express-ws")(app);
+
+// clean up temporary files
+util.cleanTempDir();
+
+// set public dir
 app.use(express.static(__dirname + "/public"));
+
+app.use(session({
+  cookieName: "session",
+  secret: secret,
+  duration: 30 * 60 * 1000,
+  activeDuration: 10 * 60 * 1000,
+}));
 
 app.get("/", (req, res) => {
   res.sendFile("index.html");
 });
 
-// clear temp dir
-var temp = "public/temp";
-console.log(temp);
-fs.readdir(temp, (err, items) => {
-  if (items == null) return;
-  items.forEach((dir) => {
-    var subdir = "public/temp/" + dir;
-    fs.readdir(subdir, (err, clips) => {
-      if (clips == null) return;
-      clips.forEach((c) => 
-        fs.unlink(path.join(subdir, c), (err) => console.log("cleanup error:", err)));
-    });
-  });
-});
 
-var clients = [];
+const clients = [];
 function assignClientId() {
   var newId = clients.reduce((acc, val) => Math.max(acc, val), 0) + 1;
   clients.push(newId);
   return newId;
 }
 
-// init websocket server
-const wsserver = new WSServer({port: 3001});
-wsserver.on("connection", ((ws) => {
-	ws.on("message", (message) => {
-    if (! (message instanceof Buffer))
-      return;
+app.ws("/", (ws, req) => {
+  if (req.session.id == null) req.session.id = assignClientId();
+  console.log("new conn req", req.session.id);
 
-		console.log("from client: ", message.constructor.name);
-    console.log("size: ", message.length);
-
-    clientId = ws.id ? ws.id : ws.id = assignClientId();
-    vid.VideoManager.addClip(ws, clientId, message);
-	});
-
-	ws.on("end", () => {
-		console.log("Connection ended...");
-	});
-
-}));
-
+  ws.on("message", (message) => {
+    connManager.processClientMessage(ws, req, message);
+  });
+                                                            
+  ws.on("end", () => {                                    
+    console.log("Connection ended...");
+  });                                                      
+});
 
 app.listen(3000);
