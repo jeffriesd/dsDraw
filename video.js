@@ -44,8 +44,11 @@ class VideoManager {
     // merge clips and remove other clips
     if (clips.length > 1) 
       VideoManager.mergeClips(ws, clips);
-    else
-      ws.send(clipPath);
+    else {
+      ws.send(
+        JSON.stringify({ type: "setVideoURL", body: clipPath })
+      );
+    }
   }
 
   /** VideoManager.mergeClips
@@ -71,11 +74,13 @@ class VideoManager {
         // remove other clips after merging
         VideoManager.removeClips(filePaths);
         // send updated URL once webm is written
-        ws.send(mergedPath);
+        ws.send(
+          JSON.stringify({ type: "setVideoURL", body: mergedPath })
+        );
       }
     );
 
-    filePaths.forEach((f) => merged = merged.input(f));
+    filePaths.forEach((f) => merged.input(f));
     merged.mergeToFile(mergedPath, TEMP_PATH);
   }
 
@@ -125,3 +130,4 @@ class VideoClip {
 module.exports = {
   VideoManager: VideoManager,
 };
+
