@@ -1,6 +1,5 @@
 // get websocket server instance for server side video edits
-const websock = new WebSocket("ws://127.0.0.1:3001");
-
+const websock = new WebSocket("ws://localhost:3000");
 
 // initialize canvas, canvasState, bind actions,
 // and start main event loop
@@ -22,16 +21,7 @@ hitCanvas.height = canvas.height;
 // initialize controller objects
 const cState = new CanvasState(canvas);
 const mc = MediaController.getInstance(cState);
-// bind websock events
-websock.onopen = (event) => console.log("websocket connection open");
-websock.onclose = () => console.log("websocket connection closed");
-websock.onerror = (err) => console.log("[WS ERROR]:" + err);
-websock.onmessage = (event) => {
-  console.log("[WS MESSAGE]:" + event.data);
-  mc.processWSMessage(event.data);
-};
-mc.websock = websock;
-
+const wsConnection = WebSocketConnection.getInstance(websock, mc);
 
 // start animation loop
 function main() {
@@ -69,6 +59,10 @@ Mousetrap.bind("t", (event) => {
 
 Mousetrap.bind("r", (event) => {
   mc.record();
+});
+
+Mousetrap.bind("p", (event) => {
+  mc.togglePlayback();
 });
 
 Mousetrap.bind("spacebar", (event) => {
