@@ -1,8 +1,10 @@
 # dsDraw
 
-dsDraw is an interactive tool for drawing flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console.
+dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console.
 
 ## General
+Individual segments can be recorded and merged together, and individual clips can be truncated so the current time frame becomes the end of the clip. Recording can only start from the end of the previous clip. 
+
 To __move__ an existing object, hold control and drag the object.  
 To __clone__ an existing object, hold alt and drag the object.  
 To __delete__ the most recently created object, press control-z.  
@@ -12,6 +14,8 @@ and select new options.
 The currently selected object(s) will have a bright blue border.  
 
 ### Shortcuts
+__R:__ Start/Stop recording  
+__P:__ Pause/play  
 __Control-Z:__ Undo   
 __Control-Y:__ Redo  
 __T:__ Show console   
@@ -43,16 +47,6 @@ edit the text. Current supported options are font family, font size, and
 alignment (left, center, right, or top, center). Text boxes can also be resized
 by clicking and dragging from the bottom right corner.
 
-## Data Structures
-
-### Arrays
-
-Arrays can be configured to hold random values, specified values, or not show any values at all.
-They can hold strings or integers.  
-
-Users can create arrays by clicking and dragging, but then all options must be configured one at a time.
-Arrays can also be created using the __create__ command and options can be configured in the console.  
-
 # Console
 The console will be used for creating data structures with specific attributes
 that are simpler to specify by typing than by many individual clicks. Currently
@@ -66,7 +60,7 @@ Recently entered commands can by cycled through using the arrow keys.
 
 ## Commands
 
-#### create
+#### create [dsType] [[label]]
 This command is used to instantiate data structures and makes it easy to configure many options at once. 
 Newly created data structures can be given a label or otherwise will be given a random label.
 The create command can be executed as a single line or multiple lines delimited by curly braces. 
@@ -81,6 +75,49 @@ create array myarr456 {
   fontSize: 18
 }
 ```
+
+#### delete [label]
+Deletes the object with name 'label'.
+
+#### snap
+Take a screenshot of the canvas.
+
+#### play
+Play video.
+
+#### pause
+Pause video.
+
+#### record
+Start/stop recording. Recording can only begin if video is seeked to end of current clip.
+
+#### truncate
+Truncate recording from current time. Video will automatically be updated.
+
+## Data Structures
+
+### Arrays
+
+Arrays are created with the __array__ keyword. They are displayed as a series of rectangular cells of equal height or in 'tower' mode, where the height of each cell
+is determined by its value. Configurable options for arrays include font family, font size, cell
+size, index placement (above/below), and individual cell options include background, foreground (text color), value, showValues (toggle), showIndex (toggle), and displayStyle.
+
+##### Commands
+* resize
+* swap  
+* arc  
+
+### Linked Lists
+
+Linked lists are created one node at a time and share mary properties with arrays. Nodes can be display as circles or squares
+and arcs can be configured individually. Configureable options for linked lists include font family, font size, cell size,
+index placement (above/below), and individual cell optinos include backgroundm, foreground, value, showValues, showIndex, and displayStyle.
+
+##### Commands
+* insert
+* link
+* cut
+
 
 #### configuration
 Each data structure has configurable attributes, and child elements (such as the cells of an array) may have configurable attributes of their own. To change the settings of an existing objects, its label must be used in the console. For
@@ -104,5 +141,5 @@ myarr123[] value 55
 ```
 
 ### Commands by data structure:
-[Array Commands](https://github.com/danjeffries96/dsDraw/blob/master/docs/array-commands.md)
-
+[Array Commands](https://github.com/danjeffries96/dsDraw/blob/master/docs/array-commands.md)  
+[Linked List Commands]()
