@@ -154,37 +154,38 @@ The CanvasChildObject class represents objects which belong to a parent. Some ar
 ## Commands
 
 dsDraw makes frequent use of the Command Pattern. Command classes are used to encapsulate user actions and are 
-kept track of in stacks for undoing and redoing recent actions. Some are created directly by the console while others are created when a user clicks the canvas (DrawCommand). Each command class has two methods, execute and undo.
-Commands are instantiated in two places: in CanvasEventHandler.mouseUp() and in CommandConsole.commandEntered() (by calling CommandInterpreter.parseLine()). The former is used for DrawCommands and the latter for console commands.
+kept track of in stacks for undoing and redoing recent actions. Some are created directly by the console (ConsoleCommand) while others are created when a user clicks the canvas (DrawCommand). Each command class has two methods, execute and undo.
+Commands are instantiated in two places: in CanvasState.createDrawCommand() and in CommandConsole.commandEntered() (by calling CommandInterpreter.parseLine()). The former is used for DrawCommands (created from mouse events) and the latter for console commands.
 
 ### Draw Commands
-DrawCommands perform actions on the current active object. There are currently four classes, ClickCreateCommand,
-MoveCommand, DragCommand, and CloneCommand. The receiver(s) for these classes are the current active object(s). 
-When a DrawCommand is instantiated, it pulls the start state of the event (where a drag start from) from the
-canvasState in the case of Drag, Move, or Clone, it calculates the offset. These three commands also support groups
-of receivers (using the Select tool) and will perform an action on every object in the group in the execute and undo methods.
+DrawCommands perform actions on the current active object. There are currently six classes, SelectCommand, ClickDestroyCommand, ClickCreateCommand,
+MoveCommand, DragCommand, and CloneCommand. The receiver(s) for these command objects are the current active canvas object(s). 
+When a DrawCommand is instantiated, it pulls the start state of the event (where a drag started from) from the
+canvasState, and in the case of Drag, Move, or Clone, the change in mouse position is calculated. These three commands also support groups of receivers (using the Select tool) and will perform an action on every object in the group in the execute and undo methods.
 
 ### Console Commands
 Console commands are created whenever CommandInterpreter.parseLine() is called (if the line is well-formed).
-The basic syntax for all console commands is 
+There are three types of console commands: util commands (pause/play/record/truncate/etc.), canvas object method commands (e.g. myarr.swap), and  configuration commands. 
+
+### Util commands
+The basic syntax for util commands is:  
 ```
 [mainCommand] [subCommand] [args]
 ```
 
-where mainCommand is the name of a command or the name of an object (for configure commands)
-e.g.
+where mainCommand is the name of a command e.g. create, delete, etc.  
 ```
 create array myarr123
 ```
 or
 ```
-myarr123 fontFamily Monospace
+delete myarr123
 ```
 
-Currently supported commands are __create__ and configuration commands where the keyword is the name of the object. 
 __Create__ commands can be single lines or multiple lines (to configure options), in which case a MacroCommand is created. 
-
 A MacroCommand is instantiated with an array of command objects and its execute method simply calls execute on each object in the array. This allows a multiline __create__ command (composed of a ConsoleCreateCommand and multiple ConfigCommands) to be undone with a single press of Ctrl-Z.
+
+## Config commands
 
 Config commands are used to change the settings of an object or its children. The basic syntax is
 ```
@@ -227,6 +228,17 @@ myarr[] = 0
 ```
 
 RangeConfigCommands are composed with many individual ConfigCommands.
+
+## Canvas object methods
+Canvas object methods can be invoked with the following syntax:  
+```
+[objLabel].[methodName] [[args]]
+```
+e.g  
+```
+myarr.swap 0 3
+```
+
 
 # Adding a new CanvasObject subclass
 Create class that extends CanvasObject.  
