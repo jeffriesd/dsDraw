@@ -228,7 +228,7 @@ myarr[] = 0
 
 RangeConfigCommands are composed with many individual ConfigCommands.
 
-# Adding a new class
+# Adding a new CanvasObject subclass
 Create class that extends CanvasObject.  
 Add keyword(s) to classNames map in command.js.  
 Add classname to canvasObjectClasses map in canvas-util.js  
