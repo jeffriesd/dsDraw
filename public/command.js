@@ -360,43 +360,66 @@ class ConfigCommand {
   }
 }
 
+/** RangeConfigCommand
+ *    accepts an iterable and a property value or
+ *    interable of property values
+ *
+ *    e.g.
+ *    myarr[0:5] bg red
+ *
+ *    myarr[] fg white   // [] = entire list
+ *
+ *    myarr[0:5] = other[0:5]   // copy values
+ */
 class RangeConfigCommand {
   constructor(parentObj, range, property, value) {
     this.parentObj = parentObj;
     this.range = range;
-    this.receivers = this.getReceivers();
+    this.receivers = this.getReceivers(this.parentObj);
+
+    // if value iterable, apply each item 
+    // to corresponding receiver
+    // if (value.length === undefined) 
+    //   this.values = [value];
+    // else
+    this.value = value;
 
     console.log("parent in range cmd is ", parentObj.label);
 
     this.configCommands = [];
 
     this.receivers.forEach((receiver) => {
-      var configCmd = new ConfigCommand(receiver, property, value);
+      var configCmd = new ConfigCommand(receiver, property, this.value);
       this.configCommands.push(configCmd);
     });
   }
 
-  /** RangeConfigCommand
-   *    parses range in input e.g. pulls (3, 5) from arr1[3:5]
+  /** RangeConfigCommand.getReceivers
+   *    parses range in input and 
+   *    pulls elements [3, 4, 5]
+   *    with `arr1[3:5]`
    */
-  getReceivers() {
+  getReceivers(parentObj) {
     var brackets = /(\[|\])/g
     var range = this.range.replace(brackets, "")
 
     // input was a1[]
     if (range == "") 
-      return this.parentObj.getChildren();
+      return parentObj.getChildren();
      
-    range = range.split(":");
-    var low = parseInt(range[0]);
-    var high = parseInt(range[1]);
-    if (range[1] == null)
-      high = low + 1;
+    var rangeSpl = range.split(":");
+    var low = parseInt(rangeSpl[0]);
+
+    var high = low + 1; // default: arr[3] = (3, 4)
+    if (range.length > 1 && rangeSpl[1] == "") // arr[3:] = (3, arr.length)
+      high = parentObj.getChildren().length;
+    else  // arr[3:5] = (3, 5)
+      high = parseInt(rangeSpl[1]);
 
     if (isNaN(low) || isNaN(high))
       throw `Invalid range: [${low}: ${high}]`;
 
-    return this.parentObj.getChildren(low, high);
+    return parentObj.getChildren(low, high);
   }
 
   execute() {
@@ -462,7 +485,7 @@ class Array1DResizeCommand extends Array1DCommand {
 
   execute() {
     var startLength = this.receiver.array.length;
-    for (var i = startLength; i <= this.newLength; i++)
+    for (var i = startLength; i < this.newLength; i++)
       this.receiver.append("random");
 
     if (this.newLength < startLength) {
