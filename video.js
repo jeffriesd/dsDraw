@@ -26,7 +26,29 @@ const fs = require("fs");
 const path = require("path");
 const ffmpeg = require("fluent-ffmpeg");
 
+const BITRATE = 1000;
+const clipIds = [];
+
+// websocket state
+const WS_OPEN = 1;
+
+const clipNamePattern = /\/\d+\.webm$/;
+
+const Duplex = require('stream').Duplex;  
+function bufferToStream(buffer) {  
+  var stream = new Duplex();
+  stream.push(buffer);
+  stream.push(null);
+  return stream;
+};
+
 class VideoManager {
+
+  static assignClipId() {
+    var newId = clipIds.reduce((acc, val) => Math.max(acc, val), 0) + 1;
+    clipIds.push(newId);
+    return newId;
+  }
 
   /** VideoManager.addClip
    *    create new VideoClip object, which writes a new webm file,
@@ -41,13 +63,13 @@ class VideoManager {
     var clips = fs.readdirSync(vid.dir);
     clips = clips.map((c) => path.join(vid.dir, c));
 
-    // merge clips and remove other clips
-    if (clips.length > 1) 
-      VideoManager.mergeClips(ws, clips);
-    else {
-      ws.send(
-        JSON.stringify({ type: "setVideoURL", body: clipPath })
-      );
+    // write video and either reply to client with new URL 
+    // or merge clips and then reply
+    if (clips.length == 0) 
+      vid.writeVideo(() => VideoManager.sendURL(ws, vid.clipPath));
+    else  {
+      clips.push(vid.clipPath);
+      vid.writeVideo(() => VideoManager.mergeClips(ws, clips));
     }
   }
 
@@ -65,18 +87,16 @@ class VideoManager {
 
     // create new clip Id
     var mergedPath = filePaths[0].replace(
-      /\/\d+\.webm$/, `/${VideoClip.assignClipId()+1}.webm`);
+      clipNamePattern, `/${VideoManager.assignClipId()}.webm`);
 
-    var merged = new ffmpeg();
+    var merged = ffmpeg().videoBitrate(BITRATE);
     merged.on("end",  
       () => {
         console.log("done merging", mergedPath);
         // remove other clips after merging
         VideoManager.removeClips(filePaths);
         // send updated URL once webm is written
-        ws.send(
-          JSON.stringify({ type: "setVideoURL", body: mergedPath })
-        );
+        VideoManager.sendURL(ws, mergedPath);
       }
     );
 
@@ -89,8 +109,45 @@ class VideoManager {
       fs.unlinkSync(f, (err) => console.log("Cleanup error:", err)));
   }
 
-  static truncateClip(filePath, timeStamp) {
+  /** VideoManager.removeExcept
+   *    remove all clips from directory except 
+   *    filePath
+   */
+  static removeExcept(filePath) {
+    var clipDir = filePath.replace(
+      clipNamePattern, "");
+    console.log("clipdir = ", clipDir);
 
+    var otherClips = fs.readdirSync(clipDir)
+                  .map(fn => path.join(clipDir, fn))
+                  .filter(fn => fn !== filePath);
+
+    VideoManager.removeClips(otherClips);
+  }
+
+  static truncateClip(ws, filePath, timeStamp) {
+    var truncated = ffmpeg(filePath).videoBitrate(BITRATE);
+
+    var truncPath = filePath.replace(
+      clipNamePattern, `/${VideoManager.assignClipId()}.webm`);
+
+    truncated.seekInput(0)
+      .duration(timeStamp)
+      .save(truncPath)
+      .on("end", () => {
+        console.log("done truncating", truncPath);
+        VideoManager.sendURL(ws, truncPath);
+
+        // remove other clips from current dir
+        VideoManager.removeExcept(truncPath);
+      });
+  }
+
+  static sendURL(ws, filePath) {
+    if (ws.readyState == WS_OPEN)
+      ws.send(JSON.stringify({ type: "setVideoURL", body: filePath }));
+    else
+      console.log("[WS SERVER => CLIENT ERROR]: WS not ready");
   }
 }
 
@@ -100,13 +157,11 @@ class VideoManager {
  */
 class VideoClip {
   constructor(clientId, dataBuffer) {
-    this.clipId = VideoClip.assignClipId();
+    this.clipId = VideoManager.assignClipId();
     this.clientId = clientId;
     this.buffer = dataBuffer;
 
     this.dir = path.join(WRITE_PATH, String(this.clientId));
-
-    this.writeFile();
   }
 
   get clipPath() {
@@ -116,14 +171,12 @@ class VideoClip {
     return path.join(this.dir, String(this.clipId) + ".webm");
   }
 
-  writeFile() { 
-    fs.writeFileSync(this.clipPath, this.buffer);
-    console.log("done writing", this.clipPath);
-  }
-
-  static assignClipId() { 
-    var ms = new Date().getTime();
-    return ms;
+  writeVideo(callback) { 
+    fs.writeFile(this.clipPath, this.buffer, callback);
+    // var stream = bufferToStream(this.buffer);
+    // ffmpeg(stream).videoBitrate(BITRATE)
+    //   .save(this.clipPath)
+    //   .on("end", onEnd);
   }
 }
 
