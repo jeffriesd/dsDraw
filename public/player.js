@@ -5,12 +5,13 @@ class MediaController {
     // update every 50ms (20fps)
     this.framerate = 50;
 
-    this.cmdRecorder = CommandRecorder.getInstance(this.framerate);
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
+    this.cmdRecorder = CommandRecorder.getInstance(this.player, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
-    // this.requestAudio();
+    this.requestAudio();
 
-    this.recorder = new MediaRecorder(this.cStream, { mimeType: "video/webm;codecs=vp8"});
+    this.recorder = new MediaRecorder(this.cStream, 
+      { mimeType: "video/webm;codecs=vp8,opus"});
     this.init();
 
     this.playState = new PlayState();
@@ -40,9 +41,7 @@ class MediaController {
      *  MediaRecorder bindings
      */
     this.recorder.ondataavailable = (event) => {
-      console.log("data available");
       this.chunks.push(event.data);
-      console.log("chunks = ", this.chunks);
     };
 
     this.recorder.onstop = (event) => {
@@ -121,7 +120,7 @@ class MediaController {
         this.player.video.currentTime = secs;
 
       // seek commands
-      this.cmdRecorder.seekTo(this.player.video.currentTime); 
+      this.cmdRecorder.seekTo(secs);
     };
   }
 
@@ -182,7 +181,19 @@ class VideoPlayer {
     this.playButton = document.getElementById("playPause");
     this.volume = document.getElementById("volume");
 
+    this.init();
+
     this.framerate = framerate;
+  }
+
+  /** VideoPlayer.init
+   *    bind action to volume input 
+   */
+  init() {
+    this.volume.oninput = (event) => {
+      var scaled = this.volume.value / this.volume.max;
+      this.video.volume = scaled;
+    };
   }
 
   /** VideoPlayer.updateTime
@@ -311,9 +322,10 @@ class RecordState extends MediaState {
  *    by redoing/undoing commands 
  */
 class CommandRecorder {
-  constructor(framerate) {
+  constructor(player, framerate) {
     this.pastCmds = [];
     this.futureCmds = [];
+    this.player = player;
     this.framerate = framerate;
 
     this.instance = null;
@@ -324,10 +336,16 @@ class CommandRecorder {
 
   /** CommandRecorder.getInstance
    */
-  static getInstance(framerate) {
+  static getInstance(player, framerate) {
     if (this.instance == null)
-      this.instance = new CommandRecorder(framerate);
+      this.instance = new CommandRecorder(player, framerate);
     return this.instance;
+  }
+
+  getTime() {
+    if (this.recording) return this.secs;
+    console.log("getting time from video");
+    return this.player.video.currentTime;
   }
 
   stopTimer() {
@@ -352,9 +370,10 @@ class CommandRecorder {
    *    execute command and add it to pastCmds
    */
   static execute(cmdObj) {
-    cmdObj.execute();
+    var ret = cmdObj.execute();
     if (cmdObj instanceof UtilCommand) return;
     this.recordCommand(cmdObj, "execute");
+    return ret;
   }
 
   /** CommandRecorder.undo
@@ -367,10 +386,9 @@ class CommandRecorder {
   }
 
   static recordCommand(cmdObj, type) {
-    if (! this.instance.recording) return;
     this.instance.pastCmds.push(
       { command: cmdObj, 
-        time: this.instance.secs, 
+        time: this.instance.getTime(), 
         type: type });
   }
 
@@ -396,5 +414,18 @@ class CommandRecorder {
       if (cmdTime.type == "undo") cmdTime.command.execute();
       this.futureCmds.push(cmdTime);
     }
+  }
+
+  /** CommandRecorder.truncate
+   *    go through both stacks get rid of any commands
+   *    that exist beyond timeStamp
+   */
+  truncate(timeStamp) {
+    while (this.futureCmds.peek() && this.futureCmds.peek().time > timeStamp)
+      this.futureCmds.pop();
+    while (this.pastCmds.peek() && this.pastCmds.peek().time > timeStamp)
+      this.pastCmds.pop();
+
+    console.log("pastCmds = ", this.pastCmds);
   }
 }
