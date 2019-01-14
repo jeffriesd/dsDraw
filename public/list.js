@@ -39,6 +39,14 @@ class LinkedList extends LinearCanvasObject {
     };
   }
 
+  propNames() {
+    return {
+      ...super.propNames(),
+      "display": "nodeStyle",
+      "ds": "nodeStyle",
+    };
+  }
+
   clone() {
     var copy = super.clone();
 
@@ -238,9 +246,9 @@ class ListNode extends NodeObject {
     }
     if (this.nodeStyle == "square") {
       var h = Math.floor(this.cellSize / 2);
-      this.ctx.rect(this.x - h, this.y - h, this.cellSize);
-      this.ctx.fillRect(this.x - h, this.y - h, this.cellSize);
-      this.hitCtx.fillRect(this.x - h, this.y - h, this.cellSize);
+      this.ctx.rect(this.x - h, this.y - h, this.cellSize, this.cellSize);
+      this.ctx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
+      this.hitCtx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
     }
 
     this.ctx.stroke();
