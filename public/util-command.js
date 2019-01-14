@@ -58,3 +58,19 @@ class StopCommand extends VideoCommand {
       this.mc.record();
   }
 }
+
+class TruncateVideoCommand extends VideoCommand {
+  // truncate video file as well as command recorder state
+  execute() {
+    var conn = WebSocketConnection.getInstance();
+    var mc = MediaController.getInstance();
+    var currTime = mc.player.video.currentTime;
+
+    mc.waiting = true;
+    mc.cmdRecorder.truncate(currTime);
+
+    // send message from client to server to truncate video at current time
+    var body = { url: mc.player.video.src, timeStamp: currTime };
+    conn.sendMessage("truncate", body);
+  }
+}
