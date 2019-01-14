@@ -20,11 +20,14 @@ the updateURL message is received.
 #### Client -> server messages:
 WebSocket messages get sent as JSON stringified objects with _type_ and _body_ attributes.
 
-* __truncate:__ sent as JSON object { type: truncate, body: { url: srcURL, timeStamp: truncateTime } }
+* __truncate:__ sent as JSON object { type: truncate, body: { url: source url of video, timeStamp: new end time of video } }
 * __raw blob:__ can't be packed up as JSON object, so a raw blob is always interpreted as a new clip to be written
 
 #### Server -> client messages:
-* __setVideoURL:__ sent as JSON object { type: setVideoURL, body: filePath of new video } }
+* __setVideoURL:__ sent as JSON object { type: setVideoURL, body: path of new video } }
 
+## CommandRecorder
+CommandRecorder is also a Singleton and its constructor has one parameter, _framerate_. It maintains two stacks, _pastCmds_ and _futureCmds_, which contain objects with attributes {type (execute/undo), timeStamp, cmdObj}. It also maintains a current time in seconds which is updated by the _startTimer(startTime)_ and _stopTimer()_ methods. These methods get called by the MediaRecorder object on its _onstart_ and _onstop_ events and are necessary to create accurate timestamps during recording (otherwise the current video time is used). All commands in the app get executed by calling the static method _CommandRecorder.execute()_ (or undo), which executes the command object and pushes it onto the _pastCmds_ stack.
 
-
+#### Seeking
+Seeking is performed when the user drags the seeker in the video control bar. It updates the video time and so the editor state must also be updated. CommandRecorder has a _seekTo(secs)_ method for this purpose. After seeking, if there are any objects in _futureCmds_ with a timestamp before the current time, these commands need to be redone (executed if type is execute or vice versa). If there are any objects in _pastCmds_ with a timestamp after the current time, these commands need to be undone (execute if type is undo or vice versa). _seekTo_ only gets called with the video's _onend_ event and the seeker's (range <input>) _onchange_ event (fired when seeker is released).
