@@ -1,11 +1,11 @@
 mainCommands = {
   "create": ConsoleCreateCommand,
   "delete": ConsoleDestroyCommand,
-  "save": ExportToImageCommand,
+  "snap": ExportToImageCommand,
   "play": PlayVideoCommand,
   "pause": PauseVideoCommand,
   "record": RecordCommand,
-  "stop": StopCommand,
+  "truncate": TruncateVideoCommand,
 };
 
 objectCommands = {
@@ -203,12 +203,17 @@ class CommandConsole {
       this.commandLine.value = "";
   }
 
+  /** ComamndConsole.executeCommand
+   *    execute command using CommandRecorder
+   *    and return value for Multiline config
+   */
   executeCommand(cmdObj) {
     try {
-      CommandRecorder.execute(cmdObj);
+      var ret = CommandRecorder.execute(cmdObj);
       this.cState.undoStack.push(cmdObj);
 
       this.cState.redoStack = [];
+      // return ret;
     }
     catch (error) {
       throw error;
@@ -252,6 +257,7 @@ class CommandConsole {
       // simply append the following lines to history
       if (this.multiLine) {
         this.multiCommand.push(line);
+
         // indent in console
         line = "  " + line;
       }
@@ -274,16 +280,15 @@ class CommandConsole {
     }
 
     // if command obj instantiated
-    if (cmdObj && ! err) {
+    if (cmdObj && ! err) 
       err = this.executeCommand(cmdObj);
-    }
 
     // add to command history 
     if (line && line.trim()) 
       this.historyStack.push(line);
 
-
-    if (err)
+    // print error (but ignore returned objects)
+    if (err && String(err).includes("ERROR"))
       this.historyStack.push(err);
 
     // redraw command history
@@ -344,7 +349,7 @@ class CommandInterpreter {
     console.log("firstLine = ", firstLine);
     var creator = this.parseLine(firstLine);
     if (creator) 
-      var newObj = this.executeCommand(creator);
+      var newObj = this.commandConsole.executeCommand(creator);
     else
       throw "Invalid command: " + firstLine;
 
