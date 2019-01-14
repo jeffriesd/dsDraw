@@ -230,6 +230,7 @@ class NodeObject extends CanvasChildObject {
 
     var textHeight = this.ctx.measureText("_").width;
     var yOffset = -(this.cellSize - textHeight) / 2;
+    var textOffY = (this.cellSize - textHeight) / 2;
 
 		// draw above or below
 		if (this.getParent().indexPlacement == "below") {
