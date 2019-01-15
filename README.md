@@ -119,7 +119,7 @@ index placement (above/below), and individual cell optinos include backgroundm, 
 * cut
 
 
-#### configuration
+## Configuration
 Each data structure has configurable attributes, and child elements (such as the cells of an array) may have configurable attributes of their own. To change the settings of an existing objects, its label must be used in the console. For
 iterable objects such as arrays, ranges of child elements can be configured together.
 
