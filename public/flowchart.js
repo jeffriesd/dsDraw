@@ -109,10 +109,10 @@ class FlowchartBox extends CanvasObject {
    */
   createEditor() {
     this.editor = document.createElement("textarea");
-    this.editor.style.paddingLeft = this.textMargin + "px";
-    this.editor.style.paddingRight = this.textMargin + "px";
+    this.editor.style.paddingLeft = "0";
+    this.editor.style.paddingRight = "0";
     this.editor.style.position = "absolute"; 
-    this.editor.style.border = "0";
+    this.editor.style.backgroundColor = this.fill;
 
     this.positionEditor();
 
@@ -133,16 +133,20 @@ class FlowchartBox extends CanvasObject {
     };
   }
 
+  /** FlowchartBox.positionEditor
+   *    editor is opaque, so use margin to 
+   *    actually shrink editor slightly to hide border
+   */
   positionEditor() {
     // set size
-    var width = this.x2 - this.x1;
-    var height = this.y2 - this.y1;
+    var width = this.x2 - this.x1 - 2 * this.textMargin;
+    var height = this.y2 - this.y1 - 2 * this.textMargin;
     this.editor.style.width = width + "px";
     this.editor.style.height = height + "px";
 
     // set position
-    this.editor.style.top = this.y1 + "px";
-    this.editor.style.left = this.x1 + "px";
+    this.editor.style.top = this.y1 + this.textMargin + "px";
+    this.editor.style.left = this.x1 + this.textMargin + "px";
   }
 
   /** FlowchartBox.configureOptions
@@ -195,6 +199,8 @@ class FlowchartBox extends CanvasObject {
       // hack for vertical alignment of editor
       this.editor.style.paddingTop = offset + "px";
     }
+
+    this.textY += this.textMargin;
 
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.strokeStyle = this.hashColor;
@@ -382,8 +388,7 @@ class RectBox extends FlowchartBox {
     this.ctx.stroke();
     
     // helper method for text
-    if (this.editor.hidden)
-      this.drawText();
+    this.drawText();
 
     // draw to hit detection canvas
     this.hitCtx.beginPath();
@@ -431,8 +436,7 @@ class RoundBox extends FlowchartBox {
     this.ctx.fill();
 
     // helper method for text
-    if (this.editor.hidden)
-      this.drawText();
+    this.drawText();
 
     // draw to hit detection canvas
     this.hitCtx.beginPath();
@@ -505,8 +509,7 @@ class DiamondBox extends FlowchartBox {
     this.ctx.fill();
 
     // draw text
-    if (this.editor.hidden)
-      this.drawText();
+    this.drawText();
 
     this.hitCtx.beginPath();
     this.hitCtx.moveTo(this.leftX, this.midY);
@@ -576,8 +579,7 @@ class ParallelogramBox extends FlowchartBox {
     this.ctx.stroke();
     this.ctx.fill();
 
-    if (this.editor.hidden)
-      this.drawText();
+    this.drawText();
 
     this.hitCtx.beginPath();
     this.hitCtx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -663,8 +665,7 @@ class Connector extends FlowchartBox {
     this.ctx.stroke();
     this.ctx.fill();
 
-    if (this.editor.hidden)
-      this.drawText();
+    this.drawText();
 
     this.hitCtx.beginPath();
     this.hitCtx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
