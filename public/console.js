@@ -12,6 +12,7 @@ objectCommands = {
   "Array1Dresize": Array1DResizeCommand,
   "Array1Dswap": Array1DSwapCommand,
   "Array1Darc": Array1DArrowCommand,
+  "Array1Dcopy": Array1DCopyCommand,
   "LinkedListinsert": LinkedListInsertCommand,
   "LinkedListlink": LinkedListLinkCommand,
   "LinkedListcut": LinkedListCutCommand,
@@ -213,7 +214,7 @@ class CommandConsole {
       this.cState.undoStack.push(cmdObj);
 
       this.cState.redoStack = [];
-      // return ret;
+      return ret;
     }
     catch (error) {
       throw error;
