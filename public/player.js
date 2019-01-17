@@ -111,12 +111,6 @@ class MediaController {
         this.player.updateSeeker();
     };
 
-    // update time once meta data has loaded (avoid NaN)
-    this.player.video.onloadeddata = (event) => {
-      this.player.updateTime();
-    };
-
-
     /** 
      *  Control bar and seek input bindings
      */
@@ -142,7 +136,8 @@ class MediaController {
 
       // suppress firefox AbortError bug
       // if (this.player.video.readyState > 1)
-        this.player.video.currentTime = secs;
+        
+      this.player.video.currentTime = secs;
 
       // seek commands
       this.cmdRecorder.seekTo(secs);
@@ -212,12 +207,31 @@ class VideoPlayer {
     };
   }
 
+  /** VideoPlayer.queryDuration
+   *    query video readystate until duration is valid
+   */
+  queryDuration() {
+    this.video.currentTime = 1000; // hack to avoid Chrome bug
+    var query = setInterval(() => {
+      if (isFinite(this.video.duration)) {
+        clearInterval(query);
+        this.video.currentTime = 0;
+        this.updateTime();
+      }
+    }, 100);
+  }
+
   /** VideoPlayer.updateTime
    *    set current time and update duration for control bar
-   *    based on current time of video. If video duration
-   *    is NaN, don't update it.
+   *    based on current time of video. 
+   *    
+   *    If video duratio is NaN, query it until 
+   *    it is a valid number.
    */
   updateTime() {
+    if (! isFinite(this.video.duration))
+      return this.queryDuration();
+
     var time = this.video.currentTime;
     var mins = Math.floor(time / 60);
     var secs = Math.floor(time - (mins * 60));
@@ -227,8 +241,6 @@ class VideoPlayer {
     this.currentTimeLabel.innerHTML = `${mins}:${secs}.${hs}`;
 
     var dtime = this.video.duration;
-    if (isNaN(dtime)) return;
-
     var dmins = Math.floor(dtime / 60);
     var dsecs = Math.floor(dtime - (dmins * 60));
     var dhs = Math.round(dtime * 100) % 100;
@@ -245,8 +257,6 @@ class VideoPlayer {
   play() {
     if (this.video.src) {
       this.video.play();
-      this.ctx.fillRect(this.canvas.style.backgroundColor, 
-          0, 0, this.canvas.width, this.canvas.height);
       this.drawToCanvas();
     }
 
@@ -263,6 +273,7 @@ class VideoPlayer {
     // stop playing when video does 
     if (this.video.paused || this.video.ended) 
       return;
+
     console.log("drawing vsrc", this.video.src);
     this.ctx.drawImage(this.video, 0, 0,
       this.canvas.width, this.canvas.height);
@@ -423,6 +434,11 @@ class CommandRecorder {
     cmdObj.undo();
     if (cmdObj instanceof UtilCommand) return;
     this.recordCommand(cmdObj, "undo");
+  }
+
+  static recordCommand(cmdObj, type) {
+    var activeRec = MediaController.getInstance().cmdRecorder;
+    activeRec.recordCommand(cmdObj, type);
   }
 
   recordCommand(cmdObj, type) {
