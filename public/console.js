@@ -6,6 +6,7 @@ mainCommands = {
   "pause": PauseVideoCommand,
   "record": RecordCommand,
   "truncate": TruncateVideoCommand,
+  "show": SelectVideoCommand,
 };
 
 objectCommands = {
