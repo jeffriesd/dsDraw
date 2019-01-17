@@ -6,10 +6,10 @@ class MediaController {
     this.framerate = 50;
 
     // id of active clip
-    this.activeClip = 0;
+    this.activeClipId = -1;
+    this.commandRecorders = new Map();
       
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
-    this.cmdRecorder = CommandRecorder.getInstance(this.player, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
     // this.requestAudio();
 
@@ -26,6 +26,27 @@ class MediaController {
     this.chunks = [];
 
     this.instance = null;
+  }
+
+  /** MediaController.getInstance
+   */
+  static getInstance(cState) {
+    if (this.instance == null)
+      this.instance = new MediaController(cState);
+    return this.instance;
+  }
+
+  /** MediaController.cmdRecorder
+   *    getter method to fetch the
+   *    command recorder for current active clip
+   */
+  get cmdRecorder() {
+    if (this.commandRecorders.get(this.activeClipId) == null) {
+      this.commandRecorders.set(this.activeClipId, 
+        new CommandRecorder(this.player, this.framerate));
+    }
+
+    return this.commandRecorders.get(this.activeClipId);
   }
 
   requestAudio() {
@@ -66,7 +87,8 @@ class MediaController {
         startTime = 0;
       console.log("rec start time = ", startTime);
 
-      this.cmdRecorder.startTimer(startTime);
+      // this.cmdRecorder.startTimer(startTime);
+      this.cmdRecorder.startTimer(0);
     };
 
     /** 
@@ -132,8 +154,6 @@ class MediaController {
     url = url.replace(/^public\//, "");
     this.player.video.src = url;
 
-    this.activeClipId = id;
-
     this.player.seeker.value = 0;
     this.player.updateTime();
     this.waiting = false;
@@ -151,15 +171,6 @@ class MediaController {
   setState(newState) {
     document.getElementById("recording").innerHTML = newState.constructor.name;
     this.state = newState;
-  }
-
-
-  /** MediaController.getInstance
-   */
-  static getInstance(cState) {
-    if (this.instance == null)
-      this.instance = new MediaController(cState);
-    return this.instance;
   }
 
   record() {
@@ -233,7 +244,6 @@ class VideoPlayer {
 
   play() {
     if (this.video.src) {
-      this.frame = 0;
       this.video.play();
       this.ctx.fillRect(this.canvas.style.backgroundColor, 
           0, 0, this.canvas.width, this.canvas.height);
@@ -253,7 +263,8 @@ class VideoPlayer {
     // stop playing when video does 
     if (this.video.paused || this.video.ended) 
       return;
-    this.ctx.drawImage(this.video,0,0,
+    console.log("drawing vsrc", this.video.src);
+    this.ctx.drawImage(this.video, 0, 0,
       this.canvas.width, this.canvas.height);
 
     setTimeout(() => this.drawToCanvas(), this.framerate);
@@ -282,8 +293,18 @@ class PauseState extends MediaState {
    */
   record(context) {
     if (context.player.ended() && ! context.waiting) {
-      context.recorder.start(); 
-      context.setState(context.recordState);
+      // if starting new
+      context.cmdRecorder.seekTo(-1);
+
+      // start using next CommandRecorder
+      context.activeClipId++;
+
+      // wait 2 frames to avoid drawing
+      // previous contents
+      setTimeout(() => {
+        context.recorder.start(); 
+        context.setState(context.recordState);
+      }, context.framerate * 2);
 
       console.log("recording");
     }
@@ -339,14 +360,6 @@ class CommandRecorder {
     this.recording = false;
   }
 
-  /** CommandRecorder.getInstance
-   */
-  static getInstance(player, framerate) {
-    if (this.instance == null)
-      this.instance = new CommandRecorder(player, framerate);
-    return this.instance;
-  }
-
   /** CommandRecorder.getTime
    *    if video is paused, allow commands to be recorded
    *    still but video has already been written, so it 
@@ -377,29 +390,45 @@ class CommandRecorder {
     setTimeout(() => this.tick(), this.framerate);
   }
 
+  /** static wrapper -- grabs and dispatches call to
+   *  active CommandRecorder instance
+   */
+  static execute(cmdObj) {
+    var activeRec = MediaController.getInstance().cmdRecorder;
+    activeRec.execute(cmdObj);
+  }
+
   /** CommandRecorder.execute
    *    execute command and add it to pastCmds
    */
-  static execute(cmdObj) {
+  execute(cmdObj) {
     var ret = cmdObj.execute();
     if (cmdObj instanceof UtilCommand) return;
     this.recordCommand(cmdObj, "execute");
     return ret;
   }
 
+  /** static wrapper -- grabs and dispatches call to
+   *  active CommandRecorder instance
+   */
+  static undo(cmdObj) {
+    var activeRec = MediaController.getInstance().cmdRecorder;
+    activeRec.undo(cmdObj);
+  }
+
   /** CommandRecorder.undo
    *    undo command and add it to pastCmds
    */
-  static undo(cmdObj) {
+  undo(cmdObj) {
     cmdObj.undo();
     if (cmdObj instanceof UtilCommand) return;
     this.recordCommand(cmdObj, "undo");
   }
 
-  static recordCommand(cmdObj, type) {
-    this.instance.pastCmds.push(
+  recordCommand(cmdObj, type) {
+    this.pastCmds.push(
       { command: cmdObj, 
-        time: this.instance.getTime(), 
+        time: this.getTime(), 
         type: type });
   }
 
@@ -427,7 +456,7 @@ class CommandRecorder {
     }
 
     console.log("pastCmds = ", this.pastCmds.map((x) => [x.time, x.command.constructor.name]));
-    console.log("futureCmds = ", this.futureCmds.map((x) => x.command.constructor.name));
+    console.log("futureCmds = ", this.futureCmds.map((x) => [x.time, x.command.constructor.name]));
   }
 
   /** CommandRecorder.truncate
