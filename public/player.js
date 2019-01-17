@@ -208,7 +208,8 @@ class VideoPlayer {
   }
 
   /** VideoPlayer.queryDuration
-   *    query video readystate until duration is valid
+   *    query video readystate until duration is valid,
+   *    then update time 
    */
   queryDuration() {
     this.video.currentTime = 1000; // hack to avoid Chrome bug
