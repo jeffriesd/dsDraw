@@ -5,10 +5,13 @@ class MediaController {
     // update every 50ms (20fps)
     this.framerate = 50;
 
+    // id of active clip
+    this.activeClip = 0;
+      
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
     this.cmdRecorder = CommandRecorder.getInstance(this.player, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
-    this.requestAudio();
+    // this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, 
       { mimeType: "video/webm;codecs=vp8,opus"});
@@ -124,10 +127,12 @@ class MediaController {
     };
   }
 
-  setVideoURL(url) {
+  setVideoURL(id, url) {
     console.log("setting video url to", url);
     url = url.replace(/^public\//, "");
     this.player.video.src = url;
+
+    this.activeClipId = id;
 
     this.player.seeker.value = 0;
     this.player.updateTime();
@@ -342,10 +347,16 @@ class CommandRecorder {
     return this.instance;
   }
 
+  /** CommandRecorder.getTime
+   *    if video is paused, allow commands to be recorded
+   *    still but video has already been written, so it 
+   *    only makes sense to record as occurring at the
+   *    end of the current clip
+   */
   getTime() {
     if (this.recording) return this.secs;
     console.log("getting time from video");
-    return this.player.video.currentTime;
+    return this.player.video.duration;
   }
 
   stopTimer() {
@@ -414,6 +425,9 @@ class CommandRecorder {
       if (cmdTime.type == "undo") cmdTime.command.execute();
       this.futureCmds.push(cmdTime);
     }
+
+    console.log("pastCmds = ", this.pastCmds.map((x) => [x.time, x.command.constructor.name]));
+    console.log("futureCmds = ", this.futureCmds.map((x) => x.command.constructor.name));
   }
 
   /** CommandRecorder.truncate

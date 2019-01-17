@@ -33,7 +33,7 @@ class WebSocketConnection {
 
     switch (msgObj.type) {
       case "setVideoURL":
-        this.mc.setVideoURL(msgObj.body);
+        this.mc.setVideoURL(msgObj.body.id, msgObj.body.url);
         break;
     }
   }
