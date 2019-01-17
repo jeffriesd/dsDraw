@@ -66,11 +66,37 @@ class TruncateVideoCommand extends VideoCommand {
     var mc = MediaController.getInstance();
     var currTime = mc.player.video.currentTime;
 
+    var clipId = mc.activeClipId;
+
     mc.waiting = true;
     mc.cmdRecorder.truncate(currTime);
 
     // send message from client to server to truncate video at current time
-    var body = { url: mc.player.video.src, timeStamp: currTime };
+    var body = { clipId : clipId, timeStamp: currTime };
     conn.sendMessage("truncate", body);
+  }
+}
+
+class SelectVideoCommand extends VideoCommand {
+  constructor(cState, clipId) {
+    super(cState);
+    this.clipId = parseInt(clipId);
+  }
+
+  /** SelectVideoCommand.execute
+   *    send message to ws server to request different clip
+   *    and switch command recorder to correct one
+   */
+  execute() {
+    var conn = WebSocketConnection.getInstance();
+   
+    var mc = MediaController.getInstance();
+    // before changing clips, clear canvas
+    mc.cmdRecorder.seekTo(-1);
+
+    mc.activeClipId = this.clipId;
+
+    var body = { clipId: this.clipId};
+    conn.sendMessage("select", body);
   }
 }
