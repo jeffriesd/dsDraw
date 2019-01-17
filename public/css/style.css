@@ -16,6 +16,43 @@ body {
   # margin: 10px;
 }
 
+#clipContainer {
+  position: absolute;
+  left: 0px;
+  top: 5%;
+  margin: 0;
+  height: 90%;
+  width: 10px;
+  background: transparent;
+  transition: 1s;
+}
+
+#clipMenu {
+  position: absolute;
+  left: -200px;
+  top: 0;
+  height: 100%;
+  width: 200px;
+  /* stick around for 0.5s after mouse off */
+  transition: 1s ease-in-out 0.5s; 
+  background: rgb(240, 240, 240);
+  opacity: 0.1;
+  overflow-y: auto;
+}
+
+#clipContainer:hover #clipMenu {
+  transition: 1s;
+  left: 0px;
+  opacity: 1;
+}
+
+#clipMenu img {
+  width: 90%;
+  height: 10%;
+  padding: 5%;
+  object-cover: fit;
+}
+
 
 #commandConsole {
   position: absolute;
@@ -61,22 +98,24 @@ body {
   float: left;
 }
 
-
-.toolbarButton, .toolbarButton::-moz-focus-inner {
-  position: relative;
-  display: inline-block;
-  float: left;
+.toolbarButton {
   width: 20px;
+  height: 100px;
   height: 100%;
+  position: relative;
+  float: left;
   background: none;
   background-size: 100% 100%;
   background-repeat: no-repeat;
   border: none;
   outline: 0;
-  margin-top: 0;
-  margin-bottom: 0;
+  margin: 0;
   margin-left: 2px;
   margin-right: 2px;
+}
+
+.toolbarButton::-moz-focus-inner {
+  outline: 0;
 }
 
 
@@ -203,15 +242,12 @@ textarea {
   object-fit: cover;
 }
 
-#videoContainer {
+#controlsContainer {
   white-space: nowrap;
   position: fixed;
   width: 100%;
-  height: 40px;
+  height: 5%;
   bottom: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
 
 #controlBg {
@@ -226,16 +262,11 @@ textarea {
 }
 
 #controlBar {
-  display: inline-block;
   width: 100%;
   height: 100%;
-  margin: 0;
-  margin-top: 5px;
-  padding: 0;
-  border: 0;
 }
 
-#playPause, #playPause::-moz-focus-inner {
+#playPause  {
   display: inline-block;
   background: none;
   border: none;
@@ -245,7 +276,12 @@ textarea {
   background-position: center;
   width: 5%;
   height: 100%;
-  margin: auto;
+  float: left;
+}
+
+#playPause::-moz-focus-inner {
+  outline: 0;
+  border: none;
 }
 
 #playPause:hover {
@@ -254,7 +290,8 @@ textarea {
 
 #currentTime, #duration {
   display: inline-block;
-  margin-top: 5px;
+  margin-top: 0.5%;
+  padding-top: 5px;
   color: white;
   width: 5%;
   text-align: center;
@@ -263,6 +300,7 @@ textarea {
 }
 
 #seeker {
+  padding-top: 5px;
   width: 60%;
 }
 
@@ -273,7 +311,7 @@ textarea {
 #seeker, #volume {
   display: inline-block;
   vertical-align: middle;
-  margin-top: 5px;
+  margin-top: 0.5%;
   border: 0;
 }
 
