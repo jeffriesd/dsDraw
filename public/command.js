@@ -411,10 +411,12 @@ class RangeConfigCommand {
     var low = parseInt(rangeSpl[0]);
 
     var high = low + 1; // default: arr[3] = (3, 4)
-    if (range.length > 1 && rangeSpl[1] == "") // arr[3:] = (3, arr.length)
-      high = parentObj.getChildren().length;
-    else  // arr[3:5] = (3, 5)
-      high = parseInt(rangeSpl[1]);
+    if (rangeSpl.length > 1) {
+      if (rangeSpl[1] == "") // arr[3:] = (3, arr.length)
+        high = parentObj.getChildren().length;
+      else  // arr[3:5] = (3, 5)
+        high = parseInt(rangeSpl[1]);
+    }
 
     if (isNaN(low) || isNaN(high))
       throw `Invalid range: [${low}: ${high}]`;
@@ -479,11 +481,11 @@ class Array1DResizeCommand extends Array1DCommand {
 
     // save old array for undo
     this.prevArray = this.receiver.array.slice();
-
     this.prevArrows = {};
   }
 
   execute() {
+
     var startLength = this.receiver.array.length;
     for (var i = startLength; i < this.newLength; i++)
       this.receiver.append("random");
@@ -602,6 +604,88 @@ class Array1DArrowCommand extends Array1DCommand {
     else
       this.execute();
   }
+}
+
+/** Array1DCopyCommand
+ *    copy contents (values) of this array to another
+ *
+ *    syntax:
+ *
+ *    arr.copy [label of dest array] [num elements] [source index] [dest index]
+ *
+ *    defaults:
+ *    numCopy - length of src array
+ *    srcIndex - 0 
+ *    destIndex - 0
+ *
+ */
+class Array1DCopyCommand extends Array1DCommand {
+  constructor(receiver, destLabel, numCopy, srcIndex, destIndex) {
+    super(receiver);
+
+    this.destArr = this.receiver.cState.labeled.get(destLabel);
+
+    if (this.destArr == null)
+      throw `No canvas object with label '${destLabel}'.`;
+
+    if (! (this.destArr instanceof Array1D))
+      throw `'${destLabel}' is not an array.`;
+
+    if (numCopy !== undefined)
+      this.numCopy = numCopy;
+    else
+      this.numCopy = this.receiver.array.length;
+
+    if (srcIndex !== undefined) {
+      this.checkIndices(srcIndex);
+      this.srcStart = srcIndex;
+    }
+    else 
+      this.srcStart = 0;
+
+    if (destIndex !== undefined) {
+      if (destIndex < 0 || destIndex >= this.destArr.array.length)
+        throw `Invalid index: ${destIndex}`;
+      
+      this.destStart = destIndex;
+    }
+    else
+      this.destStart = 0;
+
+    // clip bounds
+    this.srcEnd =
+      Math.min(this.srcStart + this.numCopy, this.receiver.array.length);
+    this.destEnd = 
+      Math.min(this.destStart + this.numCopy, this.destArr.array.length);
+
+    // save values for undo
+    this.savedValues = null;
+  }
+
+  /** Array1DCopyCommand.execute
+   *    iterate through each array and copy values
+   *    as long as both arrays have remaining elements
+   */
+  execute() {
+    if (this.savedValues == null) {
+      this.savedValues = 
+        this.destArr.getChildren(this.srcStart, this.srcEnd).map((x) => x.value);
+    }
+
+    var si = this.srcStart, di = this.destStart;
+    for (; si < this.srcEnd && di < this.destEnd; si++, di++)
+      this.destArr.array[di].value = this.receiver.array[si].value; 
+  }
+
+  /** Array1DCopyCommand.undo
+   *    restore contents of dest array
+   */
+  undo() {
+    this.savedValues.forEach((v, idx) => {
+      this.destArr.array[this.destStart + idx].value = v;
+    });
+  }
+
 }
 
 
