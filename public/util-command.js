@@ -73,7 +73,7 @@ class TruncateVideoCommand extends VideoCommand {
 
     // send message from client to server to truncate video at current time
     var body = { clipId : clipId, timeStamp: currTime };
-    conn.sendMessage("truncate", body);
+    conn.sendServer("truncate", body);
   }
 }
 
@@ -97,6 +97,6 @@ class SelectVideoCommand extends VideoCommand {
     mc.activeClipId = this.clipId;
 
     var body = { clipId: this.clipId};
-    conn.sendMessage("select", body);
+    conn.sendServer("select", body);
   }
 }

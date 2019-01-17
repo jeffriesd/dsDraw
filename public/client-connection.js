@@ -1,3 +1,7 @@
+function pathToURL(path) {
+  return path.replace(/^public\//, "");
+}
+
 
 /** WebSocketConnection
  *    manages client side of websocket connection
@@ -33,13 +37,26 @@ class WebSocketConnection {
 
     switch (msgObj.type) {
       case "setVideoURL":
-        this.mc.setVideoURL(msgObj.body.id, msgObj.body.url);
+        this.mc.setVideoURL(msgObj.body.id, pathToURL(msgObj.body.url));
+        break;
+      case "addThumbnail":
+        this.mc.addThumbnail(msgObj.body.id, pathToURL(msgObj.body.url));
         break;
     }
   }
 
-  sendMessage(type, body) {
+  static messageServer(type, body) {
+    var wsInstance = WebSocketConnection.getInstance();
+    wsInstance.messageServer(type, body);
+  }
+
+  messageServer(type, body) {
     this.websock.send(JSON.stringify({type: type, body: body}));
+  }
+
+  static sendBlob(blob) {
+    var wsInstance = WebSocketConnection.getInstance();
+    wsInstance.sendBlob(blob);
   }
 
   sendBlob(blob) {
