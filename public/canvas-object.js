@@ -54,6 +54,9 @@ class CanvasObject {
     var alpha = /^[a-zA-Z]+/
     if (! value.match(alpha))
       throw "Label must begin with alphabetic character";
+    var alphaNum = /^[a-zA-Z0-9_]*/;
+    if (! value.match(alphaNum))
+      throw "Label may consist only of alphanumeric characters and underscores";
 
     // if 'myname1' already exists, 
     // set to 'myname2'
