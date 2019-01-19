@@ -7,6 +7,8 @@ mainCommands = {
   "record": RecordCommand,
   "truncate": TruncateVideoCommand,
   "show": SelectVideoCommand,
+  "export": ExportVideoCommand,
+  "clear": ClearCanvasCommand,
 };
 
 objectCommands = {
@@ -212,6 +214,8 @@ class CommandConsole {
   executeCommand(cmdObj) {
     try {
       var ret = CommandRecorder.execute(cmdObj);
+
+      if (cmdObj instanceof UtilCommand) return;
       this.cState.undoStack.push(cmdObj);
 
       this.cState.redoStack = [];
