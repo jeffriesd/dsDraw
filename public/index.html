@@ -6,6 +6,11 @@
   <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 <body>
+  <!-- clip menu contains thumbnails of recorded clips -->
+  <div id="clipContainer"> 
+    <div id="clipMenu"> </div>
+  </div>
+
   <div class="toolbar" id="flowchartToolbar" >
     <label class="toolbarLabel" id="drawMode">Draw mode: SelectTool</label>
     <label class="toolbarLabel" id="recording">Paused</label>
@@ -70,7 +75,8 @@
     </div>
   </div>
   <div id="commandConsole">
-    <input id="commandLine" type=text>
+    <div id="commandBg"></div>
+    <input id="commandLine" spellcheck=false type=text>
     <textarea id="commandHistory" readonly disabled></textarea>
   </div>
 
@@ -78,8 +84,8 @@
   <a hidden id="downloadLink"></a>
 
   <!--Canvases and dsDraw scripts-->
-  <div id="videoContainer">
-    <video id="video" hidden>
+  <div id="controlsContainer">
+    <video id="video" hidden preload="auto">
     </video>
     <div id="controlBar">
       <button id="playPause"></button>
@@ -112,8 +118,8 @@
   <script src="canvas-util.js"></script>
   <script src="console.js"></script>
   <!--External library scripts -->
-  <script src="lib/jquery-3.3.1.min.js"></script>
-  <script src="lib/mousetrap.min.js"></script>
+  <script src="../lib/jquery-3.3.1.min.js"></script>
+  <script src="../lib/mousetrap.min.js"></script>
   
   <!--main -->
   <script src="main.js"></script>
