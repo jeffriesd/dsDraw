@@ -1,7 +1,7 @@
 const express = require("express");
 const session = require("client-sessions");
 
-const vid = require("./video");
+const VideoManager = require("./video").VideoManager;
 const util = require("./server-util");
 const connManager = require("./server-connection");
 
@@ -29,15 +29,22 @@ app.get("/", (req, res) => {
 });
 
 
-const clients = [];
+const clients = new Set();
+var randomId = () => Math.random().toString().substr(2);
 function assignClientId() {
-  var newId = clients.reduce((acc, val) => Math.max(acc, val), 0) + 1;
-  clients.push(newId);
+  var newId = randomId();
+  while (clients.has(newId)) newId = randomId();
+  clients.add(newId);
   return newId;
 }
 
 app.ws("/", (ws, req) => {
-  if (req.session.id == null) req.session.id = assignClientId();
+  // new connection, create new video manager 
+  // for this client
+  if (req.session.id == null) { 
+    req.session.id = assignClientId();
+    req.session.vm = new VideoManager(req.session.id, ws);
+  }
   console.log("new conn req", req.session.id);
 
   ws.on("message", (message) => {
