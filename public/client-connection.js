@@ -39,18 +39,17 @@ class WebSocketConnection {
       case "setVideoURL":
         this.mc.setVideoURL(msgObj.body.id, pathToURL(msgObj.body.url));
         break;
-      case "addThumbnail":
-        this.mc.addThumbnail(msgObj.body.id, pathToURL(msgObj.body.url));
-        break;
+      case "setVideoDownload":
+        this.mc.setVideoDownload(pathToURL(msgObj.body.url));
     }
   }
 
-  static messageServer(type, body) {
+  static sendServer(type, body) {
     var wsInstance = WebSocketConnection.getInstance();
-    wsInstance.messageServer(type, body);
+    wsInstance.sendServer(type, body);
   }
 
-  messageServer(type, body) {
+  sendServer(type, body) {
     this.websock.send(JSON.stringify({type: type, body: body}));
   }
 
