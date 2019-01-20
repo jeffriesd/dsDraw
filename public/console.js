@@ -8,7 +8,8 @@ mainCommands = {
   "truncate": TruncateVideoCommand,
   "show": SelectVideoCommand,
   "export": ExportVideoCommand,
-  "clear": ClearCanvasCommand,
+  "blank": BlankClipCommand,
+  "cont": ContinueClipCommand,
 };
 
 objectCommands = {

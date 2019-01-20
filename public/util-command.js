@@ -170,12 +170,14 @@ class ContinueClipCommand extends VideoCommand {
    *    create new clip (new thumbnail and id)
    */
   execute() {
+    if (this.mc.getState() !== this.mc.pauseState) return;
     this.mc.newClipFromCurrent();
   }
 }
 
 class BlankClipCommand extends VideoCommand {
   execute() {
+    if (this.mc.getState() !== this.mc.pauseState) return;
     this.mc.newClipBlank();
   }
 }

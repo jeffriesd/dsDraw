@@ -80,4 +80,3 @@ Mousetrap.bind("ctrl+z", (event) => {
 Mousetrap.bind("ctrl+y", function(event) {
   cState.redo();
 });
-

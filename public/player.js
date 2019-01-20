@@ -249,8 +249,10 @@ class MediaController {
    */
   newClipFromCurrent() {
     var clipId = this.newClipBlank();
+    this.clips.get(clipId).thumbnail.src = this.cState.canvas.toDataURL(); 
     var cloneCommand = new CloneCanvasCommand(this.cState);
     this.cState.clearCanvas();
+
     
     var cmdRec = new CommandRecorder(this.player, this.framerate);
     this.commandRecorders.set(clipId, cmdRec);

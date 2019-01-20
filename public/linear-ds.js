@@ -5,7 +5,7 @@
 class LinearCanvasObject extends CanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
-    this.cellSize = 30;
+    this.cellSize = 40;
 
     this.fontFamily = "Monospace";
     this.fontSize = 12;
