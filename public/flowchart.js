@@ -109,10 +109,12 @@ class FlowchartBox extends CanvasObject {
    */
   createEditor() {
     this.editor = document.createElement("textarea");
+    this.editor.spellcheck = false;
     this.editor.style.paddingLeft = "0";
     this.editor.style.paddingRight = "0";
     this.editor.style.position = "absolute"; 
     this.editor.style.backgroundColor = this.fill;
+    // this.editor.style.background = "transparent";
 
     this.positionEditor();
 
@@ -152,6 +154,9 @@ class FlowchartBox extends CanvasObject {
   /** FlowchartBox.configureOptions
    */
   configureOptions(active) {
+    // editor bg color
+    this.editor.style.backgroundColor = this.fill;
+
     this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
     this.ctx.lineWidth = this.borderThickness;
 
@@ -214,13 +219,12 @@ class FlowchartBox extends CanvasObject {
     var lineY = this.textY + ht;
     this.ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
+      var text = this.wrappedText[i];
       // don't fill past container
-      if (lineY + ht > this.y2) {
-        this.ctx.fillText("...", this.textX, lineY);
-        break;
-      }
+      if (lineY + ht > this.y2) 
+        text = "...";
 
-      this.ctx.fillText(this.wrappedText[i], this.textX, lineY);
+      this.ctx.fillText(text, this.textX, lineY);
       lineY += ht;
     }
     this.ctx.stroke();
@@ -630,14 +634,6 @@ class Connector extends FlowchartBox {
     x2 = x1 + (r2 * 2);
     y2 = y1 + (r2 * 2);
     super(canvasState, x1, y1, x2, y2);
-
-    // default fill
-    this.fill = "#fff";
-    this.border = "#000";
-
-
-    this.textMargin = 1;
-    this.editor.style.padding = "0px";
   }
 
   configureOptions(active) {
