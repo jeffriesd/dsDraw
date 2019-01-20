@@ -109,6 +109,10 @@ class CanvasState {
     return this.canvas.getContext("2d");
   }
 
+  clearCanvas() {
+    this.objects.forEach(obj => obj.destroy());
+  }
+
   /** CanvasState.setMode
    *    sets drawMode and updates label on toolbar
    */
