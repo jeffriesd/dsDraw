@@ -249,6 +249,28 @@ class ConsoleDestroyCommand {
   }
 }
 
+class CloneCanvasCommand {
+  constructor(cState) {
+    this.cState = cState;
+    this.receivers = 
+      this.cState.objects.map(obj => obj.clone());
+
+    this.receivers.forEach(x => console.log("cloned ", x.constructor.name))
+  }
+
+  execute() {
+    this.receivers.forEach(r => {
+      this.cState.addCanvasObj(r);
+    });
+  }
+
+  undo() {
+    this.receivers.forEach(r => {
+      r.destroy();
+    });
+  }
+}
+
 // allow multiple names to be used
 // for some classes e.g. array, array1d
 const classNames = {
