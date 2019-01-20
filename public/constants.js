@@ -16,3 +16,5 @@ Z = 90;
 
 PLAYBTN = "url(../images/play.png)";
 PAUSEBTN = "url(../images/pause.png)";
+
+DEFAULT_THUMBNAIL = "images/default_thumb.png";
