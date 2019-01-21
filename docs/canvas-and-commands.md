@@ -25,8 +25,6 @@ user release the left mouse button
 * clickedBare: boolean representing whether last click was on an object or bare canvas
 * activeObj: reference to most recently clicked object
 * selectGroup: array of currently selected objects
-* undoStack: recently executed commands
-* redoStack: recently undone commands
 * activeCommandType: string representing current command type (move/drag/clone/create)
 * hitCanvas: reference to hidden HTML canvas element for event detection
 * hitCtx: CanvasRenderingContext2D object for hitCanvas
@@ -35,8 +33,6 @@ user release the left mouse button
 * hotkeys: {keyCode: bool} object/mapping for keeping track of currently depressed hotkeys/modifiers
 ### Methods
 * setMode(string mode): change drawing mode, update toolbar label
-* undo(): undo most recent command and push it onto redoStack
-* redo(): redo most recently undone command and push it onto undoStack
 * activeParent(): returns active parent object
 * createNewCanvasObject(): make call to CanvasObjectFactory for object instantiation
 * initToolbars(): initialize toolbars for different drawing modes
@@ -47,7 +43,7 @@ and do color hashing if hashColor is unassigned -- only gets called for parent o
 drawing of their children.
 * remove(removeObj): removes object from current object list so it won't be repainted
 * setCommandStartState(): save position of mouse and hotkeys when click starts
-* addDrawCommand(): call createDrawCommand() and push it onto undo stack
+* addDrawCommand(): call createDrawCommand() and execute it with static CommandRecorder.execute
 * createDrawCommand(): instantiate new DrawCommand (create, move, drag, clone, etc.)
 * getClickedObject(mouseX, mouseY): returns topmost object at given coordinates
 * getCenter(): returns coordinates of canvas center
@@ -151,17 +147,11 @@ The CanvasChildObject class represents objects which belong to a parent. Some ar
 * hover(): default sets cursor style to "default"
 
 
-## Commands
-
-dsDraw makes frequent use of the Command Pattern. Command classes are used to encapsulate user actions and are 
-kept track of in stacks for undoing and redoing recent actions. Some are created directly by the console (ConsoleCommand) while others are created when a user clicks the canvas (DrawCommand). Each command class has two methods, execute and undo.
-Commands are instantiated in two places: in CanvasState.createDrawCommand() and in CommandConsole.commandEntered() (by calling CommandInterpreter.parseLine()). The former is used for DrawCommands (created from mouse events) and the latter for console commands.
-
 ### Draw Commands
-DrawCommands perform actions on the current active object. There are currently six classes, SelectCommand, ClickDestroyCommand, ClickCreateCommand,
+DrawCommands are created by mouse interaction and they perform actions on the current active object. There are currently six classes, SelectCommand, ClickDestroyCommand, ClickCreateCommand,
 MoveCommand, DragCommand, and CloneCommand. The receiver(s) for these command objects are the current active canvas object(s). 
 When a DrawCommand is instantiated, it pulls the start state of the event (where a drag started from) from the
-canvasState, and in the case of Drag, Move, or Clone, the change in mouse position is calculated. These three commands also support groups of receivers (using the Select tool) and will perform an action on every object in the group in the execute and undo methods.
+canvasState, and in the case of Drag, Move, or Clone, the change in mouse position is calculated. These three commands also support groups of receivers (using the Select tool) and will perform an action on every object in the group.
 
 ### Console Commands
 Console commands are created whenever CommandInterpreter.parseLine() is called (if the line is well-formed).
