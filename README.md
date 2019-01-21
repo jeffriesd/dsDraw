@@ -93,17 +93,11 @@ Deletes the object with name 'label'.
 #### snap
 Take a screenshot of the canvas.
 
-#### play
-Play video.
-
-#### pause
-Pause video.
-
-#### record
-Start/stop recording. Recording can only begin if video is seeked to end of current clip.
-
 #### truncate
 Truncate recording from current time. Video will automatically be updated.
+
+#### export [clipId, ]
+Merge and export clips as .webm file.
 
 ## Data Structures
 
