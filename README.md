@@ -1,16 +1,22 @@
 # dsDraw
 
-dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console.
+dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console. These interactions can be recorded along with audio from the user's microphone to create dynamic content. 
 
-## General
-Individual segments can be recorded and merged together, and individual clips can be truncated so the current time frame becomes the end of the clip. Recording can only start from the end of the previous clip. 
+## Editing the canvas  
+The canvas can be edited before and during recording, so the user may 'set the scene' with some objects or text before recording begins. 
 
+Different independent clips can be created either from the current contents of the canvas or from a blank canvas. The user can switch between these clips, editing and recording over them. 
+
+## Saving a video  
+Once video has been recorded for a clip, it is no longer editable. Recorded videos may be merged with other clips and exported as .webm files.
+
+## Basic mouse controls
 To __move__ an existing object, hold control and drag the object.  
 To __clone__ an existing object, hold alt and drag the object.  
 To __delete__ the most recently created object, press control-z.  
 To __delete__ any object, click on it to bring up the options and click the red X.   
 To change the settings of an existing object, click on it
-and select new options.  
+and select new options or configure it from the console.
 The currently selected object(s) will have a bright blue border.  
 
 ### Shortcuts
@@ -21,83 +27,6 @@ __Control-Y:__ Redo
 __T:__ Show console   
 __Escape:__ Hide console   
 
-## dsDraw clips
-In this documentation, __'clip'__ refers to a uniquely identified video segment which may or not have recorded content yet. Multiple clips
-can be created and managed independently, and once they have been recorded with video, their contents can be merged for download. The user can switch between clips using the menu on the left side of the screen.
-
-![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/screenshots/menu.gif "Logo Title Text 1")
-
-
-#### Creating a new clip
-The editor is initialized with a single blank clip, but more can be added and edited independently. New clips can start with a blank
-canvas or they can be initialized with the contents of a previous clip. The canvas can be further edited before recording begins, but once a clip has been recorded, the recording can't be changed; it can however be reset to its initial state (or a blank state) or truncated at the player's current time.
-
-# Tools
-
-## Select Tool
-The select tool is used to interact with several objects at a time. To make a selection,
-click and drag from top-left to bottom-right. Groups of objects can be cloned or moved together.
-
-## Flowchart Tools
-
-### Arrows
-Select the curved arrow tool and click and drag to create a new arrow.
-To change the curvature, click anywhere on the arrow so it becomes highlighted. 
-Drag the blue points to change the curvature. Click and drag the arrow head 
-to change its final position. 
-
-### Text boxes
-There are five types of text boxes currently: rectangle, rounded rectangle,
-diamond, parallelogram, and connector (circle). 
-The functionality is the same for each. To create a new
-flowchart text box, click where the upper left corner should appear and drag
-to where the bottom right corner should appear. 
-
-Click on the text box to 
-edit the text. Current supported options are font family, font size, and
-alignment (left, center, right, or top, center). Text boxes can also be resized
-by clicking and dragging from the bottom right corner.
-
-# Console
-The console will be used for creating data structures with specific attributes
-that are simpler to specify by typing than by many individual clicks. Currently
-it can be used to change the drawing mode by typing "mode X", where X is the new
-drawing mode.
-
-The console can be dragged by clicking anywhere above the input area and
-can be resized by clicking and dragging the bottom right corner. 
-
-Recently entered commands can by cycled through using the arrow keys.
-
-## Commands
-
-#### create [dsType] [[label]]
-This command is used to instantiate data structures and makes it easy to configure many options at once. 
-Newly created data structures can be given a label or otherwise will be given a random label.
-The create command can be executed as a single line or multiple lines delimited by curly braces. 
-
-```
-create array myarr123
-```
-
-```
-create array myarr456 {
-  fontFamily: Verdana
-  fontSize: 18
-}
-```
-
-#### delete [label]
-Deletes the object with name 'label'.
-
-#### snap
-Take a screenshot of the canvas.
-
-#### truncate
-Truncate recording from current time. Video will automatically be updated.
-
-#### export [clipId, ]
-Merge and export clips as .webm file.
 
 ## Data Structures
 
@@ -123,28 +52,3 @@ index placement (above/below), and individual cell optinos include backgroundm, 
 * link
 * cut
 
-
-## Configuration
-Each data structure has configurable attributes, and child elements (such as the cells of an array) may have configurable attributes of their own. To change the settings of an existing objects, its label must be used in the console. For
-iterable objects such as arrays, ranges of child elements can be configured together.
-
-Configure parent objects:
-```
-myarr123 fontFamily Purisa
-```
-Configure child elements:
-```
-myarr123[0] foreground #ff0
-```
-Configure a range of child elements:
-```
-myarr123[0:5] bg yellow
-```
-shorthand for configuring all children:
-```
-myarr123[] value 55
-```
-
-### Commands by data structure:
-[Array Commands](https://github.com/danjeffries96/dsDraw/blob/master/docs/array-commands.md)  
-[Linked List Commands]()
