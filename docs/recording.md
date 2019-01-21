@@ -20,7 +20,7 @@ the setVideoURL message is received.
 In this documentation, __'clip'__ refers to a uniquely identified video segment which may or not have recorded content yet. Multiple clips
 can be created and managed independently, and once they have been recorded with video, their contents can be merged for download. The user can switch between clips using the menu on the left side of the screen.
 
-![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/doc_clips/menu.gif "Logo Title Text 1")
+![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/screenshots/menu.gif "Logo Title Text 1")
 
 
 #### Creating a new clip
