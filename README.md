@@ -2,6 +2,8 @@
 
 dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console. These interactions can be recorded along with audio from the user's microphone to create dynamic content. 
 
+![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/screenshots/menu.gif "Logo Title Text 1")
+
 ## Editing the canvas  
 The canvas can be edited before and during recording, so the user may 'set the scene' with some objects or text before recording begins. 
 
