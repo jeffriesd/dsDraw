@@ -21,6 +21,17 @@ __Control-Y:__ Redo
 __T:__ Show console   
 __Escape:__ Hide console   
 
+## dsDraw clips
+In this documentation, __'clip'__ refers to a uniquely identified video segment which may or not have recorded content yet. Multiple clips
+can be created and managed independently, and once they have been recorded with video, their contents can be merged for download. The user can switch between clips using the menu on the left side of the screen.
+
+![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/screenshots/menu.gif "Logo Title Text 1")
+
+
+#### Creating a new clip
+The editor is initialized with a single blank clip, but more can be added and edited independently. New clips can start with a blank
+canvas or they can be initialized with the contents of a previous clip. The canvas can be further edited before recording begins, but once a clip has been recorded, the recording can't be changed; it can however be reset to its initial state (or a blank state) or truncated at the player's current time.
+
 # Tools
 
 ## Select Tool
