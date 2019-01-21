@@ -43,3 +43,7 @@ A CommandRecorder is created for each new clip and binds commands to timestamps.
 
 #### Seeking
 Seeking is performed when the user drags the seeker in the video control bar. It updates the video time and so the editor state must also be updated. CommandRecorder has a _seekTo(secs)_ method for this purpose. After seeking, if there are any objects in _futureCmds_ with a timestamp before the current time, these commands need to be redone (executed if type is execute or vice versa). If there are any objects in _pastCmds_ with a timestamp after the current time, these commands need to be undone (execute if type is undo or vice versa). _seekTo_ only gets called with the video's _onend_ event and the seeker's (range <input>) _onchange_ event (fired when seeker is released).
+
+
+#### Undo/Redo 
+CommandRecorder also maintains two stacks for undoing and redoing commands. This functionality is distinct from the seeking functionality in that undo (ctrl + z) and redo (ctrl + y) aren't bound to specific timestamps. Commands can be undone during recording or before, but if a clip has already been recorded, these hotkeys do nothing.
