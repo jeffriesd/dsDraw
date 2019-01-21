@@ -162,10 +162,12 @@ class CommandConsole {
       if (this.cState.hotkeys[CTRL]) {
         if (event.keyCode == Z) {
           event.preventDefault(); // dont undo typing
-          this.cState.undo();
+          var mc = MediaController.getInstance(this.cState);
+          mc.hotkeyUndo();
         }
         if (event.keyCode == Y) {
-          this.cState.redo();
+          var mc = MediaController.getInstance(this.cState);
+          mc.hotkeyRedo();
         }
       }
 
@@ -179,8 +181,11 @@ class CommandConsole {
         this.cycleCommands(1);
       else if (event.keyCode == DOWN)
         this.cycleCommands(-1);
-      else if (event.keyCode == C && this.cState.hotkeys[CTRL])
+      else if (event.keyCode == C && this.cState.hotkeys[CTRL]) {
         this.commandLine.value = "";
+        this.historyStack = [];
+        this.showHistory();
+      }
     }
   }
 
@@ -215,11 +220,7 @@ class CommandConsole {
   executeCommand(cmdObj) {
     try {
       var ret = CommandRecorder.execute(cmdObj);
-
       if (cmdObj instanceof UtilCommand) return;
-      this.cState.undoStack.push(cmdObj);
-
-      this.cState.redoStack = [];
       return ret;
     }
     catch (error) {
@@ -359,11 +360,6 @@ class CommandInterpreter {
       var newObj = this.commandConsole.executeCommand(creator);
     else
       throw "Invalid command: " + firstLine;
-
-    // can't include create with macro command
-    // because it would create two copies, but
-    // still need undo functionality
-    this.cState.undoStack.push(creator);
 
     // need temp name to do config commands
     // if no name was provided

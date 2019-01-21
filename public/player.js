@@ -52,7 +52,7 @@ class MediaController {
   get cmdRecorder() {
     if (this.commandRecorders.get(this.activeClipId) == null) {
       this.commandRecorders.set(this.activeClipId, 
-        new CommandRecorder(this.player, this.framerate));
+        new CommandRecorder(this, this.framerate));
     }
 
     return this.commandRecorders.get(this.activeClipId);
@@ -188,21 +188,10 @@ class MediaController {
     // clear canvas contents
     this.cmdRecorder.fullRewind();
 
-    console.log("seeking active (", this.activeClipId, ") to -1");
-
     this.activeClipId = id;
     this.player.updateTime();
 
     // apply any initialization commands
-    // this.cmdRecorder.pastCmds.forEach(ct => {
-    //   if (ct.time > 0) return;
-    //   ct.command.execute();
-    // });
-    // this.cmdRecorder.futureCmds.forEach(ct => {
-    //   if (ct.time > 0) return;
-    //   ct.command.execute();
-    // });
-
     this.cmdRecorder.init();
   }
 
@@ -254,10 +243,10 @@ class MediaController {
     this.cState.clearCanvas();
 
     
-    var cmdRec = new CommandRecorder(this.player, this.framerate);
+    var cmdRec = new CommandRecorder(this, this.framerate);
     this.commandRecorders.set(clipId, cmdRec);
 
-    cmdRec.initCmds.push(cloneCommand);
+    cmdRec.initCmds.push({ type: "execute", command: cloneCommand });
   }
 
   /** MediaController.removeClip
@@ -310,6 +299,42 @@ class MediaController {
   togglePlayback() {
     this.state.togglePlayback(this);
   } 
+
+  /** MediaController.hotkeyUndo
+   *    grabs current command recorder and undoes
+   *    most recent command
+   */
+  hotkeyUndo() {
+    if (this.getState() !== this.recordState 
+      && this.clips.get(this.activeClipId).recorded)
+      throw "Can't undo; clip has already been recorded.";
+    if (this.getState() === this.playState)
+      throw "Can't undo while playing.";
+
+    var undoStack = this.cmdRecorder.undoStack;
+    if (undoStack.length) {
+      var lastCommand = undoStack.pop();
+      CommandRecorder.undo(lastCommand);
+    }
+  }
+
+  /** MediaController.hotkeyRedo
+   *   grabs current command recorder and redoes 
+   *   most recently undone command
+   */
+  hotkeyRedo() {
+    if (this.getState() !== this.recordState 
+      && this.clips.get(this.activeClipId).recorded)
+      throw "Can't redo; clip has already been recorded.";
+    if (this.getState() === this.playState)
+      throw "Can't redo while playing.";
+
+    var redoStack = this.cmdRecorder.redoStack;
+    if (redoStack.length) {
+      var nextCommand = redoStack.pop();
+      CommandRecorder.execute(nextCommand, true);
+    }
+  }
 }
 
 
@@ -431,6 +456,7 @@ class VideoPlayer {
     console.log("cur time = ", this.video.currentTime, ", dur = ", this.video.duration);
     return isNaN(this.video.duration) || this.video.currentTime == this.video.duration;
   }
+
 }
 
 class MediaState {
@@ -517,12 +543,17 @@ class RecordState extends MediaState {
  *    by redoing/undoing commands 
  */
 class CommandRecorder {
-  constructor(player, framerate) {
+  constructor(mc, framerate) {
+    this.mc = mc;
+    this.player = mc.player;
+    this.framerate = framerate;
+
+    this.initCmds = [];
     this.pastCmds = [];
     this.futureCmds = [];
-    this.initCmds = [];
-    this.player = player;
-    this.framerate = framerate;
+
+    this.undoStack = [];
+    this.redoStack = [];
 
     this.instance = null;
 
@@ -562,24 +593,28 @@ class CommandRecorder {
   /** static wrapper -- grabs and dispatches call to
    *  active CommandRecorder instance
    */
-  static execute(cmdObj) {
+  static execute(cmdObj, redo) {
     var activeRec = MediaController.getInstance().cmdRecorder;
-    activeRec.execute(cmdObj);
+    return activeRec.execute(cmdObj, redo);
   }
 
   /** CommandRecorder.execute
    *    execute command and add it to pastCmds
+   *    optional redo flag - if true, dont clear redo stack
    */
-  execute(cmdObj) {
+  execute(cmdObj, redo) {
     var ret = cmdObj.execute();
     if (cmdObj instanceof UtilCommand) return;
 
+    this.undoStack.push(cmdObj);
+    if (! redo) this.redoStack = [];
+
     // if clip hasn't been recorded yet
-    if (! this.recording && this.player.video.src.endsWith("null")) {
-      this.initCmds.push(cmdObj);
-      return ret;
-    }
-    this.recordCommand(cmdObj, "execute");
+    if (this.mc.getState() !== this.mc.recordState
+      && this.player.video.src.endsWith("null"))
+      this.initCmds.push({ type: "execute", command: cmdObj });
+    else
+      this.recordCommand(cmdObj, "execute");
     return ret;
   }
 
@@ -598,9 +633,12 @@ class CommandRecorder {
     cmdObj.undo();
     if (cmdObj instanceof UtilCommand) return;
 
+    this.redoStack.push(cmdObj);
+
     // if clip hasn't been recorded yet
-    if (this.player.video.src.endsWith("null")) 
-      return this.initCmds.push(cmdObj);
+    if (this.mc.getState() !== this.mc.recordState
+      && this.player.video.src.endsWith("null"))
+      return this.initCmds.push({ type: "undo", command: cmdObj });
     this.recordCommand(cmdObj, "undo");
   }
 
@@ -644,7 +682,11 @@ class CommandRecorder {
   fullRewind() {
     this.seekTo(-1);
 
-    this.initCmds.forEach(cmd => cmd.undo());
+    this.initCmds.forEach(ct => { 
+      // if (ct.type == "execute") 
+        ct.command.undo();
+      // else ct.command.execute();
+    });
   }
 
   printStacks() {
@@ -666,6 +708,9 @@ class CommandRecorder {
   }
 
   init() {
-    this.initCmds.forEach(cmd => cmd.execute());
+    this.initCmds.forEach(ct => {
+      if (ct.type == "execute") ct.command.execute();
+      else ct.command.undo();
+    });
   } 
 }

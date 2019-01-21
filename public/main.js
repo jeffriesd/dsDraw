@@ -74,9 +74,9 @@ Mousetrap.bind("esc", (event) => {
 });
 
 Mousetrap.bind("ctrl+z", (event) => {
-  cState.undo();
+  mc.hotkeyUndo();
 });
 
 Mousetrap.bind("ctrl+y", function(event) {
-  cState.redo();
+  mc.hotkeyRedo();
 });

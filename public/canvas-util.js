@@ -60,7 +60,6 @@ function newColor(uniqueColors) {
 class CanvasState {
   constructor(canvas) {
     this.canvas = canvas;
-    // this.ctx = canvas.getContext("2d");
 
     // event handling and event state
     this.eventHandler = new CanvasEventHandler(this);
@@ -74,9 +73,6 @@ class CanvasState {
     this.labeled = new Map();
     this.objectFactory = new CanvasObjectFactory(this);
 
-    // keeping track of command history
-    this.redoStack = [];
-    this.undoStack = [];
     this.activeCommandType = null;
 
     // keeping track of active objects
@@ -224,15 +220,11 @@ class CanvasState {
   addDrawCommand() {
     var drawCommand = this.createDrawCommand();
     if (drawCommand) {
-      if (drawCommand.hasDrag)
+      if (drawCommand.hasDrag) // TODO fix drag commands
         CommandRecorder.recordCommand(drawCommand, "execute");
       else
         CommandRecorder.execute(drawCommand);
-      this.undoStack.push(drawCommand);
     }
-
-    // clear redo stack
-    this.redoStack = [];
   }
 
   /** CanvasState.createDrawCommand
@@ -257,28 +249,6 @@ class CanvasState {
           return new SelectCommand(this);
       }
     }
-  }
-
-  undo() {
-    if (this.undoStack.length) {
-      var lastCommand = this.undoStack.pop();
-      // lastCommand.undo();
-      CommandRecorder.undo(lastCommand);
-      console.log("undoing: ", lastCommand.constructor.name);
-      this.redoStack.push(lastCommand);
-    }
-    else
-      console.log("Nothing left to undo");
-  }
-
-  redo() {
-    if (this.redoStack.length) {
-      var lastCommand = this.redoStack.pop();
-      CommandRecorder.execute(lastCommand);
-      this.undoStack.push(lastCommand);
-    }
-    else 
-      console.log("Nothing left to redo");
   }
 
   /** CanvasState.getCenter
@@ -366,7 +336,6 @@ class CanvasState {
       "roundBox",
       "diamondBox",
       "parallelogramBox",
-      // "rightAngleArrow",
       "curvedArrow",
       "connector",
       "selectTool"
@@ -390,8 +359,6 @@ class CanvasState {
       toDestroy.forEach((activeObj) => {
         // create command for undoing
         var destroyCmd = new ClickDestroyCommand(this, activeObj);
-        this.undoStack.push(destroyCmd);
-        // destroyCmd.execute();
         CommandRecorder.execute(destroyCmd);
 
         this.activeObj = null;
