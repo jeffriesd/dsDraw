@@ -7,23 +7,45 @@ composed of several other objects:
 * VideoPlayer - used to interact with video elements, video controls, and draw video frames to the canvas on playback
 * MediaState - State pattern object used to manage transitions of video player
 
-Unfortunately, video files have headers and metadata, so truncating and merging Blobs on the client side would be no trivial task.
-Instead, video editing is performed on the server and edit commands and update video URLs are communicated from client <-> server
+Unfortunately, video files have headers and metadata, and Javascript isn't well suited to manipulating video data.
+Instead, video editing is performed on the server. Video edit commands and updated video URLs are communicated from client <-> server
 via a WebSocket connection.
 
-When recording stops, a new Blob object is created with the recorded chunks and is sent to the server. The new clip
-is written to a .webm file and is automatically merged with the existing clip. Future versions may allow for multiple clips
-to exist at the same time. Once video operations are complete, an updated video source URL is sent back to the client. The 
+When recording stops, a new Blob object is created with the recorded chunks, and this Blob gets sent to the server via WebSocket. The new buffer is written to a .webm file and added to the server-side VideoManager map (clipId -> filepath).
+Once video operations are complete, an updated video source URL is sent back to the client. The 
 MediaController class has a 'waiting' parameter that is set true while video processing occurs and is set false once
-the updateURL message is received.
+the setVideoURL message is received.
+
+## dsDraw clips
+In this documentation, __'clip'__ refers to a uniquely identified video segment which may or not have recorded content yet. Multiple clips
+can be created and managed independently, and once they have been recorded with video, their contents can be merged for download. The user can switch between clips using the menu on the left side of the screen.
+
+![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/doc_clips/menu.gif "Logo Title Text 1")
+
+
+#### Creating a new clip
+The editor is initialized with a single blank clip, but more can be added and edited independently. New clips can start with a blank
+canvas or they can be initialized with the contents of a previous clip. The canvas can be further edited before recording begins, but once a clip has been recorded, the recording can't be changed; it can however be reset to its initial state (or a blank state) or truncated at the player's current time.
+
+[__ADD TWO GIFS HERE__]
 
 #### Client -> server messages:
-WebSocket messages get sent as JSON stringified objects with _type_ and _body_ attributes.
+WebSocket messages get sent as either a Blob (buffer) or JSON stringified objects with _type_ and _body_ attributes.
 
-* __truncate:__ sent as JSON object { type: truncate, body: { url: source url of video, timeStamp: new end time of video } }
-* __raw blob:__ can't be packed up as JSON object, so a raw blob is always interpreted as a new clip to be written
+* __setClipId:__ sets session.currentClipId to provided id so the VideoManager can perform the correct mapping (client assigns clip id when user creates a blank clip)
+* __merge:__ calls mergeClips with array of clipIds. files are  merged with ffmpeg and user is prompted for download
+* __truncate:__ calls truncateClip with clipId and timestamp. file is truncated with ffmpeg (duration set to timestamp) 
+* __raw blob:__ can't be packed up as JSON object, so a raw blob is always interpreted as a new clip to be written. The clip id comes from a setClipId message, so exception is thrown if that message is yet to be received.
+
+
+# Server side -- VideoManager
+The VideoManager class acts as a high level wrapper for video editing ffmpeg. Calls to ffmpeg are made using child_process.spawn, 
+and all the code for this is in ffmpeg-util.js. A VideoManager gets instantiated for each new client connection, and it is initialized
+with a client id and WebSocket object. It keeps track of available clips in a Map (clip id -> file path). Clip ids are assigned
+by the client side MediaController class, since new clips
 
 #### Server -> client messages:
+These messages are all sent as JSON objects. They are sent by 
 * __setVideoURL:__ sent as JSON object { type: setVideoURL, body: path of new video } }
 
 ## CommandRecorder
