@@ -710,6 +710,25 @@ class Array1DCopyCommand extends Array1DCommand {
 
 }
 
+class Array1DSortCommand extends Array1DCommand {
+  constructor(receiver) {
+    super(receiver);
+    // save state for undo 
+    this.savedArray = this.receiver.array.slice(); 
+  }
+
+  execute() {
+    this.receiver.array = this.receiver.array.sort(
+      (a, b) => a.value > b.value
+    );
+  }
+
+  undo() {
+    this.receiver.array = this.savedArray;
+  }
+
+}
+
 
 /** LinkedList commands
  */

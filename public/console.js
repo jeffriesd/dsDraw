@@ -17,6 +17,7 @@ objectCommands = {
   "Array1Dswap": Array1DSwapCommand,
   "Array1Darc": Array1DArrowCommand,
   "Array1Dcopy": Array1DCopyCommand,
+  "Array1Dsort": Array1DSortCommand,
   "LinkedListinsert": LinkedListInsertCommand,
   "LinkedListlink": LinkedListLinkCommand,
   "LinkedListcut": LinkedListCutCommand,
