@@ -12,8 +12,6 @@ class DrawCommand {
     this.cState = cState;
     this.receiver = receiver;
     this.state = this.getState();
-
-    this.hasDrag = false;
   }
 
   /*  CanvasState class stores state of canvas when click starts
@@ -61,27 +59,42 @@ class ClickCreateCommand extends DrawCommand {
 class MoveCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
-    this.hasDrag = true;
 
-    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
 
     if (this.cState.selectGroup.size) 
-      this.group = new Set(this.cState.selectGroup);
+      this.group = Array.from(this.cState.selectGroup);
     else
       this.group = [this.receiver];
+
+    // move only applies to parent objects
+    this.group = this.group.map(obj => obj.getParent());
+
+    // determine final positions so undo/redo 
+    // doesn't keep applying relative drag
+    this.oldPos = this.group.map(r => { 
+      return { x: r.x - deltaX, y: r.y1 - deltaY } 
+    });
+    this.newPos = this.oldPos.map(p => { 
+      return { x: p.x + deltaX, y: p.y + deltaY } 
+    });
   }
 
   execute() {
-    this.group.forEach((receiver) => {
-      receiver.move(this.deltaX, this.deltaY);
+    this.group.forEach((receiver, i) => {
+      var dx = this.newPos[i].x - receiver.x;
+      var dy = this.newPos[i].y - receiver.y1;
+      receiver.move(dx, dy);
     });
   }
 
   undo() {
     // move (translate) back to initial point
-    this.group.forEach((receiver) => {
-      receiver.move(-this.deltaX, -this.deltaY);
+    this.group.forEach((receiver, i) => {
+      var dx = this.oldPos[i].x - receiver.x;
+      var dy = this.oldPos[i].y - receiver.y1;
+      receiver.move(dx, dy);
     });
   }
 }
@@ -89,39 +102,45 @@ class MoveCommand extends DrawCommand {
 class DragCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
-    this.hasDrag = true;
 
-    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
+
+    this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
+    this.newPos = {x: this.receiver.x, y: this.receiver.y };
   }
 
   execute() {
-    this.receiver.drag(this.deltaX, this.deltaY);
+    var dx = this.newPos.x - this.receiver.x;
+    var dy = this.newPos.y - this.receiver.y;
+    this.receiver.drag(dx, dy);
   }
 
   undo() {
+    var dx = this.oldPos.x - this.receiver.x;
+    var dy = this.oldPos.y - this.receiver.y;
     // drag back to initial point
-    this.receiver.drag(-this.deltaX, -this.deltaY);
+    this.receiver.drag(dx, dy);
   }
 }
 
 class CloneCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
-    this.hasDrag = true;
 
-    this.deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    this.deltaY = this.state.endPoint.y - this.state.startPoint.y;
+    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
 
     if (this.cState.selectGroup.size) 
-      this.group = new Set(this.cState.selectGroup);
+      this.group = Array.from(this.cState.selectGroup);
     else
       this.group = [this.receiver];
 
-    this.clones = [];
+    this.newPos = this.group.map(r => {
+      return { x: r.x + deltaX, y: r.y + deltaY };
+    });
 
-    // happens after mouse up, so execute here 
-    CommandRecorder.execute(this);
+    this.clones = [];
   }
  
   /** CloneCommand.execute
@@ -130,7 +149,7 @@ class CloneCommand extends DrawCommand {
    *    e.g. an arc that is attached to an array
    */  
   execute() {
-    this.group.forEach((receiver) => {
+    this.group.forEach((receiver, i) => {
       if (! receiver.getParent().locked) {
         // check that label isn't already taken
         var cl = receiver.getParent().clone();
@@ -138,7 +157,10 @@ class CloneCommand extends DrawCommand {
 
         // save clones for undoing
         this.clones.push(cl);
-        cl.move(this.deltaX, this.deltaY);
+
+        var dx = this.newPos[i].x - receiver.x;
+        var dy = this.newPos[i].y - receiver.y;
+        cl.move(dx, dy);
       }
     });
   }
@@ -184,9 +206,6 @@ class SelectCommand {
     this.y1 = cState.mouseDown.y;
     this.x2 = cState.mouseUp.x;
     this.y2 = cState.mouseUp.y;
-
-    // happens after mouseUp, so execute here
-    CommandRecorder.execute(this);
   }
 
   /** SelectCommand.execute
