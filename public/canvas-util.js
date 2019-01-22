@@ -185,8 +185,11 @@ class CanvasState {
       this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
     this.objects.push(canvasObj);
-    console.log("adding new", canvasObj.constructor.name);
   }
+
+  updateLabels() {
+    this.objects.forEach(obj => this.labeled.set(obj.label, obj));
+  } 
 
 
   /** CanvasState.remove
