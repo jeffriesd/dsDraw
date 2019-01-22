@@ -6,18 +6,16 @@ body {
 
 #myCanvas {
   width: 100%;
-  /* margin: 10px; */
 }
 
 #hitCanvas {
   border: 1px solid #000;
   width: 100%;
   background: rgba(255, 0, 255, 0.1);
-  # margin: 10px;
 }
 
 /* Clip container styles */
-#clipContainer {
+#clipHover {
   position: absolute;
   left: 0px;
   top: 5%;
@@ -28,7 +26,7 @@ body {
   transition: 1s;
 }
 
-#clipMenu {
+#clipContainer {
   position: absolute;
   left: -200px;
   top: 0;
@@ -38,21 +36,56 @@ body {
   transition: 1s ease-in-out 0.5s; 
   background: rgb(240, 240, 240);
   opacity: 0.1;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
-#clipContainer:hover #clipMenu {
+#clipHover:hover #clipContainer {
   transition: 1s;
   left: 0px;
   opacity: 0.9;
 }
 
+#clipButtons {
+  margin: 5%;
+}
+
+#clipButtons button {
+  display: inline-block;
+  height: 20px;
+  width: 40%;
+  border: 2px solid black;
+  border-radius: 10%;
+  outline: 0;
+  font-family: arial;
+  text-align: center;
+  padding: 0;
+  background-color: white;
+}
+
+#contButton {
+  float: right;
+}
+
+#clipContainer button:active {
+  background-color: lightgray;
+}
+
+#clipMenu {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 95%;
+}
+
 #clipMenu img {
   width: 90%;
-  height: 10%;
+  height: 100px;
   margin: 5%;
+  border: 3px solid rgba(0, 0, 200, 0);
   object-cover: fit;
+}
+
+#clipMenu .activeClip ,#clipMenu .activeClip:hover {
+  border: 3px solid rgba(0, 0, 200, 0.75);
+  border-radius: 4px;
 }
 
 #clipMenu img:hover {
@@ -133,7 +166,7 @@ body {
 
 .toolbarButton {
   display: inline-block;
-  width: 20px;
+  width: 40px;
   height: 100px;
   height: 100%;
   position: relative;
@@ -148,7 +181,7 @@ body {
   margin-right: 2px;
 }
 
-.toolbarButton::-moz-focus-inner {
+button::-moz-focus-inner {
   outline: 0;
   border: 0;
 }
@@ -308,11 +341,6 @@ textarea {
   width: 5%;
   height: 100%;
   float: left;
-}
-
-#playPause::-moz-focus-inner {
-  outline: 0;
-  border: none;
 }
 
 #playPause:hover {
