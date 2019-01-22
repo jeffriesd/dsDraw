@@ -8,10 +8,12 @@ class MediaController {
     this.clips = new Map();
     this.commandRecorders = new Map();
 
-    // id of active clip
+    // keep track of currently selected clip
     this.activeClipId = 0;
     this.clipMenu = document.getElementById("clipMenu");
     this.newClipBlank(0);
+    // set initial clip class for css
+    $("#thumbnail0").toggleClass("activeClip", true);
       
     this.player = new VideoPlayer(canvasState.canvas, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
@@ -180,6 +182,13 @@ class MediaController {
     this.setCurrentClip(id);
   }
 
+  /** MediaController.setCurrentClip
+   *    clear current canvas contents,
+   *    update activeClipId, update time,
+   *    apply any initialization commands
+   *    for newly selected clip, and 
+   *    add 'activeClip' class for css
+   */
   setCurrentClip(id) {
     // clear canvas contents
     this.cmdRecorder.fullRewind();
@@ -188,9 +197,11 @@ class MediaController {
     this.player.updateTime();
 
     // apply any initialization commands
-    this.cmdRecorder.init().then(() => {
-      this.updateThumbnail(id);
-    });
+    this.cmdRecorder.init();
+
+    // set active class for css
+    $(".activeClip").toggleClass("activeClip", false);
+    $("#thumbnail" + id).toggleClass("activeClip", true);
   }
 
   /** MediaController.addThumbnail
@@ -219,6 +230,7 @@ class MediaController {
   }
 
   updateThumbnail(id) {
+    if (id == null) id = this.activeClipId;
     if (this.clips.get(id)) 
       this.clips.get(id).thumbnail.src = this.cState.canvas.toDataURL(); 
   }
@@ -244,8 +256,10 @@ class MediaController {
     // set thumbnail of new clip
     this.updateThumbnail(clipId);
 
-    var cloneCommand = new CloneCanvasCommand(this.cState);
+    // get array of objects
+    var cloneCommand = new CloneCanvasCommand(this.cState); 
     this.cState.clearCanvas();
+    cloneCommand.doClone(); // clone after clearing so labels can persist
     
     var cmdRec = new CommandRecorder(this, this.framerate);
     this.commandRecorders.set(clipId, cmdRec);
@@ -456,11 +470,6 @@ class VideoPlayer {
     setTimeout(() => this.drawToCanvas(), this.framerate);
   }
 
-  ended() {
-    console.log("cur time = ", this.video.currentTime, ", dur = ", this.video.duration);
-    return isNaN(this.video.duration) || this.video.currentTime == this.video.duration;
-  }
-
 }
 
 class MediaState {
@@ -502,7 +511,6 @@ class PauseState extends MediaState {
         context.setState(context.recordState);
       }, context.framerate * 2);
 
-      console.log("recording");
     }
     else
       alert("waiting...");
@@ -511,7 +519,6 @@ class PauseState extends MediaState {
   togglePlayback(context) {
     if (context.player.video.src.endsWith("null"))
       return alert("No video to play");
-    console.log("src = ", context.player.video.src);
     if (! context.waiting) {
       context.player.play();
       context.setState(context.playState);
@@ -609,6 +616,7 @@ class CommandRecorder {
   execute(cmdObj, redo) {
     var ret = cmdObj.execute();
     if (cmdObj instanceof UtilCommand) return;
+    this.mc.updateThumbnail();
 
     this.undoStack.push(cmdObj);
     if (! redo) this.redoStack = [];
@@ -619,6 +627,7 @@ class CommandRecorder {
       this.initCmds.push({ type: "execute", command: cmdObj });
     else
       this.recordCommand(cmdObj, "execute");
+    
     return ret;
   }
 
@@ -636,14 +645,16 @@ class CommandRecorder {
   undo(cmdObj) {
     cmdObj.undo();
     if (cmdObj instanceof UtilCommand) return;
+    this.mc.updateThumbnail();
 
     this.redoStack.push(cmdObj);
 
     // if clip hasn't been recorded yet
     if (this.mc.getState() !== this.mc.recordState
       && this.player.video.src.endsWith("null"))
-      return this.initCmds.push({ type: "undo", command: cmdObj });
-    this.recordCommand(cmdObj, "undo");
+      this.initCmds.push({ type: "undo", command: cmdObj });
+    else
+      this.recordCommand(cmdObj, "undo");
   }
 
   static recordCommand(cmdObj, type) {
@@ -652,7 +663,6 @@ class CommandRecorder {
   }
 
   recordCommand(cmdObj, type) {
-    console.log("recording command at ", this.getTime());
     this.pastCmds.push(
       { command: cmdObj, 
         time: this.getTime(), 
@@ -680,7 +690,7 @@ class CommandRecorder {
       this.futureCmds.push(cmdTime);
     }
 
-    this.printStacks();
+    // this.printStacks();
   }
 
   fullRewind() {
@@ -707,16 +717,15 @@ class CommandRecorder {
       this.futureCmds.pop();
     while (this.pastCmds.peek() && this.pastCmds.peek().time > timeStamp)
       this.pastCmds.pop();
-
-    console.log("pastCmds = ", this.pastCmds);
   }
 
   init() {
-    return new Promise((res, rej) => {
+    return new Promise((resolve, reject) => {
       this.initCmds.forEach(ct => {
         if (ct.type == "execute") ct.command.execute();
         else ct.command.undo();
       });
+
       resolve();
     });
   } 
