@@ -22,6 +22,12 @@ class CanvasObject {
     this.cState.registerCanvasObj(this);
     
     this._label = "";
+
+    // default label: convert 'rgb(1, 2, 3)' to 123
+    var hashStr = this.hashColor.split("rgb(")[1];
+    hashStr = hashStr.split(")")[0];
+    var hashCode = hashStr.replace(/[,\s]/g, "");
+    this.label = this.constructor.name + "_" + hashCode;
   }
 
   clone() {
@@ -74,17 +80,18 @@ class CanvasObject {
     this.cState.labeled.set(value, this); 
 
     this._label = value;
+  }
 
   get label() {
-    if (this._label == "") {
-      // convert 'rgb(1, 2, 3)' to 123
-      var hashStr = this.hashColor.split("rgb(")[1];
-      hashStr = hashStr.split(")")[0];
-      var hashCode = hashStr.replace(/[,\s]/g, "");
-      
-      this._label = this.constructor.name + "_" + hashCode;
-    }
     return this._label;
+  }
+
+  get x() {
+    return this.x1;
+  }
+
+  get y() {
+    return this.y1;
   }
 
   getToolbar() {
