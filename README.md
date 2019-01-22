@@ -42,6 +42,7 @@ size, index placement (above/below), and individual cell options include backgro
 * resize
 * swap  
 * arc  
+* copy
 
 ### Linked Lists
 
