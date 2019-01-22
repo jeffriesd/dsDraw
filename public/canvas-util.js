@@ -181,6 +181,7 @@ class CanvasState {
    *   as an undo/redo)
    */
   addCanvasObj(canvasObj) {
+    console.log("labels = ", [...this.labeled.keys()]);
     if (canvasObj.hashColor == null)
       this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
@@ -222,12 +223,7 @@ class CanvasState {
    */
   addDrawCommand() {
     var drawCommand = this.createDrawCommand();
-    if (drawCommand) {
-      if (drawCommand.hasDrag) // TODO fix drag commands
-        CommandRecorder.recordCommand(drawCommand, "execute");
-      else
-        CommandRecorder.execute(drawCommand);
-    }
+    if (drawCommand) CommandRecorder.execute(drawCommand);
   }
 
   /** CanvasState.createDrawCommand
