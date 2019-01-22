@@ -252,16 +252,26 @@ class ConsoleDestroyCommand {
 class CloneCanvasCommand {
   constructor(cState) {
     this.cState = cState;
-    this.receivers = 
-      this.cState.objects.map(obj => obj.clone());
+    this.originals = this.cState.objects.slice();
+  }
 
-    this.receivers.forEach(x => console.log("cloned ", x.constructor.name))
+  /** CloneCanvasCommand.doClone
+   *    helper method to perform cloning
+   *    before execution -- allows object
+   *    labels to be shared across clips
+   */
+  doClone() {
+    this.receivers = this.originals.map(obj => obj.clone());
   }
 
   execute() {
+    if (this.receivers == null) this.doClone();
+
     this.receivers.forEach(r => {
       this.cState.addCanvasObj(r);
     });
+
+    this.cState.updateLabels();
   }
 
   undo() {
@@ -315,18 +325,14 @@ class ConsoleCreateCommand {
     }
     this.cState.addCanvasObj(this.obj);
 
-    console.log("created obj:", this.obj);
-   
     this.obj.label = this.label;
     
     return this.obj;
   }
 
   undo() {
-    if (this.obj) {
+    if (this.obj)
       this.obj.destroy(); 
-      console.log("destroying", this.obj);
-    }
   }
 }
 
