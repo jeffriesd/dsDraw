@@ -79,7 +79,7 @@ class FlowchartBox extends CanvasObject {
       verticalAlign: this.verticalAlign,
       fill: this.fill,
       border: this.border,
-      label: this.label + "_copy",
+      label: this.label,
     };
   }
 
@@ -777,7 +777,7 @@ class Arrow extends CanvasObject {
       headFill: this.headFill,
       headWidth: this.headWidth,
       headHeight: this.headHeight,
-      label: this.label + "_copy",
+      label: this.label,
     };
   }
 

@@ -20,18 +20,8 @@ class CanvasObject {
     this.height = this.y2 - this.y1;
 
     this.cState.registerCanvasObj(this);
-    // this.cState.addCanvasObj(this);
     
     this._label = "";
-    // // convert 'rgb(1, 2, 3)' to 123
-    // var hashStr = this.hashColor.split("rgb(")[1];
-    // hashStr = hashStr.split(")")[0];
-    // var hashCode = hashStr.replace(/[,\s]/g, "");
-
-    // 
-    // // property for adding to 
-    // // canvasState mapping from (name => object)
-    // this.label = this.constructor.name + "_" + hashCode;
   }
 
   clone() {
@@ -61,6 +51,7 @@ class CanvasObject {
     // if 'myname1' already exists, 
     // set to 'myname2'
     while (this.cState.labeled.get(value)) {
+      console.log("[WARNING]: label already in use: ", value);
       var numPattern = /\d*$/;
       var match = value.match(numPattern);
       var matchStr = match[0];
@@ -83,8 +74,6 @@ class CanvasObject {
     this.cState.labeled.set(value, this); 
 
     this._label = value;
-    // console.log("labels after set", [...this.cState.labeled.keys()], "\n");
-  }
 
   get label() {
     if (this._label == "") {
@@ -149,7 +138,6 @@ class CanvasObject {
   }
 
   drag(deltaX, deltaY) {
-    console.log("drag not implemented for", this.constructor.name);
   }
 
   drawLabel() {
@@ -220,7 +208,6 @@ class CanvasChildObject {
   }
 
   drag(deltaX, deltaY) {
-    console.log("drag not implemented for", this.constructor.name);
   }
 
   /** Event when click begins
