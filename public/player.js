@@ -177,10 +177,6 @@ class MediaController {
     this.clips.get(id).url = url;
 
     this.waiting = false;
-    // set thumbnail
-    if (this.clips.get(id).thumbnail.src == DEFAULT_THUMBNAIL)
-      this.clips.get(id).thumbnail.src = this.cState.canvas.toDataURL(); 
-
     this.setCurrentClip(id);
   }
 
@@ -192,17 +188,16 @@ class MediaController {
     this.player.updateTime();
 
     // apply any initialization commands
-    this.cmdRecorder.init();
+    this.cmdRecorder.init().then(() => {
+      this.updateThumbnail(id);
+    });
   }
 
   /** MediaController.addThumbnail
    *    add thumbnail to clip menu
-   *
-   *    TODO default thumbnail
    */
   addThumbnail(id) {
     var thumbnail = document.createElement("img");
-    // thumbnail.src = this.cState.canvas.toDataURL();
     thumbnail.src = DEFAULT_THUMBNAIL;
     thumbnail.id = "thumbnail" + id;
 
@@ -210,7 +205,6 @@ class MediaController {
     this.clips.get(id).thumbnail = thumbnail;
 
     thumbnail.onclick = (event) => {
-      if (this.activeClipId == id) return;
       if (this.getState() === this.pauseState) {
         if (this.clips.get(id).url) 
           this.setVideoURL(id, this.clips.get(id).url);
@@ -224,7 +218,15 @@ class MediaController {
     this.clipMenu.appendChild(thumbnail);
   }
 
+  updateThumbnail(id) {
+    if (this.clips.get(id)) 
+      this.clips.get(id).thumbnail.src = this.cState.canvas.toDataURL(); 
+  }
+
   newClipBlank() {
+    // set thumbnail of previous clip
+    this.updateThumbnail(this.activeClipId);
+
     var clipId = this.newClipId();
     this.clips.set(clipId, { recorded: false });
     this.addThumbnail(clipId);
@@ -238,10 +240,12 @@ class MediaController {
    */
   newClipFromCurrent() {
     var clipId = this.newClipBlank();
-    this.clips.get(clipId).thumbnail.src = this.cState.canvas.toDataURL(); 
+
+    // set thumbnail of new clip
+    this.updateThumbnail(clipId);
+
     var cloneCommand = new CloneCanvasCommand(this.cState);
     this.cState.clearCanvas();
-
     
     var cmdRec = new CommandRecorder(this, this.framerate);
     this.commandRecorders.set(clipId, cmdRec);
@@ -708,9 +712,12 @@ class CommandRecorder {
   }
 
   init() {
-    this.initCmds.forEach(ct => {
-      if (ct.type == "execute") ct.command.execute();
-      else ct.command.undo();
+    return new Promise((res, rej) => {
+      this.initCmds.forEach(ct => {
+        if (ct.type == "execute") ct.command.execute();
+        else ct.command.undo();
+      });
+      resolve();
     });
   } 
 }
