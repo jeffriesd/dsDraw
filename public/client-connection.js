@@ -38,6 +38,7 @@ class WebSocketConnection {
     switch (msgObj.type) {
       case "setVideoURL":
         this.mc.setVideoURL(msgObj.body.id, pathToURL(msgObj.body.url));
+        this.mc.updateThumbnail(msgObj.body.id);
         break;
       case "setVideoDownload":
         this.mc.setVideoDownload(pathToURL(msgObj.body.url));
