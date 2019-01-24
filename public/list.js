@@ -16,7 +16,7 @@ class LinkedList extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
     
-    this.list = {};
+    this.list = new Map();
     this.arrows = new Map();
 
     this.nodeStyle = "circle";
@@ -28,7 +28,7 @@ class LinkedList extends LinearCanvasObject {
    *    getter method for super class methods
    */
   get nodes() {
-    return Object.values(this.list); 
+    return Array.from(this.list.values());
   }
 
   config() {
@@ -51,29 +51,30 @@ class LinkedList extends LinearCanvasObject {
     var copy = super.clone();
 
     // copy config of each node
-    for (var idx in this.list) {
-      var node = this.list[idx];
-      copy.list[idx] = new ListNode(this.cState, copy, 
-        node.value, node.index, node.x, node.y);
-      Object.assign(copy.list[idx], node.config()); 
-    }
+    // for (var idx in this.list) {
+    this.list.forEach((node, idx) => {
+      copy.list.set(idx, new ListNode(this.cState, copy, 
+        node.value, node.index, node.x, node.y));
+      Object.assign(copy.list.get(idx), node.config()); 
+    });
 
-    // for (var idx in this.arrows) {
     this.arrows.forEach((arr, index) => {
       var cparrow = arr.clone();
+      this.cState.addCanvasObj(cparrow);
+      console.log("adding to canvas", cparrow);
       
       var i1 = index[0];
       var i2 = index[1];
 
-      cparrow.lockedFrom = copy.list[i1];
-      cparrow.lockedTo = copy.list[i2];
+      cparrow.lockedFrom = copy.list.get(i1);
+      cparrow.lockedTo = copy.list.get(i2);
       cparrow.locked = copy;
 
       copy.arrows.set(index, cparrow);
     });
 
     // copy head of list
-    copy.head = copy.list[this.head.index];
+    copy.head = copy.list.get(this.head.index);
 
     return copy;
   }
@@ -85,10 +86,10 @@ class LinkedList extends LinearCanvasObject {
       return this.nodes;
 
     var children = [];
-    for (var i = low; i < high; i++) {
-      if (i in this.list)
-        children.push(this.list[i]);
-    }
+    this.list.forEach((node, idx) => {
+      if (idx >= low && idx < high)
+        children.push(node);
+    });
     return children;
   }
 
@@ -101,15 +102,15 @@ class LinkedList extends LinearCanvasObject {
    */
   addNode(fromNode=null, value=null) {
     // assign new index
-    var maxIdx = Object.keys(this.list).reduce(
+    var maxIdx = Array.from(this.list.keys()).reduce(
       (acc, curr) => Math.max(acc, parseInt(curr)), -1);
 
     // new node uses LinkedList x1, y1, others are placed
     // to right of newest node
     var x, y;
-    if (Object.keys(this.list).length) {
-      x = this.list[maxIdx].x + this.cellSize * 4;
-      y = this.list[maxIdx].y;
+    if (this.list.size) {
+      x = this.list.get(maxIdx).x + this.cellSize * 4;
+      y = this.list.get(maxIdx).y;
     }
     else {
       x = this.x1;
@@ -117,7 +118,7 @@ class LinkedList extends LinearCanvasObject {
     }
    
     var newNode = new ListNode(this.cState, this, value, maxIdx+1, x, y);
-    this.list[maxIdx+1] = newNode;
+    this.list.set(maxIdx+1, newNode);
 
     // add edge/link
     if (fromNode)
@@ -132,13 +133,13 @@ class LinkedList extends LinearCanvasObject {
    */
   removeNode(node) {
     this.arrows.forEach((arr, index) => {
-      var from = this.list[index[0]];
-      var to = this.list[index[1]];
+      var from = this.list.get(index[0]);
+      var to = this.list.get(index[1]);
 
       if (from === node || to === node)
         this.removeEdge(from, to);
     });
-    delete this.list[node.index];
+    this.list.delete(node.index);
   }
 
   /** LinkedList.addEdge
@@ -175,6 +176,7 @@ class LinkedList extends LinearCanvasObject {
       throw `Edge ${e} does not exist.`;
      
     var edge = this.arrows.get(e);
+    console.log("edge = ", e, "arrs = ", this.arrows);
     edge.destroy();
     return edge;
   }
@@ -186,8 +188,9 @@ class LinkedList extends LinearCanvasObject {
     this.configureOptions(active);
 
     // draw nodes
-    for (var idx in this.list) 
-      this.list[idx].draw(active, idx);
+    this.list.forEach((node, idx) => {
+      node.draw(active, idx);
+    });
   }
 }
 
@@ -203,10 +206,13 @@ class ListNode extends NodeObject {
     this.index = index;
   }
 
+  get radius() {
+    return Math.floor(this.getParent().cellSize / 2);
+  }
+
   configureOptions(active) {
     super.configureOptions(active);
     this.nodeStyle = this.getParent().nodeStyle;
-    this.radius = Math.floor(this.cellSize / 2);
   }
 
   /** ListNode.lockArrow
@@ -222,6 +228,7 @@ class ListNode extends NodeObject {
     if (dir == "from") {
       x = this.x - this.radius * Math.cos(startAngle);
       y = this.y - this.radius * Math.sin(startAngle);
+
       arrow.x1 = x;
       arrow.y1 = y;
       arrow.startPoint.x = x;
