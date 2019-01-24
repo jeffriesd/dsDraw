@@ -3,7 +3,6 @@ canvasObjectClasses = {
   "RoundBox": RoundBox,
   "DiamondBox": DiamondBox,
   "ParallelogramBox": ParallelogramBox,
-  "RightAngleArrow": RightAngleArrow,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
   "Array1D": Array1D,
@@ -51,6 +50,54 @@ function newColor(uniqueColors) {
   return [r, g, b];
 }
 
+class CtxProxy {
+  constructor(recCtx, editCtx) {
+    this.recCtx = recCtx;
+    this.editCtx = editCtx;
+    return new Proxy({}, this);
+  }
+
+  /** CtxProxy.set
+   *    set property for both targets
+   */
+  set(target, prop, value) {
+    this.recCtx[prop] = value;
+    this.editCtx[prop] = value;
+
+    return true;
+  }
+
+  /** CtxProxy.get
+   *    apply function to both targets or get property
+   *    from both targets. Property value must be same,
+   *    otherwise proxy.recCtx/proxy.editCtx should be used
+   */
+  get(target, prop) {
+    // if recCtx or editCtx (accessing one or the other)
+    if (this[prop])
+      return this[prop];
+
+    // if function, apply to both
+    if (typeof this.recCtx[prop] == "function"
+        && typeof this.editCtx[prop] == "function") {
+      return (...args) => {
+        var recret = this.recCtx[prop](...args);
+        var editret = this.editCtx[prop](...args);
+        if (! equivalent(recret, editret))
+          throw "Return values of ctx methods are different for " + prop;
+        return recret;
+      };
+    }
+
+    // check properties of both (if accessed this way, they should be equal)
+    if (this.recCtx[prop] && this.editCtx[prop]) {
+      if (! equivalent(this.recCtx[prop], this.editCtx[prop]))
+        throw "Return values of ctx properties are different for " + prop;
+      return this.recCtx[prop];
+    }
+  }
+}
+
 /**
  * CanvasState
  *  - maintains state of canvas,
@@ -58,8 +105,9 @@ function newColor(uniqueColors) {
  *    handles hit detection and redrawing
  */
 class CanvasState {
-  constructor(canvas) {
+  constructor(canvas, editCanvas, hitCanvas) {
     this.canvas = canvas;
+    this.ctx = new CtxProxy(canvas.getContext("2d"), editCanvas.getContext("2d"));
 
     // event handling and event state
     this.eventHandler = new CanvasEventHandler(this);
@@ -101,10 +149,6 @@ class CanvasState {
     this.initButtons();
   }
 
-  get ctx() {
-    return this.canvas.getContext("2d");
-  }
-
   clearCanvas() {
     this.objects.forEach(obj => obj.destroy());
   }
@@ -114,7 +158,6 @@ class CanvasState {
    */
   setMode(mode) {
     var dmLabel = document.getElementById("drawMode");
-    console.log(dmLabel);
 
     dmLabel.innerHTML = "Draw mode: " + mode;
     this.drawMode = mode;
@@ -181,7 +224,6 @@ class CanvasState {
    *   as an undo/redo)
    */
   addCanvasObj(canvasObj) {
-    console.log("labels = ", [...this.labeled.keys()]);
     if (canvasObj.hashColor == null)
       this.registerCanvasObj(canvasObj);
     // add to list of redrawable objects
@@ -321,7 +363,7 @@ class CanvasState {
       var mouseMove = new Event("mousemove");
       mouseMove.offsetX = this.mouseMove.x;
       mouseMove.offsetY = this.mouseMove.y;
-      this.canvas.dispatchEvent(mouseMove);
+      this.editCanvas.dispatchEvent(mouseMove);
     }
   }
 
