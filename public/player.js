@@ -15,7 +15,7 @@ class MediaController {
     // set initial clip class for css
     $("#thumbnail0").toggleClass("activeClip", true);
       
-    this.player = new VideoPlayer(canvasState.canvas, this.framerate);
+    this.player = new VideoPlayer(canvasState, this.framerate);
     this.cStream = canvasState.canvas.captureStream(this.framerate);
     // this.requestAudio();
 
@@ -360,9 +360,9 @@ class MediaController {
  *    displays video to some canvas 
  */
 class VideoPlayer {
-  constructor(canvas, framerate) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
+  constructor(cState, framerate) {
+    this.canvas = cState.canvas;
+    this.ctx = cState.ctx.editCtx;
     this.video = document.getElementById("video");
     this.video.src = null;
 
