@@ -192,7 +192,7 @@ class FlowchartBox extends CanvasObject {
     }
     else {
       // center is default
-      var ht = this.ctx.measureText("_").width * 2;
+      var ht = TEXT_HEIGHT;
       var textHeight = (this.wrappedText.length + 1) * ht;
       var boxHeight = this.y2 - this.y1;
 
@@ -215,7 +215,7 @@ class FlowchartBox extends CanvasObject {
     this.textEntered();
 
     // approximate height
-    var ht = this.ctx.measureText("_").width * 2;
+    var ht = TEXT_HEIGHT;
     var lineY = this.textY + ht;
     this.ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
@@ -1151,6 +1151,14 @@ class ArrowHead extends CanvasChildObject {
 
     this.width = 10;
     this.height = 10;
+  }
+
+  get x() {
+    return this.getParent().x2;
+  }
+
+  get y() {
+    return this.getParent().y2;
   }
 
   getParent() {
