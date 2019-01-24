@@ -528,7 +528,7 @@ class Array1DResizeCommand extends Array1DCommand {
 
     // save old array for undo
     this.prevArray = this.receiver.array.slice();
-    this.prevArrows = {};
+    this.prevArrows = new Map();
   }
 
   execute() {
@@ -757,8 +757,10 @@ class LinkedListCommand {
 
   checkIndices(...indices) {
     indices.forEach(i => {
-      if (! (i in this.receiver.list))
-        throw `Invalid indices: ${index1}, ${index2}.`;
+      if (! (this.receiver.list.hasEquiv(i))) {
+        console.log(i, "not in ", this.receiver.list);
+        throw `Invalid index: ${i}.`;
+      }
     });
   }
 }
@@ -767,10 +769,12 @@ class LinkedListInsertCommand extends LinkedListCommand {
   constructor(receiver, fromIndex, value) {
     super(receiver);
 
+    fromIndex = parseInt(fromIndex);
+
     this.checkIndices(fromIndex);
 
     this.value = value;
-    this.fromNode = this.receiver.list[fromIndex];
+    this.fromNode = this.receiver.list.get(fromIndex);
     this.newNode = null;
   }
 
@@ -789,10 +793,13 @@ class LinkedListLinkCommand extends LinkedListCommand {
   constructor(receiver, fromIndex, toIndex) {
     super(receiver);
 
+    fromIndex = parseInt(fromIndex);
+    toIndex = parseInt(toIndex);
+
     this.checkIndices(fromIndex, toIndex);
   
-    this.fromNode = this.receiver.list[fromIndex];
-    this.toNode = this.receiver.list[toIndex];
+    this.fromNode = this.receiver.list.get(fromIndex);
+    this.toNode = this.receiver.list.get(toIndex);
   }
 
   execute() {
@@ -808,10 +815,13 @@ class LinkedListCutCommand extends LinkedListCommand {
   constructor(receiver, fromIndex, toIndex) {
     super(receiver);
 
+    fromIndex = parseInt(fromIndex);
+    toIndex = parseInt(toIndex);
+
     this.checkIndices(fromIndex, toIndex);
 
-    this.fromNode = this.receiver.list[fromIndex];
-    this.toNode = this.receiver.list[toIndex];
+    this.fromNode = this.receiver.list.get(fromIndex);
+    this.toNode = this.receiver.list.get(toIndex);
     this.fromIndex = fromIndex;
     this.toIndex = toIndex;
 
