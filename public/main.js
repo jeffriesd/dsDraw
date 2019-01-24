@@ -3,9 +3,9 @@ const websock = new WebSocket("ws://localhost:3000");
 
 // initialize canvas, canvasState, bind actions,
 // and start main event loop
-const canvas = document.getElementById("myCanvas");
-const ctx = canvas.getContext("2d");
-ctx.font = "10pt Calibri";
+const canvas = document.getElementById("drawCanvas");
+
+const editCanvas = document.getElementById("editCanvas");
 
 const hitCanvas = document.getElementById("hitCanvas");
 
@@ -13,13 +13,16 @@ const screenWidth = window.innerWidth | 0;
 const screenHeight = window.innerHeight | 0;
 
 canvas.width = screenWidth;
+editCanvas.width = canvas.width;
 hitCanvas.width = canvas.width;
                             
 canvas.height = screenHeight;
+editCanvas.height = canvas.height;
 hitCanvas.height = canvas.height;
 
 // initialize controller objects
-const cState = new CanvasState(canvas);
+const cState = new CanvasState(canvas, editCanvas, hitCanvas);
+
 const mc = MediaController.getInstance(cState);
 const wsConnection = WebSocketConnection.getInstance(websock, mc);
 
@@ -37,12 +40,12 @@ const commandConsole = new CommandConsole(cState);
 /**
  *  MOUSE CLICK PRESSED
  */
-canvas.onmousedown = (event) => cState.eventHandler.mouseDown(event);
+editCanvas.onmousedown = (event) => cState.eventHandler.mouseDown(event);
 
 /**
  *  MOUSE MOVED
  */
-canvas.onmousemove = (event) => cState.eventHandler.mouseMove(event);
+editCanvas.onmousemove = (event) => cState.eventHandler.mouseMove(event);
 
 // drag console even if mouse moves away from it 
 window.onmousemove = (event) => commandConsole.dragConsole(event);
@@ -50,7 +53,7 @@ window.onmousemove = (event) => commandConsole.dragConsole(event);
 /**
  *  MOUSE CLICK RELEASED
  */
-canvas.onmouseup = (event) => cState.eventHandler.mouseUp(event);
+editCanvas.onmouseup = (event) => cState.eventHandler.mouseUp(event);
 
 // global key bindings
 Mousetrap.bind("t", (event) => {
@@ -80,3 +83,6 @@ Mousetrap.bind("ctrl+z", (event) => {
 Mousetrap.bind("ctrl+y", function(event) {
   mc.hotkeyRedo();
 });
+
+// do DOM event bindings
+initDOM();
