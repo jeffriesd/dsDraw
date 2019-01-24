@@ -1,4 +1,13 @@
 
+function initDOM() {
+  $("#contButton").click((event) => {
+    MediaController.getInstance().newClipFromCurrent();
+  });
+  $("#blankButton").click((event) => {
+    MediaController.getInstance().newClipBlank();
+  });
+}
+
 
 /*  The Toolbar class maintains a reference to a toolbar element
  *  and some state regarding what parts of it are hidden
