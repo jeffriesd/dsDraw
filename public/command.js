@@ -540,16 +540,15 @@ class Array1DResizeCommand extends Array1DCommand {
     if (this.newLength < startLength) {
       this.receiver.array = this.receiver.array.slice(0, this.newLength); 
        
-      for (var aidx in this.receiver.arrows) {
-        var arrow = this.receiver.arrows[aidx];
-        var start = parseInt(aidx.split(",")[0]);
-        var end = parseInt(aidx.split(",")[1]);
+      this.receiver.arrows.forEach((arrow, aidx) => {
+        var start = aidx[0];
+        var end = aidx[1];
         if (start >= this.newLength || end >= this.newLength) {
-          this.prevArrows[aidx] = arrow;
-          delete this.receiver.arrows[aidx];
+          this.prevArrows.set(aidx, arrow);
+          this.receiver.arrows.delete(aidx);
           arrow.destroy();
         }
-      }
+      });
     }
   }
 
@@ -557,7 +556,7 @@ class Array1DResizeCommand extends Array1DCommand {
     this.receiver.array = this.prevArray;
 
     // add back any removed arrows
-    Object.assign(this.receiver.arrows, this.prevArrows);
+    this.receiver.arrows = new Map(this.prevArrows);
   }
 }
 
@@ -596,13 +595,10 @@ class Array1DArrowCommand extends Array1DCommand {
 
   /** Array1DArrowCommand.execute
    *    add an arc from i1 to i2
-   *    if one already exists, undo it
    */
   execute() {
-    if (this.receiver.arrows[[this.i1, this.i2]]) {
-      this.undo();
+    if (this.receiver.arrows.hasEquiv([this.i1, this.i2]))
       return;
-    }
 
     var fromAnchor = this.receiver.array[this.i1];
     var toAnchor = this.receiver.array[this.i2];
@@ -634,22 +630,19 @@ class Array1DArrowCommand extends Array1DCommand {
     } 
 
     // add arrow to array mapping
-    this.receiver.arrows[[this.i1, this.i2]] = this.arrow;
+    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
   }
 
   /** Array1DArrowCommand.undo
-   *    remove arrow if it exists otherwise recreate it
+   *    remove arrow if it exists 
    */
   undo() {
     // arrow exists
-    if (this.receiver.arrows[[this.i1, this.i2]])  {
-      var toDelete = this.receiver.arrows[[this.i1, this.i2]];
-      delete this.receiver.arrows[[this.i1, this.i2]];
+    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) {
+      var toDelete = this.receiver.arrows.get([this.i1, this.i2]);
+      this.receiver.arrows.delete([this.i1, this.i2]);
       toDelete.destroy();
     }
-    // arrow doesn't exist
-    else
-      this.execute();
   }
 }
 
@@ -834,7 +827,7 @@ class LinkedListCutCommand extends LinkedListCommand {
    *    restore cut edge
    */
   undo() {
-    this.receiver.arrows[[this.fromIndex, this.toIndex]] = this.edge;
+    this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
     this.edge.restore();
   }
 }
