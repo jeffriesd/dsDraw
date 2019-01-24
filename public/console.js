@@ -239,7 +239,6 @@ class CommandConsole {
     this.cycleIndex = 0;
 
     var line = this.commandLine.value.trim();
-    console.log("command was", line);
 
     var cmdObj;
     var parseFunc;
@@ -355,7 +354,6 @@ class CommandInterpreter {
     var firstLine = cmds[0];
     // create actual object so it can be configured
     // by following lines
-    console.log("firstLine = ", firstLine);
     var creator = this.parseLine(firstLine);
     if (creator) 
       var newObj = this.commandConsole.executeCommand(creator);
@@ -395,15 +393,12 @@ class CommandInterpreter {
    */
   parseLine(cmdStr) {
     var spl = cmdStr.split(/(\s)/).filter((s) => s.trim().length);
-    console.log("in interpreter.parseLine, split command = ", spl);
     var mainCmd = "";
     var args =  [];
 
     var mainCmd = spl[0];
     if (spl.length > 1)
       args = spl.slice(1);
-
-    console.log("in interpreter.parseLine, args = ", args);
 
     // check if 'mainCmd' is 
     // 1. labeled object with subcommand
@@ -466,17 +461,13 @@ class CommandInterpreter {
     var receiverName = mainCmd.match(/[^\[]*/).toString();
     var receiverObj = this.cState.labeled.get(receiverName);
 
-    console.log("In cmdIntrp.createConfig, receiver", receiverName, " = ", receiverObj);
-
     var configCommand;
     if (mainCmd.includes("[")) {
       var range = mainCmd.match(/\[.*\]/).toString();
       configCommand = new RangeConfigCommand(receiverObj, range, ...args);
     }        
-    else {
+    else 
       configCommand = new ConfigCommand(receiverObj, ...args);
-      console.log("new config command for ", receiverObj);
-    }
 
     return configCommand;
   }
@@ -487,7 +478,6 @@ class CommandInterpreter {
    */
   createMainCommand(mainCmd, args, named=false) {  
     var commandObj = mainCommands[mainCmd];
-    console.log("main cmd was ", mainCmd);
     if (commandObj)
       return new commandObj(this.cState, ...args);
     else
