@@ -152,15 +152,15 @@ class CanvasObject {
     var fs = this.ctx.fillStyle;
     var font = this.ctx.font;
 
-    this.ctx.beginPath();
-    this.ctx.font = "bold 12px Monospace";
-    this.ctx.fillStyle = "black";
-    var lw = this.ctx.measureText(this.label).width;
-    var lh = this.ctx.measureText("_").width * 2;
+    this.ctx.editCtx.beginPath();
+    this.ctx.editCtx.font = "bold 12px Monospace";
+    this.ctx.editCtx.fillStyle = "black";
+    var lw = this.ctx.editCtx.measureText(this.label).width;
+    var lh = this.ctx.editCtx.measureText("_").width * 2;
 
-    this.ctx.fillText(this.label, 
+    this.ctx.editCtx.fillText(this.label, 
         this.x1 - (lw + 10), this.y1 - (lh + 10));
-    this.ctx.stroke();
+    this.ctx.editCtx.stroke();
 
     // reset fillStyle and font
     this.ctx.fillStyle = fs;
