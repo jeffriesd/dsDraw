@@ -25,7 +25,7 @@ class Array1D extends LinearCanvasObject {
 
     // keep track of anchored arrows 
     // (keyed by start and endpoints)
-    this.arrows = {};
+    this.arrows = new Map();
 
     this.initCells();
   }
@@ -61,20 +61,23 @@ class Array1D extends LinearCanvasObject {
     copy.array = copy.array.slice(0, idx);
 
     // copy arrows
-    for (var index in this.arrows) {
-      var cparrow = this.arrows[index].clone();
+    this.arrows.forEach((arr, index) => {
+      var cparrow = arr.clone();
+      this.cState.addCanvasObj(cparrow);
       
-      // index is 'a,b'
-      var i1 = parseInt(index[0]);
-      var i2 = parseInt(index[2]);
+      // index is [a, b]
+      var i1 = index[0];
+      var i2 = index[1];
   
       // copy anchors
       cparrow.lockedFrom = copy.array[i1];
       cparrow.lockedTo = copy.array[i2];
       cparrow.locked = copy;
 
-      copy.arrows[index] = cparrow;
-    }
+      copy.arrows.set(index, cparrow);
+      console.log("copied arrs = ", copy.arrows);
+    });
+    console.log("source arrs = ", this.arrows);
 
     return copy;
   }
@@ -84,8 +87,7 @@ class Array1D extends LinearCanvasObject {
    */
   destroy() {
     super.destroy();
-    for (var index in this.arrows) 
-      this.arrows[index].destroy();
+    this.arrows.forEach(arr => arr.destroy());
   }
 
   getStartCoordinates() {

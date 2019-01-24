@@ -17,7 +17,7 @@ class LinkedList extends LinearCanvasObject {
     super(canvasState, x1, y1, x2, y2);
     
     this.list = {};
-    this.arrows = {};
+    this.arrows = new Map();
 
     this.nodeStyle = "circle";
 
@@ -58,20 +58,21 @@ class LinkedList extends LinearCanvasObject {
       Object.assign(copy.list[idx], node.config()); 
     }
 
-    for (var idx in this.arrows) {
-      var cparrow = this.arrows[idx].clone();
+    // for (var idx in this.arrows) {
+    this.arrows.forEach((arr, index) => {
+      var cparrow = arr.clone();
       
-      var i1 = parseInt(idx[0]);
-      var i2 = parseInt(idx[2]);
+      var i1 = index[0];
+      var i2 = index[1];
 
       cparrow.lockedFrom = copy.list[i1];
       cparrow.lockedTo = copy.list[i2];
       cparrow.locked = copy;
 
-      copy.arrows[idx] = cparrow;
-    }
+      copy.arrows.set(index, cparrow);
+    });
 
-    // copy head
+    // copy head of list
     copy.head = copy.list[this.head.index];
 
     return copy;
@@ -130,13 +131,13 @@ class LinkedList extends LinearCanvasObject {
    *    and return (for undo) any links
    */
   removeNode(node) {
-    for (var index in this.arrows) {
-      var from = this.list[parseInt(index[0])];
-      var to = this.list[parseInt(index[2])];
+    this.arrows.forEach((arr, index) => {
+      var from = this.list[index[0]];
+      var to = this.list[index[1]];
 
-      if (from == node || to == node)
+      if (from === node || to === node)
         this.removeEdge(from, to);
-    }
+    });
     delete this.list[node.index];
   }
 
@@ -151,7 +152,9 @@ class LinkedList extends LinearCanvasObject {
    */
   addEdge(fromNode, toNode) {
     var e = [fromNode.index, toNode.index];
-    if (e in this.arrows)
+    
+    // fancy Map.has because [1, 2] !== [1, 2]
+    if (this.arrows.hasEquiv(e))
       throw `Edge ${e} already exists.`;
 
     // create new curved arrow that is locked to 
@@ -162,17 +165,17 @@ class LinkedList extends LinearCanvasObject {
       fromNode.x, fromNode.y, toNode.x, toNode.y, anchors);
     this.cState.addCanvasObj(arrow);
 
-    this.arrows[e] = arrow;
+    this.arrows.set(e, arrow);
   }
 
   removeEdge(fromNode, toNode) {
     var e = [fromNode.index, toNode.index];
     console.log("this.arrows = ", Object.keys(this.arrows));
-    if (! (e in this.arrows))
+    if (! (this.arrows.hasEquiv(e)))
       throw `Edge ${e} does not exist.`;
      
-    var edge = this.arrows[e];
-    this.arrows[e].destroy();
+    var edge = this.arrows.get(e);
+    edge.destroy();
     return edge;
   }
 

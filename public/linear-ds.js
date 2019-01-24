@@ -41,7 +41,7 @@ class LinearCanvasObject extends CanvasObject {
       displayStyle: this.displayStyle,
       indexPlacement: this.indexPlacement,
       cellSize: this.cellSize,
-      label: this.label + "_copy",
+      label: this.label, 
     };
   }
 
@@ -50,9 +50,8 @@ class LinearCanvasObject extends CanvasObject {
    */
   destroy() {
     super.destroy();
-    this._arrows = Object.assign({}, this.arrows);
-    for (var index in this.arrows) 
-      this.arrows[index].destroy();
+    this._arrows = new Map(this.arrows);
+    this.arrows.forEach(arr => arr.destroy());
   }
 
   /** LinearCanvasObject.restore
@@ -63,8 +62,7 @@ class LinearCanvasObject extends CanvasObject {
 
     this.arrows = this._arrows;
 
-    for (var index in this.arrows) 
-      this.arrows[index].restore();
+    this.arrows.forEach(arr => arr.restore());
   }
 
   // getStartCoordinates() {
@@ -121,8 +119,7 @@ class LinearCanvasObject extends CanvasObject {
       idx++;
     });
 
-    for (var index in this.arrows)
-      this.arrows[index].draw();
+    this.arrows.forEach(arr => arr.draw());
   }
 
   /** LinearCanvasObject.move
@@ -135,8 +132,7 @@ class LinearCanvasObject extends CanvasObject {
       node.y += deltaY; 
     });
 
-    for (var index in this.arrows)
-      this.arrows[index].move(deltaX, deltaY, true);
+    this.arrows.forEach(arr => arr.move(deltaX, deltaY, true));
   }
 }
 
@@ -194,8 +190,6 @@ class NodeObject extends CanvasChildObject {
     this.ctx.fillStyle = this.fill;
     this.ctx.lineWidth = this.borderThickness;
 
-    // this.y = this.parentObject.y1;
-
     this.cellSize = this.getParent().cellSize;
     this.hitCtx.fillStyle = this.hashColor;
   }
@@ -228,7 +222,7 @@ class NodeObject extends CanvasChildObject {
     var textWidth = this.ctx.measureText(idx).width;
     var textOffX = (this.cellSize - textWidth) / 2;
 
-    var textHeight = this.ctx.measureText("_").width;
+    var textHeight = this.ctx.measureText("_").width * 2;
     var yOffset = -(this.cellSize - textHeight) / 2;
     var textOffY = (this.cellSize - textHeight) / 2;
 
