@@ -787,13 +787,12 @@ class Arrow extends CanvasObject {
     super.destroy();
     // remove from parent anchor if exists
     if (this.locked) {
-      for (var idx in this.locked.arrows) {
-        if (this.locked.arrows[idx] === this) {
-          console.log("deleting arrow");
-          delete this.locked.arrows[idx];
-          break;
+      this.locked.arrows.forEach((arr, idx) => {
+        if (arr === this) {
+          this.locked.arrows.delete(idx);
+          return;
         }
-      }
+      });
     }
   }
 
