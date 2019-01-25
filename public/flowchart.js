@@ -211,23 +211,29 @@ class FlowchartBox extends CanvasObject {
     this.hitCtx.strokeStyle = this.hashColor;
   }
   
+  /** FlowchartBox.drawText
+   *    only draw text to editor context 
+   *    when the <textarea> is hidden
+   */
   drawText() {
     this.textEntered();
+
+    var ctx = this.editor.hidden ? this.ctx : this.ctx.recCtx;
 
     // approximate height
     var ht = TEXT_HEIGHT;
     var lineY = this.textY + ht;
-    this.ctx.fillStyle = "#000";
+    ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
       var text = this.wrappedText[i];
       // don't fill past container
       if (lineY + ht > this.y2) 
         text = "...";
 
-      this.ctx.fillText(text, this.textX, lineY);
+      ctx.fillText(text, this.textX, lineY);
       lineY += ht;
     }
-    this.ctx.stroke();
+    ctx.stroke();
   }
 
   /** FlowchartBox.move
