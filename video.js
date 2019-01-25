@@ -161,8 +161,6 @@ class VideoManager {
     });
   }
 
-  // TODO make all functions accept clipIds instead of paths
-
   /** VideoManager.removeExcept
    *    remove all clips from directory except 
    *    clip with given id
