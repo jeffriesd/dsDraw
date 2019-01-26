@@ -663,8 +663,6 @@ class TextBox extends FlowchartBox {
 
   configureOptions(active) {
     super.configureOptions(active);
-    // don't apply active border
-    this.ctx.strokeStyle = this.border; 
     this.ctx.setLineDash(this.lineDash);
   }
 
