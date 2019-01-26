@@ -314,28 +314,29 @@ class FlowchartBox extends CanvasObject {
   }
 
   /** FlowchartBox.draw
-   *    only here to show border
+   *    only here to show border when border color = #0000
+   *    i.e. transparent
    */
   draw(active) {
     // check for transparency
-    if (!active && this.showBorder && this.border.startsWith("#")) {
-      // border color is #xxx0 or #xxxxxx00
-      var len = this.border.length;
-      var alpha;
-      if (len < 7) {
-        if (len > 4)
-          alpha = parseInt(this.border.substring(4));
-      }
-      else
-        alpha = parseInt(this.border.substring(7));
-    
-      if (alpha == 0) {
-        this.constructor.outline(this.cState,
-            this.x1, this.y1, this.x2, this.y2);
-      }
-    }
+    // if (!active && this.showBorder && this.border.startsWith("#")) {
+    //   // border color is #xxx0 or #xxxxxx00
+    //   var len = this.border.length;
+    //   var alpha;
+    //   if (len < 7) {
+    //     if (len > 4)
+    //       alpha = parseInt(this.border.substring(4));
+    //   }
+    //   else
+    //     alpha = parseInt(this.border.substring(7));
+    // 
+    //   if (alpha == 0) {
+    //     this.constructor.outline(this.cState.ctx,
+    //         this.x1, this.y1, this.x2, this.y2);
+    //   }
+    // }
 
-    this.showBorder = false;
+    // this.showBorder = false;
   }
 
   /** FlowchartBox.textEntered
@@ -377,11 +378,11 @@ class FlowchartBox extends CanvasObject {
 
 class RectBox extends FlowchartBox {
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
-    cState.ctx.beginPath();
-    cState.ctx.rect(x1, y1, x2 - x1, y2 - y1);
-    cState.ctx.stroke();    
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.rect(x1, y1, x2 - x1, y2 - y1);
+    ctx.stroke();    
   }
 
   /** RectBox.draw
@@ -456,23 +457,23 @@ class RoundBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
     var radius = 10;
 
-    cState.ctx.beginPath();
-    cState.ctx.moveTo(x1 + radius, y1);
-    cState.ctx.lineTo(x2 - radius, y1);
-    cState.ctx.quadraticCurveTo(x2, y1, x2, y1 + radius);
-    cState.ctx.lineTo(x2, y2 - radius);
-    cState.ctx.quadraticCurveTo(x2, y2, x2 - radius, y2);
-    cState.ctx.lineTo(x1 + radius, y2);
-    cState.ctx.quadraticCurveTo(x1, y2, x1, y2 - radius);
-    cState.ctx.lineTo(x1, y1 + radius);
-    cState.ctx.quadraticCurveTo(x1, y1, x1 + radius, y1);
-    cState.ctx.closePath();
+    ctx.beginPath();
+    ctx.moveTo(x1 + radius, y1);
+    ctx.lineTo(x2 - radius, y1);
+    ctx.quadraticCurveTo(x2, y1, x2, y1 + radius);
+    ctx.lineTo(x2, y2 - radius);
+    ctx.quadraticCurveTo(x2, y2, x2 - radius, y2);
+    ctx.lineTo(x1 + radius, y2);
+    ctx.quadraticCurveTo(x1, y2, x1, y2 - radius);
+    ctx.lineTo(x1, y1 + radius);
+    ctx.quadraticCurveTo(x1, y1, x1 + radius, y1);
+    ctx.closePath();
 
-    cState.ctx.stroke();
+    ctx.stroke();
   }
 
 }
@@ -535,19 +536,19 @@ class DiamondBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
     var hw = Math.floor((x2 - x1)/ 2);
     var hh = Math.floor((y2 - y1)/ 2);
 
-    cState.ctx.beginPath();
-    cState.ctx.moveTo(x1 - hw, y1 + hh);
-    cState.ctx.lineTo(x1 + hw, y1 - hh);
-    cState.ctx.lineTo(x2 + hw, y1 + hh);
-    cState.ctx.lineTo(x1 + hw, y2 + hh);
-    cState.ctx.lineTo(x1 - hw, y1 + hh);
+    ctx.beginPath();
+    ctx.moveTo(x1 - hw, y1 + hh);
+    ctx.lineTo(x1 + hw, y1 - hh);
+    ctx.lineTo(x2 + hw, y1 + hh);
+    ctx.lineTo(x1 + hw, y2 + hh);
+    ctx.lineTo(x1 - hw, y1 + hh);
     
-    cState.ctx.stroke();
+    ctx.stroke();
   }
 }
 
@@ -604,8 +605,8 @@ class ParallelogramBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
     var skewSlope = 3;
 
     var bottomLeft = {
@@ -617,14 +618,83 @@ class ParallelogramBox extends FlowchartBox {
       x: x2 - Math.floor((y2 - y1) / -skewSlope),
       y: y1,
     };
-    cState.ctx.beginPath();
-    cState.ctx.moveTo(bottomLeft.x, bottomLeft.y);
-    cState.ctx.lineTo(x1, y1);
-    cState.ctx.lineTo(topRight.x, topRight.y);
-    cState.ctx.lineTo(x2, y2);
-    cState.ctx.lineTo(bottomLeft.x, bottomLeft.y);
-    cState.ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(bottomLeft.x, bottomLeft.y);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(topRight.x, topRight.y);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(bottomLeft.x, bottomLeft.y);
+    ctx.stroke();
   }
+}
+
+class TextBox extends FlowchartBox {
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
+    this.fill = "transparent";
+    this.border = "gray";
+
+    this.lineDash = [1, 2];
+  }
+
+  propNames() {
+    return {
+      "ff": "fontFamily",
+      "fontFamily": "fontFamily",
+      "font": "fontSize",
+      "fontSize": "fontSize",
+      "fs": "fontSize",
+      "label": "label",
+      "va": "verticalAlign",
+      "ha": "horizontalAlign",
+    }
+  }
+
+  config() {
+    return {
+      fontStyle: this.fontStyle,
+      fontFamily: this.fontFamily,
+      fontSize: this.fontSize,
+      horizontalAlign: this.horizontalAlign,
+      verticalAlign: this.verticalAlign,
+      label: this.label,
+    }
+  }
+
+  configureOptions(active) {
+    super.configureOptions(active);
+    // don't apply active border
+    this.ctx.strokeStyle = this.border; 
+    this.ctx.setLineDash(this.lineDash);
+  }
+
+  /** TextBox.draw
+   *    display dotted line border in editor
+   *    but nothing in recording
+   */
+  draw(active) {
+    this.configureOptions(active);
+
+    this.ctx.editCtx.beginPath();
+    this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
+    this.ctx.editCtx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.ctx.editCtx.stroke();
+    
+    // helper method for text
+    this.drawText();
+
+    // draw to hit detection canvas
+    this.hitCtx.beginPath();
+    this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.hitCtx.stroke();
+
+    this.resizePoint.draw();
+
+    // undo lineDash
+    this.ctx.setLineDash([]);
+  }
+
+
 }
 
 
@@ -683,8 +753,8 @@ class Connector extends FlowchartBox {
   }
 
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
 
     var dx = Math.pow(x2 - x1, 2);
     var dy = Math.pow(y2 - y1, 2);
@@ -695,9 +765,9 @@ class Connector extends FlowchartBox {
     var cX = r2 + x1;
     var cY = r2 + y1; 
 
-    cState.ctx.beginPath();
-    cState.ctx.arc(cX, cY, radius, 0, Math.PI * 2);
-    cState.ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cX, cY, radius, 0, Math.PI * 2);
+    ctx.stroke();
   }
 }
 
@@ -923,12 +993,12 @@ class CurvedArrow extends Arrow {
     this.head.draw(active);
   }
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
-    cState.ctx.beginPath();
-    cState.ctx.moveTo(x1, y1);
-    cState.ctx.lineTo(x2, y2);
-    cState.ctx.stroke();
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
   }
 
   /** CurvedArrow.endingAngle
@@ -1131,12 +1201,12 @@ class RightAngleArrow extends Arrow {
     this.y2 += deltaY;
   }
 
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
-    cState.ctx.beginPath();
-    cState.ctx.moveTo(x1, y1);
-    cState.ctx.lineTo(x2, y1);
-    cState.ctx.stroke();
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y1);
+    ctx.stroke();
   }
 
 }
