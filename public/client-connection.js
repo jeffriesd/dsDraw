@@ -3,25 +3,27 @@ function pathToURL(path) {
 }
 
 
-/** WebSocketConnection
+/** ClientSocket
  *    manages client side of websocket connection
  *    for sending and receiving video blobs
  *    and commands (truncate video, setVideoURL, etc.)
  */
-class WebSocketConnection {
-  constructor(websock, mediaController) {
+class ClientSocket {
+  constructor(websock, mediaController, cState) {
+    if (ClientSocket.instance) return ClientSocket.instance;
     this.websock = websock;
     this.mc = mediaController;
+    this.cState = cState;
 
     this.init();
 
-    this.instance = null;
+    ClientSocket.instance = this;
   }
 
-  static getInstance(websock, mediaController) {
-    if (this.instance == null)
-      this.instance = new WebSocketConnection(websock, mediaController);
-    return this.instance;
+  static getInstance() {
+    if (ClientSocket.instance == null)
+      throw "Eager instantiation failed for ClientSocket";
+    return ClientSocket.instance;
   }
 
   init() {
@@ -32,8 +34,8 @@ class WebSocketConnection {
   }
 
   processServerMessage(message) {
-    console.log("Message from server:", message);
     var msgObj = JSON.parse(message);
+    console.log("message from server: ", msgObj.type);
 
     switch (msgObj.type) {
       case "setVideoURL":
@@ -42,11 +44,16 @@ class WebSocketConnection {
         break;
       case "setVideoDownload":
         this.mc.setVideoDownload(pathToURL(msgObj.body.url));
+        break;
+      case "setMath":
+        var textBox = this.cState.labeled.get(msgObj.body.label);
+        textBox.setMath(msgObj.body.mathSVG);
+        break;
     }
   }
 
   static sendServer(type, body) {
-    var wsInstance = WebSocketConnection.getInstance();
+    var wsInstance = ClientSocket.getInstance();
     wsInstance.sendServer(type, body);
   }
 
@@ -55,7 +62,7 @@ class WebSocketConnection {
   }
 
   static sendBlob(blob) {
-    var wsInstance = WebSocketConnection.getInstance();
+    var wsInstance = ClientSocket.getInstance();
     wsInstance.sendBlob(blob);
   }
 
