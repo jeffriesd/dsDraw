@@ -1,9 +1,10 @@
 class MediaController {
   constructor(canvasState) {
+    if (MediaController.instance) return MediaController.instance;
     this.cState = canvasState;
 
-    // update every 50ms (20fps)
-    this.framerate = 50;
+    // update at 20fps
+    this.framerate = 20;
 
     this.clips = new Map();
     this.commandRecorders = new Map();
@@ -15,9 +16,9 @@ class MediaController {
     // set initial clip class for css
     $("#thumbnail0").toggleClass("activeClip", true);
       
-    this.player = new VideoPlayer(canvasState, this.framerate);
-    this.cStream = canvasState.canvas.captureStream(this.framerate);
-    // this.requestAudio();
+    this.player = new VideoPlayer(canvasState);
+    this.cStream = canvasState.recCanvas.captureStream(this.framerate);
+    this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, 
       { mimeType: "video/webm;codecs=vp8,opus"});
@@ -31,15 +32,15 @@ class MediaController {
     
     this.chunks = [];
 
-    this.instance = null;
+    MediaController.instance = this;
   }
 
   /** MediaController.getInstance
    */
-  static getInstance(cState) {
-    if (this.instance == null)
-      this.instance = new MediaController(cState);
-    return this.instance;
+  static getInstance() {
+    if (MediaController.instance == null)
+      throw "Eager instantiation failed for MediaController";
+    return MediaController.instance;
   }
 
   newClipId() {
@@ -82,8 +83,8 @@ class MediaController {
     this.recorder.onstop = (event) => {
       var blob = new Blob(this.chunks, { "type" : "video/webm; codecs=vp8" });
 
-      WebSocketConnection.sendServer("setClipId", { id: this.activeClipId } );
-      WebSocketConnection.sendBlob(blob);
+      ClientSocket.sendServer("setClipId", { id: this.activeClipId } );
+      ClientSocket.sendBlob(blob);
       this.chunks = [];
 
       // wait for merge/write to complete before updating 
@@ -232,7 +233,7 @@ class MediaController {
   updateThumbnail(id) {
     if (id == null) id = this.activeClipId;
     if (this.clips.get(id)) 
-      this.clips.get(id).thumbnail.src = this.cState.canvas.toDataURL(); 
+      this.clips.get(id).thumbnail.src = this.cState.editCanvas.toDataURL(); 
   }
 
   newClipBlank() {
@@ -360,8 +361,8 @@ class MediaController {
  *    displays video to some canvas 
  */
 class VideoPlayer {
-  constructor(cState, framerate) {
-    this.canvas = cState.canvas;
+  constructor(cState) {
+    this.cState = cState;
     this.ctx = cState.ctx.editCtx;
     this.video = document.getElementById("video");
     this.video.src = null;
@@ -373,8 +374,6 @@ class VideoPlayer {
     this.volume = document.getElementById("volume");
 
     this.init();
-
-    this.framerate = framerate;
   }
 
   /** VideoPlayer.init
@@ -445,10 +444,8 @@ class VideoPlayer {
   }
 
   play() {
-    if (this.video.src) {
+    if (this.video.src) 
       this.video.play();
-      this.drawToCanvas();
-    }
 
     // set icon
     this.playButton.style.backgroundImage = PAUSEBTN;
@@ -465,9 +462,7 @@ class VideoPlayer {
       return;
 
     this.ctx.drawImage(this.video, 0, 0,
-      this.canvas.width, this.canvas.height);
-
-    setTimeout(() => this.drawToCanvas(), this.framerate);
+      this.cState.width, this.cState.height);
   }
 
 }
@@ -506,10 +501,10 @@ class PauseState extends MediaState {
 
       // wait 2 frames to avoid drawing
       // previous contents
-      setTimeout(() => {
+      // setTimeout(() => {
         context.recorder.start(); 
         context.setState(context.recordState);
-      }, context.framerate * 2);
+      // }, context.framerate * 2);
 
     }
     else
@@ -566,9 +561,6 @@ class CommandRecorder {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.instance = null;
-
-    this.secs = 0;
     this.recording = false;
   }
 
@@ -577,9 +569,12 @@ class CommandRecorder {
    *    but video has already been written, so it 
    *    only makes sense to record as occurring at the
    *    end of the current clip
+   *
+   *    otherwise calculate ms since timer started
    */
   getTime() {
-    if (this.recording) return this.secs;
+    if (this.recording) 
+      return (new Date().getTime() - this.startTime) / 1000;
     return this.player.video.duration;
   }
 
@@ -587,18 +582,10 @@ class CommandRecorder {
     this.recording = false;
   }
 
+  // TODO use system clock or something
   startTimer(startTime) {
+    this.startTime = new Date().getTime();
     this.recording = true;
-    this.secs = startTime;
-    this.tick();
-  }
-
-  tick() {
-    if (! this.recording) return;
-    
-    // convert 50ms to 0.05s
-    this.secs += this.framerate / 1000;
-    setTimeout(() => this.tick(), this.framerate);
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -614,21 +601,21 @@ class CommandRecorder {
    *    optional redo flag - if true, dont clear redo stack
    */
   execute(cmdObj, redo) {
-    var ret = cmdObj.execute();
-    if (cmdObj instanceof UtilCommand) return;
-    this.mc.updateThumbnail();
+    if (! (cmdObj instanceof UtilCommand)) {
+      this.mc.updateThumbnail();
 
-    this.undoStack.push(cmdObj);
-    if (! redo) this.redoStack = [];
+      this.undoStack.push(cmdObj);
+      if (! redo) this.redoStack = [];
 
-    // if clip hasn't been recorded yet
-    if (this.mc.getState() !== this.mc.recordState
-      && this.player.video.src.endsWith("null"))
-      this.initCmds.push({ type: "execute", command: cmdObj });
-    else
-      this.recordCommand(cmdObj, "execute");
-    
-    return ret;
+      // if clip hasn't been recorded yet
+      if (this.mc.getState() !== this.mc.recordState
+        && this.player.video.src.endsWith("null"))
+        this.initCmds.push({ type: "execute", command: cmdObj });
+      else
+        this.recordCommand(cmdObj, "execute");
+    }
+      
+    return cmdObj.execute();
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -663,6 +650,7 @@ class CommandRecorder {
   }
 
   recordCommand(cmdObj, type) {
+    console.log("recording cmd at ", this.getTime());
     this.pastCmds.push(
       { command: cmdObj, 
         time: this.getTime(), 
