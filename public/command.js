@@ -131,16 +131,20 @@ class CloneCommand extends DrawCommand {
     var deltaX = this.state.endPoint.x - this.state.startPoint.x;
     var deltaY = this.state.endPoint.y - this.state.startPoint.y;
 
-    if (this.cState.selectGroup.size) 
+    if (this.cState.selectGroup.size)  
       this.group = Array.from(this.cState.selectGroup);
     else
       this.group = [this.receiver];
+
+    // don't clone objects that are 'locked' -- they get cloned 
+    // by parent object
+    this.group = this.group.filter(r => ! r.getParent().locked);
 
     this.newPos = this.group.map(r => {
       return { x: r.x + deltaX, y: r.y + deltaY };
     });
 
-    this.clones = [];
+    this.clones = this.group.map(r => r.getParent().clone());
   }
  
   /** CloneCommand.execute
@@ -149,19 +153,12 @@ class CloneCommand extends DrawCommand {
    *    e.g. an arc that is attached to an array
    */  
   execute() {
-    this.group.forEach((receiver, i) => {
-      if (! receiver.getParent().locked) {
-        // check that label isn't already taken
-        var cl = receiver.getParent().clone();
-        this.cState.addCanvasObj(cl);
+    this.clones.forEach((cl, i) => {
+      this.cState.addCanvasObj(cl);
 
-        // save clones for undoing
-        this.clones.push(cl);
-
-        var dx = this.newPos[i].x - receiver.x;
-        var dy = this.newPos[i].y - receiver.y;
-        cl.move(dx, dy);
-      }
+      var dx = this.newPos[i].x - cl.x;
+      var dy = this.newPos[i].y - cl.y;
+      cl.move(dx, dy);
     });
   }
 
@@ -210,19 +207,28 @@ class SelectCommand {
 
   /** SelectCommand.execute
    *    iterate through canvas objects and check if 
-   *    starting point is 
+   *    starting point is in selected rectangle.
+   *    also call mousedown for each object to raise
+   *    it to top.
    */
   execute() {
     this.cState.selectGroup.clear();
+    var toRaise = [];
   
     this.cState.objects.forEach((cObject) => {
       var pObj = cObject.getParent();
       var pt = cObject.getStartCoordinates();
 
       if (pt.x <= this.x2 && pt.x >= this.x1 
-           && pt.y <= this.y2 && pt.y >= this.y1)
+           && pt.y <= this.y2 && pt.y >= this.y1) {
         this.cState.selectGroup.add(pObj);
+        toRaise.push(pObj);
+      }
     });
+
+    // raise in reverse order to 
+    // reflect prev order (last on top)
+    toRaise.forEach(canvasObj => canvasObj.mouseDown());
 
     // if only one thing selected, set it
     // as active and show options
@@ -236,7 +242,8 @@ class SelectCommand {
 
   /** SelectCommand.undo
    *    if selection is not already undone, 
-   *    then clear selection
+   *    then clear selection 
+   *    TODO -- restore cState objects order (undo raise)
    */
   undo() {
     if (this.cState.selectGroup.size)
@@ -284,13 +291,20 @@ class CloneCanvasCommand {
   }
 
   execute() {
+    console.log("before ex:", this.cState.objects.length, this.cState.labeled.size);
+
     if (this.receivers == null) this.doClone();
 
     this.receivers.forEach(r => {
       this.cState.addCanvasObj(r);
     });
 
+    // necessary to bind labels to objects
+    // in new clip when switching and labels are shared
     this.cState.updateLabels();
+
+
+    console.log("after ex:", this.cState.objects.length, this.cState.labeled.size);
   }
 
   undo() {
@@ -306,6 +320,10 @@ const classNames = {
   "array": Array1D,
   "array1d": Array1D, 
   "list": LinkedList,
+  "tb": TextBox,
+  "tbox": TextBox,
+  "text": TextBox,
+  "math": MathBox,
   "rectbox": RectBox,
   "rbox": RectBox,
   "roundbox": RoundBox,
