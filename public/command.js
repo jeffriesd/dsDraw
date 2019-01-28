@@ -512,7 +512,16 @@ class MacroCommand {
   }
 }
 
-class Array1DCommand {
+class CanvasObjectCommand {
+
+  parseError(errMessage) {
+    if (this.usage)
+      throw errMessage + "\nUsage: " + this.usage();
+    throw errMessage;
+  }
+}
+
+class Array1DCommand extends CanvasObjectCommand {
   constructor(receiver) {
     this.receiver = receiver;
   }
@@ -522,7 +531,7 @@ class Array1DCommand {
     
     indices.forEach(i => {
       if (i >= len || i < 0)
-        throw `Invalid index: ${i}`;
+        this.parseError(`Invalid index: ${i}`);
     });
   }
 }
@@ -540,21 +549,31 @@ class Array1DResizeCommand extends Array1DCommand {
     super(receiver);
 
     if (newLength < 1)
-      throw `Invalid array length: ${newLength}`;
+      this.parseErro(`Invalid array length: ${newLength}`);
 
     this.newLength = newLength;
 
     // save old array for undo
     this.prevArray = this.receiver.array.slice();
     this.prevArrows = new Map();
+
+    this.newValues = null;
   }
 
   execute() {
-
     var startLength = this.receiver.array.length;
-    for (var i = startLength; i < this.newLength; i++)
-      this.receiver.append("random");
 
+    var newValues = [];
+    for (var i = startLength; i < this.newLength; i++) {
+      // save values for redo
+      if (this.newValues == null)
+        newValues.push(this.receiver.append("random"));
+      else 
+        this.receiver.append(this.newValues[i - startLength]);
+    }
+    if (newValues.length) this.newValues = newValues;
+
+    // make array smaller
     if (this.newLength < startLength) {
       this.receiver.array = this.receiver.array.slice(0, this.newLength); 
        
@@ -571,7 +590,7 @@ class Array1DResizeCommand extends Array1DCommand {
   }
 
   undo() {
-    this.receiver.array = this.prevArray;
+    this.receiver.array = this.prevArray.slice();
 
     // add back any removed arrows
     this.receiver.arrows = new Map(this.prevArrows);
@@ -596,6 +615,10 @@ class Array1DSwapCommand extends Array1DCommand {
 
   undo() {
     this.execute();
+  }
+
+  usage() {
+    return "array.swap [index1] [index2]";
   }
 }
 
@@ -662,6 +685,10 @@ class Array1DArrowCommand extends Array1DCommand {
       toDelete.destroy();
     }
   }
+
+  usage() {
+    return "array.arc [fromIndex] [toIndex]";
+  }
 }
 
 /** Array1DCopyCommand
@@ -684,10 +711,10 @@ class Array1DCopyCommand extends Array1DCommand {
     this.destArr = this.receiver.cState.labeled.get(destLabel);
 
     if (this.destArr == null)
-      throw `No canvas object with label '${destLabel}'.`;
+      this.parseError(`No canvas object with label '${destLabel}'.`);
 
     if (! (this.destArr instanceof Array1D))
-      throw `'${destLabel}' is not an array.`;
+      this.parseError(`'${destLabel}' is not an array.`);
 
     if (numCopy !== undefined)
       this.numCopy = numCopy;
@@ -703,7 +730,7 @@ class Array1DCopyCommand extends Array1DCommand {
 
     if (destIndex !== undefined) {
       if (destIndex < 0 || destIndex >= this.destArr.array.length)
-        throw `Invalid index: ${destIndex}`;
+        this.parseError(`Invalid index: ${destIndex}`);
       
       this.destStart = destIndex;
     }
@@ -744,6 +771,10 @@ class Array1DCopyCommand extends Array1DCommand {
     });
   }
 
+  usage() {
+    return "array.copy [destLabel] [[numCopy]] [[srcIndex]] [[dstIndex]]";
+  }
+
 }
 
 class Array1DSortCommand extends Array1DCommand {
@@ -762,13 +793,12 @@ class Array1DSortCommand extends Array1DCommand {
   undo() {
     this.receiver.array = this.savedArray;
   }
-
 }
 
 
 /** LinkedList commands
  */
-class LinkedListCommand {
+class LinkedListCommand extends CanvasObjectCommand {
   constructor(receiver) {
     this.receiver = receiver;
   }
@@ -777,7 +807,7 @@ class LinkedListCommand {
     indices.forEach(i => {
       if (! (this.receiver.list.hasEquiv(i))) {
         console.log(i, "not in ", this.receiver.list);
-        throw `Invalid index: ${i}.`;
+        this.parseError(`Invalid index: ${i}.`);
       }
     });
   }
