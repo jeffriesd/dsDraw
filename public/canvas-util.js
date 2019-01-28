@@ -105,8 +105,10 @@ class CtxProxy {
  *    handles hit detection and redrawing
  */
 class CanvasState {
-  constructor(canvas, editCanvas, hitCanvas) {
-    this.canvas = canvas;
+  constructor(recCanvas, editCanvas, hitCanvas) {
+    if (CanvasState.instance) return CanvasState.instance;
+    this.recCanvas = canvas;
+    this.editCanvas = editCanvas;
     this.ctx = new CtxProxy(canvas.getContext("2d"), editCanvas.getContext("2d"));
 
     // event handling and event state
@@ -125,7 +127,7 @@ class CanvasState {
 
     // keeping track of active objects
     this.selectGroup = new Set();
-    this.activeBorder = "#0000ff";
+    this.activeBorder = "blue";
     this.clickedBare = true;
     this.activeObj = null;
 
@@ -147,6 +149,30 @@ class CanvasState {
     this.toolbars = {};
     this.initToolbars();
     this.initButtons();
+
+    CanvasState.instance = this;
+  }
+
+  getInstance() {
+    if (CanvasState.instance == null)
+      throw "Eager instantiation failed for CanvasState";
+    return CanvasState.instance;
+  }
+
+  get recCtx() {
+    return this.ctx.recCtx;  
+  }
+
+  get editCtx() {
+    return this.ctx.editCtx;
+  }
+
+  get width() {
+    return this.recCanvas.width;
+  }
+
+  get height() {
+    return this.recCanvas.height;
   }
 
   clearCanvas() {
@@ -172,6 +198,9 @@ class CanvasState {
       return this.activeObj.getParent();
   }
 
+  textHeight() {
+    return this.ctx.measureText("_").width * 2;
+  }
 
   /** CanvasState.bindKeys
    *    bind key press/release to change of 
@@ -179,18 +208,12 @@ class CanvasState {
    */
   bindKeys() {
     document.onkeydown = (event) => {
-      if (event.keyCode in this.hotkeys) {
+      if (event.keyCode in this.hotkeys) 
         this.hotkeys[event.keyCode] = true;
-        console.log("pressed", event.keyCode);
-      }
-      if (event.keyCode == ESC)
-        this.command
-
     };
     document.onkeyup = (event) => {
-      if (event.keyCode in this.hotkeys) {
+      if (event.keyCode in this.hotkeys) 
         this.hotkeys[event.keyCode] = false;
-      }
     };
   }
 
@@ -244,8 +267,7 @@ class CanvasState {
       return (item !== removeObj);
     });
 
-    if (this.labeled.get(removeObj.label))
-      this.labeled.delete(removeObj.label);
+    this.labeled.delete(removeObj.label);
 
     removeObj.deactivate();
   }
@@ -296,8 +318,8 @@ class CanvasState {
    *    return coordinates of canvas center
    */
   getCenter() {
-    var w = this.canvas.width;
-    var h = this.canvas.height;
+    var w = this.width;
+    var h = this.height;
     
     return {x: Math.floor(w / 2), y: Math.floor(h / 2)};
   }
@@ -318,9 +340,9 @@ class CanvasState {
 
   repaint() {
     // fill background (erase previous contents)
-    this.ctx.fillStyle = this.canvas.style.backgroundColor;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.hitCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = this.editCanvas.style.backgroundColor;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+    this.hitCtx.clearRect(0, 0, this.width, this.height);
 
     // draw box for creating text/array/etc 
     if (this.clickedBare && this.mouseDown && this.mouseMove
@@ -341,7 +363,7 @@ class CanvasState {
         var y1 = this.mouseDown.y;
         var x2 = this.mouseMove.x;
         var y2 = this.mouseMove.y;
-        toolClass.outline(this, x1, y1, x2, y2);
+        toolClass.outline(this.ctx, x1, y1, x2, y2);
       }
     }
 
@@ -394,16 +416,12 @@ class CanvasState {
     var deleteButton = document.getElementById("deleteButton");
     deleteButton.onclick = () => {
       var activeP = this.activeParent();
-      var toDestroy = activeP ? [activeP] : this.selectGroup;
+      var toDestroy = this.selectGroup.size ? this.selectGroup : [activeP];
       
       // remove from canvas, hide options, and set activeObj to null
-      toDestroy.forEach((activeObj) => {
-        // create command for undoing
-        var destroyCmd = new ClickDestroyCommand(this, activeObj);
-        CommandRecorder.execute(destroyCmd);
-
-        this.activeObj = null;
-      });
+      CommandRecorder.execute(new ClickDestroyCommand(this, ...toDestroy));
+      this.selectGroup.clear();
+      this.activeObj = null;
     }
   }
 
