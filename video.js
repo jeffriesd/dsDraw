@@ -120,7 +120,7 @@ class VideoManager {
    *    for video download
    */
   mergeClips(clipIds) {
-    if (clipIds.some((e) => ! this.clips.has(e)))
+    if (clipIds.some((e) => ! this.clips.has(e))) 
       throw "Cannot merge clips; some ids are invalid.";
 
     if (clipIds.length == 0)
@@ -150,10 +150,9 @@ class VideoManager {
    *    client to remove from clip menu
    */
   removeClips(clipIds) {
-    if (clipIds.some((e) => ! this.clips.has(e)))
-      throw "Cannot remove clips; some ids are invalid.";
-
     clipIds.forEach((id) => {
+      if (! this.clips.has(id)) return;
+      this.clips.delete(id);
       fs.unlinkSync(this.idToPath(id), (err) => console.log("Cleanup error:", err));
       this.sendClient(id, "removeClip");
     });
