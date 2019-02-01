@@ -26,15 +26,16 @@ class ExportToImageCommand extends UtilCommand {
 }
 
 class VideoCommand extends UtilCommand {
-  constructor(cState, ...clipIds) {
+  constructor(cState, clipIds) {
     super();
+    this.cState = cState;
     this.mc = MediaController.getInstance(cState);
 
     // looks clunky but parseInt takes up to 3 args,
     // so regular map(parseInt) doesn't work
     this.clipIds = 
       clipIds.map(x => parseInt(x))
-        .filter(x => this.mc.clips.has(x));
+      .filter(x => this.mc.clips.has(x));
   }
 }
 
@@ -163,6 +164,7 @@ class DeleteClipCommand extends VideoCommand {
 
     if (! this.clipIds.includes(activeId)) return;
 
+    this.cState.clearCanvas();
     // switch to another clip
     if (this.mc.clips.size) {
       var minId = Array.from(this.mc.clips.keys())
