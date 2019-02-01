@@ -1,4 +1,4 @@
-
+_
 
 /** CanvasObject
  *    class for macro objects such as textbox, arrows,
@@ -55,8 +55,10 @@ class CanvasObject {
       throw "Label may consist only of alphanumeric characters and underscores";
 
     // if 'myname1' already exists, 
-    // set to 'myname2'
+    // set to 'myname2' unless user 
+    // tries to rename object by its current name (don't change it)
     while (this.cState.labeled.get(value)) {
+      if (this.cState.labeled.get(value) === this) break;
       console.log("[WARNING]: label already in use: ", value);
       var numPattern = /\d*$/;
       var match = value.match(numPattern);
