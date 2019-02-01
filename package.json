@@ -5,7 +5,7 @@
   "main"          : "server.js",
 	"author"        : "Daniel Jeffries",
   "dependencies" : {
-    "fluent-ffmpeg"   : "~2.1.2",
+    "mathjax-node"    : "~2.1.1",
     "express"         : "~4.16.4",
     "ws"              : "~6.1.2",
     "fs"              : "~0.0.1-security",
