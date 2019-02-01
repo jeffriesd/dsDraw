@@ -244,12 +244,14 @@ class CommandConsole {
     var parseFunc;
     var rawCommand;
 
-    // multiline command has ended
+    // multiline command has ended, 
+    // parse it and clear the buffer
     if (line.includes("}")) {
       this.multiLine = false;
 
       parseFunc = this.parser.parseMultiLine.bind(this.parser);
-      rawCommand = this.multiCommand;
+      rawCommand = this.multiCommand.slice();
+      this.multiCommand = []; // clear multiline buffer
     }
     // multiline command starting
     else if (line.includes("{")) {
@@ -363,14 +365,14 @@ class CommandInterpreter {
     // need temp name to do config commands
     // if no name was provided
     var label;
-    if (newObj.label == "") {
+    if (newObj.label == "") 
       newObj.label = "TEMP";
-    }
     else
       label = newObj.label;
 
     // all following lines are config commands
     var lines = cmds.slice(1);
+    console.log("lines = ", lines);
 
     // convert lines to one-liner equivalents
     lines.forEach((line) => {
