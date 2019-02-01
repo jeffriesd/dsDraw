@@ -10,6 +10,7 @@ mainCommands = {
   "export": ExportVideoCommand,
   "blank": BlankClipCommand,
   "cont": ContinueClipCommand,
+  "delete": DeleteClipCommand,
 };
 
 objectCommands = {
@@ -70,8 +71,8 @@ class CommandConsole {
 
   initStyle() {
     // style/position cmdConsole window
-    this.cmdConsole.style.left = "20px";
-    this.cmdConsole.style.top = "20px";
+    this.cmdConsole.style.left = "400px";
+    this.cmdConsole.style.top = "100px";
     this.cmdConsole.style.width = this.width + "px";
     this.cmdConsole.style.height= this.height + "px";
     this.cmdConsole.style.background = "rgba(0, 0, 0, .1)";
@@ -225,8 +226,7 @@ class CommandConsole {
       return ret;
     }
     catch (error) {
-      throw error;
-      return "[ERROR]: " + error.toString();
+      return "[ERROR]: " + error.toString() 
     }
   }
 
@@ -426,7 +426,8 @@ class CommandInterpreter {
 
   /** CommandInterpreter.createObjectCommand
    *    parses command with an object label and a '.'
-   *    and returns command object
+   *    and returns command object -- may throw exception
+   *    if parsing errors or bad arguments
    */
   createObjectCommand(mainCmd, args) {
     var cmdSpl = mainCmd.split(".");

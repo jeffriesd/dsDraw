@@ -192,7 +192,7 @@ class FlowchartBox extends CanvasObject {
     }
     else {
       // center is default
-      var ht = TEXT_HEIGHT;
+      var ht = this.cState.textHeight();
       var textHeight = (this.wrappedText.length + 1) * ht;
       var boxHeight = this.y2 - this.y1;
 
@@ -217,11 +217,12 @@ class FlowchartBox extends CanvasObject {
    */
   drawText() {
     this.textEntered();
+    this.ctx.textBaseline = "alphabetic";
 
     var ctx = this.editor.hidden ? this.ctx : this.ctx.recCtx;
 
     // approximate height
-    var ht = TEXT_HEIGHT;
+    var ht = this.cState.textHeight();
     var lineY = this.textY + ht;
     ctx.fillStyle = "#000";
     for (var i = 0; i < this.wrappedText.length; i++) {
@@ -637,6 +638,7 @@ class TextBox extends FlowchartBox {
     this.lineDash = [1, 2];
   }
 
+
   propNames() {
     return {
       "ff": "fontFamily",
@@ -678,7 +680,6 @@ class TextBox extends FlowchartBox {
     this.ctx.editCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.ctx.editCtx.stroke();
     
-    // helper method for text
     this.drawText();
 
     // draw to hit detection canvas
@@ -691,8 +692,56 @@ class TextBox extends FlowchartBox {
     // undo lineDash
     this.ctx.setLineDash([]);
   }
+}
 
+class MathBox extends TextBox {
+  constructor(cState, x1, y1, x2, y2) {
+    super(cState, x1, y1, x2, y2);
+    this.svg = null;
+    this.fontFamily = "monospace";
+    this.fontSize = 24;
 
+    // apply text render
+    this.editor.onkeydown = (event) => {
+      if (event.keyCode == ENTER) {
+        this.deactivate();
+        var body = { text: this.editor.value, label: this.label };
+        ClientSocket.sendServer("renderMath", body);
+      }
+    };
+  }
+
+  getToolbar() {
+    return Toolbar.getInstance(this.cState);
+  } 
+
+  getOptions() {
+    return ToolOptions.getInstance(this.cState);
+  }
+
+  config() {
+    return {
+      ...super.config(),
+      svg: this.svg,
+    };
+  }
+
+  setMath(mathSVG) {
+    this.svg = new Image();
+    var src = "data:image/svg+xml; charset=utf8, " + 
+      encodeURIComponent(mathSVG.replace(/></g, ">\n\r<"));
+    this.svg.src = src;
+  }
+
+  drawText() {
+    this.textEntered();
+    if (! this.editor.hidden)
+      return super.drawText();
+
+    if (this.editor.value == "") return;
+    if (this.svg && this.x1 && this.y1 && this.width && this.height && this.editor.hidden)
+      this.ctx.drawImage(this.svg, this.x1, this.y1, this.width, this.height);
+  }
 }
 
 

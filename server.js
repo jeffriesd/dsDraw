@@ -3,7 +3,7 @@ const session = require("client-sessions");
 
 const VideoManager = require("./video").VideoManager;
 const util = require("./server-util");
-const connManager = require("./server-connection");
+const serverSocket = require("./server-connection");
 
 const secret = "my23 kjnads9y super ;klsdaf0[u723rsecret";
 
@@ -48,7 +48,7 @@ app.ws("/", (ws, req) => {
   console.log("new conn req", req.session.id);
 
   ws.on("message", (message) => {
-    connManager.processClientMessage(ws, req, message);
+    serverSocket.processClientMessage(ws, req, message);
   });
                                                             
   ws.on("end", () => {                                    

@@ -18,7 +18,7 @@ class MediaController {
       
     this.player = new VideoPlayer(canvasState);
     this.cStream = canvasState.recCanvas.captureStream(this.framerate);
-    this.requestAudio();
+    // this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, 
       { mimeType: "video/webm;codecs=vp8,opus"});
@@ -91,12 +91,12 @@ class MediaController {
       // video src url
       this.waiting = true;
 
-      // stop rec timer
-      this.cmdRecorder.stopTimer();
+      // stop command recorder
+      this.cmdRecorder.stopRecording();
     };
 
     this.recorder.onstart = (event) => {
-      this.cmdRecorder.startTimer(0);
+      this.cmdRecorder.startRecording();
     };
 
     /** 
@@ -180,17 +180,17 @@ class MediaController {
     this.clips.get(id).url = url;
 
     this.waiting = false;
-    this.setCurrentClip(id);
+    this.setEditorState(id);
   }
 
-  /** MediaController.setCurrentClip
+  /** MediaController.setEditorState
    *    clear current canvas contents,
    *    update activeClipId, update time,
    *    apply any initialization commands
    *    for newly selected clip, and 
    *    add 'activeClip' class for css
    */
-  setCurrentClip(id) {
+  setEditorState(id) {
     // clear canvas contents
     this.cmdRecorder.fullRewind();
 
@@ -199,10 +199,22 @@ class MediaController {
 
     // apply any initialization commands
     this.cmdRecorder.init();
+  }
 
-    // set active class for css
-    $(".activeClip").toggleClass("activeClip", false);
-    $("#thumbnail" + id).toggleClass("activeClip", true);
+  /** MediaController.setCurrentClip
+   *    set editor state and video source
+   *    if clip has been recorded over yet
+   */
+  setCurrentClip(id) {
+    if (this.getState() !== this.pauseState) return;
+    if (this.clips.get(id) == null) return;
+
+    if (this.clips.get(id).url) 
+      this.setVideoURL(id, this.clips.get(id).url);
+    else {
+      this.setEditorState(id);
+      this.player.video.src = null;
+    }
   }
 
   /** MediaController.addThumbnail
@@ -216,16 +228,15 @@ class MediaController {
     // add thumbnail to map
     this.clips.get(id).thumbnail = thumbnail;
 
+    // switch to clicked clip and show selection with border
+    // TODO (ctrl + click for multi-select)
     thumbnail.onclick = (event) => {
-      if (this.getState() === this.pauseState) {
-        if (this.clips.get(id).url) 
-          this.setVideoURL(id, this.clips.get(id).url);
-        else {
-          this.setCurrentClip(id);
-          this.player.video.src = null;
-        }
-      }
-    };
+      this.setCurrentClip(id);
+
+      // set active class for css 
+      // $(".activeClip").toggleClass("activeClip", false);
+      $("#thumbnail" + id).toggleClass("activeClip");//, true);
+    }
 
     this.clipMenu.appendChild(thumbnail);
   }
@@ -269,12 +280,13 @@ class MediaController {
   }
 
   /** MediaController.removeClip
-   *    remove clip id from duration and 
+   *    remove clip id from clip and 
    *    ComamndRecorder maps and thumbnail
    *    from clip menu
    */
   removeClip(clipId) {
     this.commandRecorders.delete(clipId);
+    this.clips.delete(clipId);
 
     var thumbnail = document.getElementById("thumbnail" + clipId);
     this.clipMenu.removeChild(thumbnail);
@@ -578,12 +590,11 @@ class CommandRecorder {
     return this.player.video.duration;
   }
 
-  stopTimer() {
+  stopRecording() {
     this.recording = false;
   }
 
-  // TODO use system clock or something
-  startTimer(startTime) {
+  startRecording() {
     this.startTime = new Date().getTime();
     this.recording = true;
   }
@@ -684,10 +695,11 @@ class CommandRecorder {
   fullRewind() {
     this.seekTo(-1);
 
-    this.initCmds.forEach(ct => { 
-      // if (ct.type == "execute") 
+    this.initCmds.reverse().forEach(ct => { 
+      console.log("undoing ", ct.command.constructor.name);
+      if (ct.type == "execute") 
         ct.command.undo();
-      // else ct.command.execute();
+      else ct.command.execute();
     });
   }
 
@@ -709,7 +721,8 @@ class CommandRecorder {
 
   init() {
     return new Promise((resolve, reject) => {
-      this.initCmds.forEach(ct => {
+      this.initCmds.reverse().forEach(ct => {
+        console.log("INIT CMD: ", ct.command.constructor.name);
         if (ct.type == "execute") ct.command.execute();
         else ct.command.undo();
       });

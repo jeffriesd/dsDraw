@@ -177,21 +177,17 @@ class CloneCommand extends DrawCommand {
  *    make group delete command (undo in single press)
  */
 class ClickDestroyCommand {
-  constructor(cState, receiver) {
+  constructor(cState, ...receivers) {
     this.cState = cState;
-    this.receiver = receiver;
-
-    // save label for undo
-    this.objLabel = receiver.label;      
+    this.receivers = receivers;
   }
 
   execute() {
-    this.receiver.destroy();
+    this.receivers.forEach(r => r.destroy());
   }
 
   undo() {
-    this.receiver.restore();
-    this.receiver.label = this.objLabel; 
+    this.receivers.forEach(r => r.restore());
   }
 }
 
@@ -523,6 +519,7 @@ class CanvasObjectCommand {
 
 class Array1DCommand extends CanvasObjectCommand {
   constructor(receiver) {
+    super();
     this.receiver = receiver;
   }
 
@@ -800,6 +797,7 @@ class Array1DSortCommand extends Array1DCommand {
  */
 class LinkedListCommand extends CanvasObjectCommand {
   constructor(receiver) {
+    super();
     this.receiver = receiver;
   }
 

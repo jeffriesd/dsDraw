@@ -23,8 +23,9 @@ hitCanvas.height = canvas.height;
 // initialize controller objects
 const cState = new CanvasState(canvas, editCanvas, hitCanvas);
 
-const mc = MediaController.getInstance(cState);
-const wsConnection = WebSocketConnection.getInstance(websock, mc);
+// eager instantiation for singletons
+const mc = new MediaController(cState);
+const clientSocket = new ClientSocket(websock, mc, cState);
 
 // start animation loop
 function main() {
@@ -32,6 +33,8 @@ function main() {
 
   if (mc.getState() !== mc.playState)
     cState.repaint();
+  else
+    mc.player.drawToCanvas();
 }
 main();
 
@@ -80,9 +83,15 @@ Mousetrap.bind("ctrl+z", (event) => {
   mc.hotkeyUndo();
 });
 
-Mousetrap.bind("ctrl+y", function(event) {
+Mousetrap.bind("ctrl+y", (event) => {
   mc.hotkeyRedo();
 });
 
 // do DOM event bindings
 initDOM();
+
+// warn on refresh
+window.onbeforeunload = (event) => {
+  event.preventDefault();
+  alert("Are you sure you want to leave the page?");
+};

@@ -22,11 +22,9 @@ const TEMP_PATH = "TMP_FFMPEG/";
 const fs = require("fs");
 const path = require("path");
 const fu = require("./ffmpeg-util");
+const sendMessage = require("./server-connection").sendMessage;
 
 const BITRATE = 1000;
-
-// websocket state
-const WS_OPEN = 1;
 
 const clipNamePattern = /\/\d+\.webm$/;
 const tempFile = () => new Date().getTime() + ".webm";
@@ -199,20 +197,6 @@ class VideoManager {
       }).catch((err) => {
         console.log("Error truncating:", err);
       });
-
-    // truncated.seekInput(0)
-    //   .duration(timeStamp)
-    //   .save(truncPath)
-    //   .on("end", () => {
-    //     console.log("done truncating", truncPath);
-    //     this.sendClient(truncId, "setVideoURL");
-
-    //     // remove previous clip from map
-    //     this.clips.delete(clipId);
-
-    //     // // remove other clips from current dir
-    //     // this.removeExcept(truncPath);
-    //   });
   }
 
   selectClip(clipId) {
@@ -234,11 +218,8 @@ class VideoManager {
 
     var filePath = this.idToPath(clipId);
 
-    if (this.ws.readyState == WS_OPEN)
-      this.ws.send(JSON.stringify({ type: messageType,
-        body: { id: clipId, url: filePath }}));
-    else
-      throw "[WS SERVER => CLIENT ERROR]: WS not ready";
+    var body = { id: clipId, url: filePath };
+    sendMessage(this.ws, body, messageType);
   }
 }
 

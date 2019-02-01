@@ -19,16 +19,22 @@ class ExportToImageCommand extends UtilCommand {
 
   execute() {
     var link = document.getElementById("downloadLink");
-    link.setAttribute("download", "image.jpg");
-    link.setAttribute("href", this.cState.canvas.toDataURL());
+    link.setAttribute("download", "image.png");
+    link.setAttribute("href", this.cState.editCanvas.toDataURL());
     link.click();
   }
 }
 
 class VideoCommand extends UtilCommand {
-  constructor(cState) {
+  constructor(cState, ...clipIds) {
     super();
     this.mc = MediaController.getInstance(cState);
+
+    // looks clunky but parseInt takes up to 3 args,
+    // so regular map(parseInt) doesn't work
+    this.clipIds = 
+      clipIds.map(x => parseInt(x))
+        .filter(x => this.mc.clips.has(x));
   }
 }
 
@@ -63,7 +69,7 @@ class TruncateVideoCommand extends VideoCommand {
   // truncate video file as well as command recorder state
   execute() {
     if (this.mc.getState() !== this.mc.pauseState) return;
-    var conn = WebSocketConnection.getInstance();
+    var conn = ClientSocket.getInstance();
     var currTime = this.mc.player.video.currentTime;
 
     var clipId = this.mc.activeClipId;
@@ -89,21 +95,14 @@ class SelectVideoCommand extends VideoCommand {
    */
   execute() {
     if (this.mc.getState() !== this.mc.pauseState) return;
-    var conn = WebSocketConnection.getInstance();
+    var conn = ClientSocket.getInstance();
 
     var body = { clipId: this.clipId};
-    conn.sendServer("select", body);
+    conn.sendServer("selectClip", body);
   }
 }
 
 class ExportVideoCommand extends VideoCommand {
-  constructor(cState, ...clipIds) {
-    super(cState);
-
-    // looks clunky but parseInt takes up to 3 args,
-    // so regular map(parseInt) doesn't work
-    this.clipIds = clipIds.map(x => parseInt(x)); 
-  }
 
   /** ExportVideoCommand.execute
    *   merge clips together and prompt user
@@ -112,7 +111,7 @@ class ExportVideoCommand extends VideoCommand {
   execute() {
     if (this.mc.getState() !== this.mc.pauseState) return;
 
-    var conn = WebSocketConnection.getInstance();
+    var conn = ClientSocket.getInstance();
 
     // TODO set merging state -- disable clip menu and controls
     this.mc.waiting = true;
@@ -140,3 +139,37 @@ class BlankClipCommand extends VideoCommand {
   }
 }
 
+class DeleteClipCommand extends VideoCommand {
+  /** DeleteClipCommand.execute
+   *    remove from MediaController maps (CR and clips),
+   *    delete thumbnail from editor, and delete
+   *    file and references from server VideoManager
+   *
+   *    if deleted clip was selected in editor, 
+   *    switch to first clip in menu.
+   *    If only remaining clip is deleted, a new blank one
+   *    is created in its place.
+   */
+  execute() {
+    var activeId = this.mc.activeClipId;
+
+    this.clipIds.forEach(clipId => {
+      this.mc.removeClip(clipId);
+    });
+
+    var conn = ClientSocket.getInstance();
+    var body = { clipIds: this.clipIds };
+    conn.sendServer("deleteClip", body);
+
+    if (! this.clipIds.includes(activeId)) return;
+
+    // switch to another clip
+    if (this.mc.clips.size) {
+      var minId = Array.from(this.mc.clips.keys())
+        .reduce((acc, val) => Math.min(acc, val)); 
+      this.mc.setCurrentClip(minId);
+    }
+    else 
+      this.mc.newClipBlank();
+  }
+}

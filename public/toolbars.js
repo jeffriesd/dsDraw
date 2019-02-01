@@ -1,10 +1,17 @@
 
 function initDOM() {
+  // initialize clip menu buttons
   $("#contButton").click((event) => {
     MediaController.getInstance().newClipFromCurrent();
   });
   $("#blankButton").click((event) => {
     MediaController.getInstance().newClipBlank();
+  });
+  $("#deleteClipButton").click((event) => {
+    var clipIds = $(".activeClip")
+      .toArray().map(x => parseInt(x.id.replace("thumbnail", "")));
+    var delCmd = new DeleteClipCommand(null, clipIds);
+    delCmd.execute();
   });
 }
 
@@ -18,15 +25,16 @@ function initDOM() {
  */
 class Toolbar {
   constructor(cState) {
+    if (Toolbar.instance) return Toolbar.instance;
     this.hidden = true;
     this.cState = cState;
-    this.genericInstance = null;
+    Toolbar.instance = this;
   }
 
   static getInstance(cState) {
-    if (this.genericInstance == null) 
-      this.genericInstance = new Toolbar(cState);
-    return this.genericInstance;
+    if (Toolbar.instance == null) 
+      new Toolbar(cState);
+    return Toolbar.instance;
   }
 
   /** Toolbar.show

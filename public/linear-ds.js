@@ -13,6 +13,10 @@ class LinearCanvasObject extends CanvasObject {
     this.border = "black";
     this.indexPlacement = "above";
     this.borderThickness = 0;
+
+    // configured at parent or cell level
+    this.showIndices = false; 
+    this.showValues = true;
   }
 
   propNames() {
@@ -25,7 +29,9 @@ class LinearCanvasObject extends CanvasObject {
         "label": "label",
         "cellSize": "cellSize",
         "cs": "cellSize",
-        "ind": "indexPlacement",
+        "indp": "indexPlacement",
+        "ind": "showIndices",
+        "val": "showValues",
     };
   }
 
@@ -42,6 +48,8 @@ class LinearCanvasObject extends CanvasObject {
       indexPlacement: this.indexPlacement,
       cellSize: this.cellSize,
       label: this.label, 
+      showValues: this.showValues,
+      showIndices: this.showIndices,
     };
   }
 

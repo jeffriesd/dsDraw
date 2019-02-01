@@ -74,7 +74,7 @@ class CanvasObject {
     // clear that mapping
     if (this.cState.labeled.get(this.label)) {
       this.cState.labeled.delete(this.label);
-      console.log("clearing label for ", this.label);
+      // console.log("clearing label for ", this.label);
     }
     
     this.cState.labeled.set(value, this); 

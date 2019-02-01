@@ -22,10 +22,15 @@ class Array1D extends LinearCanvasObject {
 
     this.array = [];
     this.cellType = typeof 0;
+    this.maxTowerHeight = 8;
+
 
     // keep track of anchored arrows 
     // (keyed by start and endpoints)
     this.arrows = new Map();
+
+    // randomly assign values between 0 and randSeed
+    this.randSeed = 10;
 
     this.initCells();
   }
@@ -38,11 +43,20 @@ class Array1D extends LinearCanvasObject {
   }
 
   propNames() {
-    var parentProps = super.propNames();
     return {
-      ...parentProps, 
+      ...super.propNames(),
       "display": "displayStyle",
       "ds": "displayStyle",
+      "height": "maxTowerHeight",
+      "seed": "randSeed",
+    };
+  }
+
+  config() {
+    return {
+      ...super.config(),
+      maxTowerHeight: this.maxTowerHeight,
+      randSeed: this.randSeed,
     };
   }
 
@@ -95,8 +109,8 @@ class Array1D extends LinearCanvasObject {
   }
 
   static defaultCoordinates(cState) {
-    var cellSize = 30;
-    var numCells = 8;
+    var cellSize = 40; // default cell size TODO define in constants
+    var numCells = 8;  // default length
     var length = cellSize * numCells;
     var center = cState.getCenter();
 
@@ -109,7 +123,7 @@ class Array1D extends LinearCanvasObject {
   }
 
   initCells() {
-    for (var x = this.x1; x <= this.x2; x += this.cellSize) {
+    for (var x = this.x1; x < this.x2; x += this.cellSize) {
       this.append();
     }
   }
@@ -119,10 +133,11 @@ class Array1D extends LinearCanvasObject {
    */  
   append(value="random") {
     if (value == "random")
-      value = Math.random() * this.numElements | 0;
+      value = Math.random() * this.randSeed | 0;
     var arrNode = new ArrayNode(this.cState, this, value);
     
     this.array.push(arrNode); 
+    return value;
   }
 
   /** Array1D.configureOptions
@@ -143,12 +158,11 @@ class Array1D extends LinearCanvasObject {
             (max, x) => x.value > max ? x.value : max, 0.1); // avoid div by 0
       var min = this.array.reduce(
             (min, x) => x.value < min ? x.value : min, Number.POSITIVE_INFINITY);
-      var maxTowerHeight = 8;
 
       this.array.forEach((arrNode) => {
         // draw negative values same direction as positive
         var percentHeight = (arrNode.value - min) / max;
-        var tHeight = percentHeight * maxTowerHeight + 1;
+        var tHeight = percentHeight * this.maxTowerHeight + 1;
 
         // draw towers upwards
         arrNode.towerHeight = -Math.floor(tHeight * this.cellSize);
@@ -172,10 +186,11 @@ class Array1D extends LinearCanvasObject {
    *    method to show hollow box as user drags mouse 
    *    to create new array
    */
-  static outline(cState, x1, y1, x2, y2) {
-    cState.ctx.strokeStyle = "#000";
-    cState.ctx.rect(x1, y1, x2 - x1, y2 - y1);
-    cState.ctx.stroke();
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000";
+    ctx.beginPath(); // required to avoid tons of rectangles being drawn 
+    ctx.rect(x1, y1, x2 - x1, y2 - y1);
+    ctx.stroke();
   }
 }
 
@@ -257,10 +272,10 @@ class ArrayNode extends NodeObject {
     this.ctx.fillRect(this.x, yStart, this.cellSize, height);
     this.ctx.stroke();
 
-    if (this.showValues)
+    if (this.getParent().showValues && this.showValues)
       this.drawValue();
     
-    if (this.showIndices) 
+    if (this.getParent().showIndices && this.showIndices) 
       this.drawIndex(idx);
 
     // draw to hit detection canvas
