@@ -12,7 +12,7 @@ class MediaController {
     // keep track of currently selected clip
     this.activeClipId = 0;
     this.clipMenu = document.getElementById("clipMenu");
-    this.newClipBlank(0);
+    this.newClipBlank();
     // set initial clip class for css
     $("#thumbnail0").toggleClass("activeClip", true);
       
@@ -234,8 +234,11 @@ class MediaController {
       this.setCurrentClip(id);
 
       // set active class for css 
-      // $(".activeClip").toggleClass("activeClip", false);
-      $("#thumbnail" + id).toggleClass("activeClip");//, true);
+
+      // unless ctrl is held, toggle others to inactive
+      if (! hotkeys[CTRL])
+        $(".activeClip").toggleClass("activeClip", false);
+      $("#thumbnail" + id).toggleClass("activeClip", true);
     }
 
     this.clipMenu.appendChild(thumbnail);
