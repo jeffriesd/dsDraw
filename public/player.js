@@ -574,6 +574,9 @@ class CommandRecorder {
     this.redoStack = [];
 
     this.recording = false;
+    // using another field to indicate when recording stops,
+    // becuase this.recording = false is ambiguous (pre or post recording)
+    this.postRecording = false;
   }
 
   /** CommandRecorder.getTime
@@ -592,6 +595,7 @@ class CommandRecorder {
 
   stopRecording() {
     this.recording = false;
+    this.postRecording = true; // don't record any more commands
   }
 
   startRecording() {
@@ -609,22 +613,24 @@ class CommandRecorder {
 
   /** CommandRecorder.execute
    *    execute command and add it to pastCmds
+   *    if clip hasn't been recorded yet.
    *    optional redo flag - if true, dont clear redo stack
    */
   execute(cmdObj, redo) {
-    if (! (cmdObj instanceof UtilCommand)) {
-      this.mc.updateThumbnail();
+    if (cmdObj instanceof UtilCommand) 
+      return cmdObj.execute();
+    if (this.postRecording) return alert("Clip can no longer be edited");
 
-      this.undoStack.push(cmdObj);
-      if (! redo) this.redoStack = [];
+    this.mc.updateThumbnail();
 
-      // if clip hasn't been recorded yet
-      if (this.mc.getState() !== this.mc.recordState
-        && this.player.video.src.endsWith("null"))
-        this.initCmds.push({ type: "execute", command: cmdObj });
-      else
-        this.recordCommand(cmdObj, "execute");
-    }
+    this.undoStack.push(cmdObj);
+    if (! redo) this.redoStack = [];
+
+    // if clip hasn't been recorded yet
+    if (this.mc.getState() !== this.mc.recordState)
+      this.initCmds.push({ type: "execute", command: cmdObj });
+    else
+      this.recordCommand(cmdObj, "execute");
       
     return cmdObj.execute();
   }
@@ -639,17 +645,20 @@ class CommandRecorder {
 
   /** CommandRecorder.undo
    *    undo command and add it to pastCmds
+   *    if clip hasn't been recorded over yet
    */
   undo(cmdObj) {
+    if (cmdObj instanceof UtilCommand) 
+      return cmdObj.undo();
+    if (this.postRecording) return alert("Clip can no longer be edited");
+
     cmdObj.undo();
-    if (cmdObj instanceof UtilCommand) return;
     this.mc.updateThumbnail();
 
     this.redoStack.push(cmdObj);
 
     // if clip hasn't been recorded yet
-    if (this.mc.getState() !== this.mc.recordState
-      && this.player.video.src.endsWith("null"))
+    if (this.mc.getState() !== this.mc.recordState)
       this.initCmds.push({ type: "undo", command: cmdObj });
     else
       this.recordCommand(cmdObj, "undo");
@@ -689,14 +698,13 @@ class CommandRecorder {
       this.futureCmds.push(cmdTime);
     }
 
-    // this.printStacks();
+    this.printStacks();
   }
 
   fullRewind() {
     this.seekTo(-1);
 
     this.initCmds.reverse().forEach(ct => { 
-      console.log("undoing ", ct.command.constructor.name);
       if (ct.type == "execute") 
         ct.command.undo();
       else ct.command.execute();

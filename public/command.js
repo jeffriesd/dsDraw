@@ -729,7 +729,7 @@ class Array1DCopyCommand extends Array1DCommand {
       if (destIndex < 0 || destIndex >= this.destArr.array.length)
         this.parseError(`Invalid index: ${destIndex}`);
       
-      this.destStart = destIndex;
+      this.destStart = parseInt(destIndex);
     }
     else
       this.destStart = 0;
@@ -788,7 +788,7 @@ class Array1DSortCommand extends Array1DCommand {
   }
 
   undo() {
-    this.receiver.array = this.savedArray;
+    this.receiver.array = this.savedArray.slice();
   }
 }
 
