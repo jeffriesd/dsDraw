@@ -51,18 +51,19 @@ body {
 #clipButtons button {
   display: inline-block;
   height: 20px;
-  width: 30%;
   border: 2px solid black;
   border-radius: 10%;
   outline: 0;
+  margin-top: 1%;
+  width: 45%;
   font-family: arial;
   text-align: center;
   background-color: white;
 }
 
-#deleteClipButton {
+#contButton, #exportClipButton {
   float: right;
-  width: 10%;
+  margin-right: 0;
 }
 
 #clipContainer button:active {
@@ -78,7 +79,7 @@ body {
 #clipMenu img {
   width: 90%;
   height: 100px;
-  margin: 5%;
+  margin: calc(5% - 3px); /* take border into account */
   border: 3px solid rgba(0, 0, 200, 0);
   object-cover: fit;
 }
@@ -371,6 +372,7 @@ textarea {
   vertical-align: middle;
   margin-top: .75%;
   border: 0;
+  background: transparent;
 }
 
 /* allow custom styling */
