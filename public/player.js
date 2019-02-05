@@ -3,8 +3,8 @@ class MediaController {
     if (MediaController.instance) return MediaController.instance;
     this.cState = canvasState;
 
-    // update at 20fps
-    this.framerate = 20;
+    // update at 60fps
+    this.framerate = 60;
 
     this.clips = new Map();
     this.commandRecorders = new Map();
@@ -35,6 +35,13 @@ class MediaController {
     MediaController.instance = this;
   }
 
+  /** MediaController.ms
+   *    return framerate in ms per frame
+   */
+  get ms() {
+    return 1000 / this.framerate;
+  }
+
   /** MediaController.getInstance
    */
   static getInstance() {
@@ -55,7 +62,7 @@ class MediaController {
   get cmdRecorder() {
     if (this.commandRecorders.get(this.activeClipId) == null) {
       this.commandRecorders.set(this.activeClipId, 
-        new CommandRecorder(this, this.framerate));
+        new CommandRecorder(this));
     }
 
     return this.commandRecorders.get(this.activeClipId);
@@ -278,7 +285,7 @@ class MediaController {
     this.cState.clearCanvas();
     cloneCommand.doClone(); // clone after clearing so labels can persist
     
-    var cmdRec = new CommandRecorder(this, this.framerate);
+    var cmdRec = new CommandRecorder(this);
     this.commandRecorders.set(clipId, cmdRec);
 
     cmdRec.initCmds.push({ type: "execute", command: cloneCommand });
@@ -463,6 +470,7 @@ class VideoPlayer {
   play() {
     if (this.video.src) 
       this.video.play();
+    this.drawToCanvas();
 
     // set icon
     this.playButton.style.backgroundImage = PAUSEBTN;
@@ -480,6 +488,8 @@ class VideoPlayer {
 
     this.ctx.drawImage(this.video, 0, 0,
       this.cState.width, this.cState.height);
+
+    requestAnimationFrame(() => this.drawToCanvas());
   }
 
 }
@@ -566,10 +576,9 @@ class RecordState extends MediaState {
  *    by redoing/undoing commands 
  */
 class CommandRecorder {
-  constructor(mc, framerate) {
+  constructor(mc) {
     this.mc = mc;
     this.player = mc.player;
-    this.framerate = framerate;
 
     this.initCmds = [];
     this.pastCmds = [];
