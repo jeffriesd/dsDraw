@@ -135,6 +135,8 @@ class MediaController {
     // when user drags seek bar
     // seek video and set video time
     this.player.seeker.onchange = (event) => {
+      if (! this.cmdRecorder.postRecording) return;
+
       // seeker bar has range of 100
       var frac = this.player.seeker.value / this.player.seeker.max;
       var dur = this.player.video.duration;
@@ -620,7 +622,7 @@ class CommandRecorder {
    *    optional redo flag - if true, dont clear redo stack
    */
   execute(cmdObj, redo) {
-    if (cmdObj instanceof UtilCommand) 
+    if (cmdObj instanceof UtilCommand || cmdObj instanceof CommandExpression) 
       return cmdObj.execute();
     if (this.postRecording) return alert("Clip can no longer be edited");
 
@@ -651,7 +653,7 @@ class CommandRecorder {
    *    if clip hasn't been recorded over yet
    */
   undo(cmdObj) {
-    if (cmdObj instanceof UtilCommand) 
+    if (cmdObj instanceof UtilCommand || cmdObj instanceof CommandExpression) 
       return cmdObj.undo();
     if (this.postRecording) return alert("Clip can no longer be edited");
 
