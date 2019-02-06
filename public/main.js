@@ -26,6 +26,7 @@ const cState = new CanvasState(canvas, editCanvas, hitCanvas);
 // eager instantiation for singletons
 const mc = new MediaController(cState);
 const clientSocket = new ClientSocket(websock, mc, cState);
+const varenv = new VariableEnvironment();
 
 // start animation loop
 function main() {
@@ -33,8 +34,6 @@ function main() {
 
   if (mc.getState() !== mc.playState)
     cState.repaint();
-  else
-    mc.player.drawToCanvas();
 }
 main();
 
@@ -42,21 +41,28 @@ const commandConsole = new CommandConsole(cState);
 
 /**
  *  MOUSE CLICK PRESSED
+ *  listen for mousedown only from canvas (clicking
+ *  on console won't invoke canvas events)
  */
 editCanvas.onmousedown = (event) => cState.eventHandler.mouseDown(event);
 
 /**
  *  MOUSE MOVED
+ *  listen for mousemove on entire document
+ *  (if mouse is dragged over canvas, continue to 
+ *  invoke canvas events)
  */
-editCanvas.onmousemove = (event) => cState.eventHandler.mouseMove(event);
+document.onmousemove = (event) => cState.eventHandler.mouseMove(event);
 
 // drag console even if mouse moves away from it 
 window.onmousemove = (event) => commandConsole.dragConsole(event);
 
 /**
  *  MOUSE CLICK RELEASED
+ *  listen for mouseup events on entire document (if mouse
+ *  is released over console, still invoke canvas event)
  */
-editCanvas.onmouseup = (event) => cState.eventHandler.mouseUp(event);
+document.onmouseup = (event) => cState.eventHandler.mouseUp(event);
 
 // global key bindings
 Mousetrap.bind("t", (event) => {
