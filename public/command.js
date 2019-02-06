@@ -44,7 +44,7 @@ class ClickCreateCommand extends DrawCommand {
   }
 
   execute() {
-    this.cState.addCanvasObj(this.receiver);
+    this.receiver.restore();
   }
 
   undo() {
@@ -154,7 +154,7 @@ class CloneCommand extends DrawCommand {
    */  
   execute() {
     this.clones.forEach((cl, i) => {
-      this.cState.addCanvasObj(cl);
+      cl.restore();
 
       var dx = this.newPos[i].x - cl.x;
       var dy = this.newPos[i].y - cl.y;
@@ -252,10 +252,31 @@ class SelectCommand {
  *  Console command objects
  *
  */
+class RelabelCommand {
+  constructor(cState, receiverLabel, newLabel) {
+    this.receiver = VariableEnvironment.getCanvasObj(receiverLabel);
+    if (this.receiver == null) throw `No object with label '${receiverLabel}'.`;
+    this.newLabel = newLabel;
+    // save old label for undo
+    this.oldLabel = receiverLabel;
+  } 
+
+  execute() {
+    this.receiver.label = this.newLabel; 
+  }
+
+  undo() {
+    this.receiver.label = this.oldLabel;
+  }
+
+}
+
+
 class ConsoleDestroyCommand {
   constructor(cState, receiverLabel) {
     this.cState = cState;
-    this.receiver = this.cState.labeled.get(receiverLabel);
+    this.receiver = VariableEnvironment.getCanvasObj(receiverLabel);
+    if (this.receiver == null) throw `No object with label '${receiverLabel}'.`;
 
     // save label for undoing
     this.objLabel = receiverLabel;
@@ -283,24 +304,24 @@ class CloneCanvasCommand {
    *    labels to be shared across clips
    */
   doClone() {
-    this.receivers = this.originals.map(obj => obj.clone());
+    this.receivers = this.originals
+      .filter(obj => ! obj.locked)
+      .map(obj => obj.clone());
+    this.receivers.forEach(x => {
+      console.log("cloning item, locked = ", x.locked);
+    });
   }
 
   execute() {
-    console.log("before ex:", this.cState.objects.length, this.cState.labeled.size);
-
     if (this.receivers == null) this.doClone();
 
     this.receivers.forEach(r => {
-      this.cState.addCanvasObj(r);
+      r.restore();
     });
 
     // necessary to bind labels to objects
     // in new clip when switching and labels are shared
     this.cState.updateLabels();
-
-
-    console.log("after ex:", this.cState.objects.length, this.cState.labeled.size);
   }
 
   undo() {
@@ -308,6 +329,18 @@ class CloneCanvasCommand {
       r.destroy();
     });
   }
+}
+
+class GetVariableCommand { 
+  constructor(variableName) {
+    this.variableName = variableName;
+  }
+
+  execute() {
+    return VariableEnvironment.getVar(this.variableName);
+  }
+
+  undo() {}
 }
 
 // allow multiple names to be used
@@ -333,7 +366,6 @@ const classNames = {
 class ConsoleCreateCommand {
   constructor(canvasState, objType, label="") {
     this.cState = canvasState;
-    console.log("in ConsoleCreateCommand, objType =", objType);
     this.objType = objType.toLowerCase();
     this.objClass = classNames[this.objType];
     
@@ -347,7 +379,7 @@ class ConsoleCreateCommand {
 
   execute() {
     // if label already exists, reject command
-    if (this.cState.labeled.get(this.label)) 
+    if (VariableEnvironment.hasVar(this.label)) 
       throw `Object with label '${this.label}' already exists.`;
 
     // check if undo has happened
@@ -527,10 +559,18 @@ class Array1DCommand extends CanvasObjectCommand {
     var len = this.receiver.array.length;
     
     indices.forEach(i => {
-      if (i >= len || i < 0)
-        this.parseError(`Invalid index: ${i}`);
+      if (i >= len || i < 0 || isNaN(Number(i)))
+        this.parseError(`Invalid index: '${i}'`);
     });
   }
+}
+
+class Array1DLengthCommand extends Array1DCommand {
+  execute() {
+    return this.receiver.array.length; 
+  }
+
+  undo() {}
 }
 
 /** Array1DResizeCommand
@@ -635,9 +675,6 @@ class Array1DArrowCommand extends Array1DCommand {
    *    add an arc from i1 to i2
    */
   execute() {
-    if (this.receiver.arrows.hasEquiv([this.i1, this.i2]))
-      return;
-
     var fromAnchor = this.receiver.array[this.i1];
     var toAnchor = this.receiver.array[this.i2];
 
@@ -657,7 +694,6 @@ class Array1DArrowCommand extends Array1DCommand {
 
       this.arrow = 
         new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
-      this.receiver.cState.addCanvasObj(this.arrow);
 
       // set control points so arc goes above by default
       var mid = Math.floor((x1 + x2) / 2);
@@ -666,9 +702,12 @@ class Array1DArrowCommand extends Array1DCommand {
       this.arrow.cp1.y = y - cs;
       this.arrow.cp2.y = y - cs;
     } 
+    console.log("adding arrow to canvas");
+    this.receiver.cState.addCanvasObj(this.arrow);
 
     // add arrow to array mapping
-    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
+    if (! this.receiver.arrows.hasEquiv([this.i1, this.i2])) 
+      this.receiver.arrows.set([this.i1, this.i2], this.arrow);
   }
 
   /** Array1DArrowCommand.undo
@@ -705,7 +744,7 @@ class Array1DCopyCommand extends Array1DCommand {
   constructor(receiver, destLabel, numCopy, srcIndex, destIndex) {
     super(receiver);
 
-    this.destArr = this.receiver.cState.labeled.get(destLabel);
+    this.destArr = VariableEnvironment.getCanvasObj(destLabel);
 
     if (this.destArr == null)
       this.parseError(`No canvas object with label '${destLabel}'.`);
