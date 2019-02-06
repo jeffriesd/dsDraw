@@ -273,13 +273,14 @@ class RelabelCommand {
 
 
 class ConsoleDestroyCommand {
-  constructor(cState, receiverLabel) {
+  constructor(cState, receiver) {
     this.cState = cState;
-    this.receiver = VariableEnvironment.getCanvasObj(receiverLabel);
-    if (this.receiver == null) throw `No object with label '${receiverLabel}'.`;
+    this.receiver = receiver;
+    if (! (this.receiver instanceof CanvasObject))
+      throw `Cannot delete non-CanvasObject '${this.receiver}'.`;
 
     // save label for undoing
-    this.objLabel = receiverLabel;
+    this.objLabel = receiver.label;
   }
 
   execute() {
@@ -341,6 +342,30 @@ class GetVariableCommand {
   }
 
   undo() {}
+}
+
+class AssignVariableCommand {
+  constructor(variableName, value) {
+    this.variableName = variableName.replace(/\"/g, "");
+    this.value = value;
+
+  }
+
+  /** AssignVariableCommand.execute
+   *    either assign label to result of constructor 
+   *    (which calls VarEnv.setVar) or simply call
+   *    VarEnv.setVar
+   */
+  execute() {
+    if (this.value.constructed instanceof CanvasObject) 
+      this.value.constructed.label = this.variableName;
+    else
+      VariableEnvironment.setVar(this.variableName, this.value); 
+  }
+  undo() {
+    if (VariableEnvironment.hasVar(this.variableName))
+      VariableEnvironment.deleteVar(this.variableName);
+  }
 }
 
 // allow multiple names to be used
@@ -549,6 +574,55 @@ class CanvasObjectCommand {
   }
 }
 
+
+class CanvasObjectConstructor extends CanvasObjectCommand {
+  constructor(cState) {
+    super();
+    this.cState = cState;
+  }
+
+  /** CanvasObjectConstructor.execute
+   *    add object to canvas by calling restore
+   *    and return it as an object so label assignment
+   *    can be performed when user enters
+   *    'x = array()'
+   *    but not for
+   *    'y = x'
+   */
+  execute() {
+    this.newObj.restore();
+    return { constructed: this.newObj };
+  }
+
+  undo() {
+    this.newObj.destroy();
+  }
+}
+
+class Array1DConstructor extends CanvasObjectConstructor {
+  constructor(cState, initializer, styleOptions) {
+    super(cState);
+    this.coords = Array1D.defaultCoordinates(this.cState);
+    this.newObj = new Array1D(this.cState, this.coords.x1, this.coords.y1, this.coords.x2,
+      this.coords.y2);
+
+    // default parameters
+    if (initializer == undefined) initializer = "random";
+
+    if (initializer == "random")
+      for (var i = 0; i < Array1D.defaultLength; i++) this.newObj.append();
+    else if (initializer instanceof Array)
+      initializer.forEach(x => this.newObj.append(x));
+    else 
+      this.parseError("Invalid initializer");
+  }
+
+  usage() {
+    return "array(initializer, styleOptions)";
+  }
+}
+
+
 class Array1DCommand extends CanvasObjectCommand {
   constructor(receiver) {
     super();
@@ -702,7 +776,6 @@ class Array1DArrowCommand extends Array1DCommand {
       this.arrow.cp1.y = y - cs;
       this.arrow.cp2.y = y - cs;
     } 
-    console.log("adding arrow to canvas");
     this.receiver.cState.addCanvasObj(this.arrow);
 
     // add arrow to array mapping
