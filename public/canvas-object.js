@@ -4,6 +4,7 @@
  */
 class CanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
+
     this.cState = canvasState;
     this.ctx = canvasState.ctx;
     this.hitCtx = canvasState.hitCtx;
@@ -79,6 +80,14 @@ class CanvasObject {
 
   get label() {
     return this._label;
+  }
+
+  static defaultWidth() {
+    return 100;
+  }
+
+  static defaultHeight() {
+    return 100;
   }
 
   get x() {
