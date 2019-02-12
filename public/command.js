@@ -344,11 +344,50 @@ class GetVariableCommand {
   undo() {}
 }
 
-class AssignVariableCommand {
-  constructor(variableName, value) {
-    this.variableName = variableName.replace(/\"/g, "");
-    this.value = value;
+class ConsoleCommand {
+  constructor(...argNodes) {
+    this.argNodes = argNodes;
+  }
 
+  
+  /** ConsoleCommand.executeChildren
+   *  //TODO check for cached literal result
+   *  //TODO push nodes to stack for reverse postorder (recursive undo)
+   */
+  executeChildren() {
+    console.log("executing children for ", this.constructor.name);
+    this.args = 
+      this.argNodes
+      .filter(node => node != undefined)
+      .map(node => node.command.execute());  
+  }
+
+  checkArguments() { }
+
+  /** ConsoleCommand.execute
+   *    Template method:
+   *      - execute children (post order)
+   *      - check results for semantic constraints
+   *      - execute self
+   */
+  execute() {
+    this.executeChildren();
+    this.checkArguments();
+    return this.executeSelf();
+  }
+
+  //TODO undo postorder traversal...
+}
+
+class AssignVariableCommand extends ConsoleCommand {
+  constructor(variableName, value) {
+    super(value);
+    this.variableName = variableName;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
   }
 
   /** AssignVariableCommand.execute
@@ -356,73 +395,12 @@ class AssignVariableCommand {
    *    (which calls VarEnv.setVar) or simply call
    *    VarEnv.setVar
    */
-  execute() {
-    if (this.value.constructed instanceof CanvasObject) 
-      this.value.constructed.label = this.variableName;
-    else
-      VariableEnvironment.setVar(this.variableName, this.value); 
+  executeSelf() {
+    VariableEnvironment.setVar(this.variableName, this.value); 
   }
   undo() {
     if (VariableEnvironment.hasVar(this.variableName))
       VariableEnvironment.deleteVar(this.variableName);
-  }
-}
-
-// allow multiple names to be used
-// for some classes e.g. array, array1d
-const classNames = {
-  "array": Array1D,
-  "array1d": Array1D, 
-  "list": LinkedList,
-  "tb": TextBox,
-  "tbox": TextBox,
-  "text": TextBox,
-  "math": MathBox,
-  "rectbox": RectBox,
-  "rbox": RectBox,
-  "roundbox": RoundBox,
-  "rdbox": RoundBox,
-  "dbox": DiamondBox,
-  "pbox": ParallelogramBox,
-  "conn": Connector,
-  "arrow": CurvedArrow,
-}
-
-class ConsoleCreateCommand {
-  constructor(canvasState, objType, label="") {
-    this.cState = canvasState;
-    this.objType = objType.toLowerCase();
-    this.objClass = classNames[this.objType];
-    
-    if (this.objClass == null) 
-      throw `No class known by name '${objType}'.`;
- 
-    this.coords = this.objClass.defaultCoordinates(this.cState);
-
-    this.label = label;
-  }
-
-  execute() {
-    // if label already exists, reject command
-    if (VariableEnvironment.hasVar(this.label)) 
-      throw `Object with label '${this.label}' already exists.`;
-
-    // check if undo has happened
-    if (this.obj == null) {
-      this.obj = 
-        new this.objClass(this.cState, this.coords.x1, this.coords.y1,
-                            this.coords.x2, this.coords.y2);  
-    }
-    this.cState.addCanvasObj(this.obj);
-
-    this.obj.label = this.label;
-    
-    return this.obj;
-  }
-
-  undo() {
-    if (this.obj)
-      this.obj.destroy(); 
   }
 }
 
@@ -435,25 +413,43 @@ const conversionValues = {
 };
 
 /** ConfigCommand 
- *    receiver param is an actual object (not string). This way
+ *    receiver param is either a string or a CanvasObject. This way
  *    RangeConfigCommand can create a bunch of ConfigCommand
  *    objects for the child objects (e.g. array cells),
  *    which won't have names themselves
  */
-class ConfigCommand {
-  constructor(receiver, property, value) {
-    this.receiver = receiver;
+class ConfigCommand extends ConsoleCommand {
+  constructor(receiver, property, rValueNode) {
+    super(rValueNode);
+
+    // check here because receiver is not an opNode that needs evaluation
+    if (typeof receiver == "string")
+      this.receiver = VariableEnvironment.getCanvasObj(receiver);
+    else if (receiver instanceof CanvasObject || receiver instanceof CanvasChildObject)
+      this.receiver = receiver;
+    else
+      throw `Invalid assignment to '${receiver.constructor.name}'.`;
 
     var propNames = this.receiver.propNames();
     this.property = propNames[property];
 
     if (this.property == null)
-      throw `${receiver.constructor.name} has no property '${property}'.`;
-
-    this.value = this.parseValue(value);
+      throw `${this.receiver.constructor.name} has no property '${property}'.`;
 
     // save original value for undo
     this.oldValue = this.receiver[this.property];
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+
+  /** ConfigCommand.checkArguments
+   *    TODO add checking for expected types
+   */
+  checkArguments() {
+    this.value = this.parseValue(this.value);
   }
 
   /** ConfigCommand.parseValue
@@ -469,12 +465,99 @@ class ConfigCommand {
   /** ConfigCommand.execute
    *    set property to some value
    */
-  execute() {
+  executeSelf() {
     this.receiver[this.property] = this.value;
   }
 
   undo() {
     this.receiver[this.property] = this.oldValue;
+  }
+}
+
+
+/** GetChildrenCommand
+ *    this command acts as an overloaded operator. 
+ *    it returns an array, either from the elements of a user
+ *    defined 'list' or the elements of a data structure
+ */
+class GetChildrenCommand extends ConsoleCommand {
+  constructor(receiverName, low, high) {
+    super(low, high);
+    this.receiver = VariableEnvironment.getVar(receiverName);
+    this.lowArgNode = low;
+    this.highArgNode = high;
+  }
+
+  executeChildren() {
+    if (this.lowArgNode != null)
+      this.low = this.lowArgNode.command.execute();
+    else this.low = null;
+    if (this.highArgNode != null)
+      this.high = this.highArgNode.command.execute();
+    else this.high = null;
+  }
+
+  checkArguments() {
+    if (this.low !== null && typeof this.low != "number")
+      throw "Lower bound of accessor is not a number:" + this.low;
+    if (this.high !== null && typeof this.high != "number")
+      throw "Higher bound of accessor is not a number:" + this.high;
+  }
+
+  /** GetChildrenCommand.executeSelf
+   *    use getChildren method if receiver is a data structure,
+   *    otherwise slice the array
+   */
+  executeSelf() {
+    if (this.receiver instanceof Array) {
+      if (this.low == null) this.low = 0;
+      if (this.high == null) this.high = this.receiver.length;
+      return this.receiver.slice(this.low, this.high)
+    }
+    if (this.receiver instanceof CanvasObject) {
+      if (this.receiver.getChildren == undefined)
+        throw `${this.receiver.constructor.name} does not support access by key.`;
+      return this.receiver.getChildren(this.low, this.high);
+    }
+    throw `Cannot perform access on '{this.receiver.constructor.name}'.`;
+  }
+}
+
+/** GetChildCommand
+ *    this command acts as an overloaded operator. 
+ *    it returns a single element, either from the elements of a user
+ *    defined 'list' or the elements of a data structure
+ */
+class GetChildCommand extends ConsoleCommand {
+  constructor(receiverName, key) {
+    super(key);
+    this.receiver = VariableEnvironment.getVar(receiverName);
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.key = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.key != "number")
+      throw "Accessor key is not a number:" + this.low;
+  }
+
+  /** GetChildCommand.executeSelf
+   *    use getChildren method if receiver is a data structure,
+   *    otherwise slice the array
+   */
+  executeSelf() {
+    if (this.receiver instanceof Array) 
+      return this.receiver[this.key];
+
+    if (this.receiver instanceof CanvasObject) {
+      if (this.receiver.getChildren == undefined)
+        throw `${this.receiver.constructor.name} does not support access by key.`;
+      return this.receiver.getChildren(this.key, this.key+1)[0];
+    }
+    throw `Cannot perform access on '{this.receiver.constructor.name}'.`;
   }
 }
 
@@ -489,65 +572,40 @@ class ConfigCommand {
  *
  *    myarr[0:5] = other[0:5]   // copy values
  */
-class RangeConfigCommand {
-  constructor(parentObj, range, property, value) {
-    this.parentObj = parentObj;
-    this.range = range;
-    this.receivers = this.getReceivers(this.parentObj);
-
-    // if value iterable, apply each item 
-    // to corresponding receiver
-    // if (value.length === undefined) 
-    //   this.values = [value];
-    // else
-    this.value = value;
-
-    console.log("parent in range cmd is ", parentObj.label);
-
+class RangeConfigCommand extends ConsoleCommand {
+  constructor(accessorNode, property, rValueNode) {
+    super(accessorNode, rValueNode);
     this.configCommands = [];
-
-    this.receivers.forEach((receiver) => {
-      var configCmd = new ConfigCommand(receiver, property, this.value);
-      this.configCommands.push(configCmd);
-    });
+    this.property = property;
+    console.log("rValueNode = ", rValueNode);
   }
 
-  /** RangeConfigCommand.getReceivers
-   *    parses range in input and 
-   *    pulls elements [3, 4, 5]
-   *    with `arr1[3:5]`
-   */
-  getReceivers(parentObj) {
-    var brackets = /(\[|\])/g
-    var range = this.range.replace(brackets, "")
+  executeChildren() {
+    super.executeChildren();
+    this.receivers = this.args[0];
+    if (! (this.receivers instanceof Array))
+      this.receivers = [this.receivers];
 
-    // input was a1[]
-    if (range == "") 
-      return parentObj.getChildren();
-     
-    var rangeSpl = range.split(":");
-    var low = parseInt(rangeSpl[0]);
+    // must be passed to ConfigCommand as an opNode
+    this.rValue = this.argNodes[1];
+  }
 
-    var high = low + 1; // default: arr[3] = (3, 4)
-    if (rangeSpl.length > 1) {
-      if (rangeSpl[1] == "") // arr[3:] = (3, arr.length)
-        high = parentObj.getChildren().length;
-      else  // arr[3:5] = (3, 5)
-        high = parseInt(rangeSpl[1]);
+  checkArguments() {
+    if (this.receivers.some(x => ! (x instanceof CanvasObject || x instanceof CanvasChildObject)))
+      throw "Cannot configure range of non-CanvasObjects";
+  }
+
+  executeSelf() {
+    if (this.configCommands.length == 0) {
+      this.receivers.forEach((receiver) => {
+        this.configCommands.push(new ConfigCommand(receiver, this.property, this.rValue));
+      });
     }
-
-    if (isNaN(low) || isNaN(high))
-      throw `Invalid range: [${low}: ${high}]`;
-
-    return parentObj.getChildren(low, high);
-  }
-
-  execute() {
-    this.configCommands.forEach((command) => command.execute());
+    this.configCommands.forEach(cmd => cmd.execute());
   }
 
   undo() {
-    this.configCommands.forEach((command) => command.undo());
+    this.configCommands.forEach(cmd => command.undo());
   }
 }
 
@@ -565,7 +623,59 @@ class MacroCommand {
   }
 }
 
-class CanvasObjectCommand {
+class CanvasObjectConstructor extends ConsoleCommand {
+  constructor(cState, canvasClass, ...argNodes) {
+    super(...argNodes);
+    this.cState = cState;
+    this.canvasClass = canvasClass;
+  }
+
+  /** CanvasObjectConstructor.createObject
+   *    default no args constructor
+   */
+  createObject() {
+    var coords = this.cState.getCenter();
+    var x2 = coords.x + this.canvasClass.defaultWidth();
+    var y2 = coords.y + this.canvasClass.defaultHeight();
+    this.newObj = new this.canvasClass(this.cState, 
+      coords.x, coords.y, x2, y2);
+
+    // TODO apply style options
+  }
+
+  /** CanvasObjectConstructor.executeSelf
+   *    create object if uninitialized.
+   *    add object to canvas by calling restore
+   *    and return it as an object so label assignment
+   *    can be performed when user enters
+   *    'x = array()'
+   *    but not for
+   *    'y = x'
+   */
+  executeSelf() {
+    if (this.newObj == undefined) this.createObject();
+    this.newObj.restore();
+    return this.newObj;
+  }
+
+  undo() {
+    this.newObj.destroy();
+  }
+
+  parseError(errMessage) {
+    if (this.usage)
+      throw errMessage + "\nUsage: " + this.usage();
+    throw errMessage;
+  }
+}
+
+class CanvasObjectMethod extends ConsoleCommand {
+
+  constructor(receiver, ...argNodes) {
+    super();
+    this.receiver = receiver;
+    this.argNodes = argNodes;
+  }
 
   parseError(errMessage) {
     if (this.usage)
@@ -575,46 +685,48 @@ class CanvasObjectCommand {
 }
 
 
-class CanvasObjectConstructor extends CanvasObjectCommand {
-  constructor(cState) {
-    super();
-    this.cState = cState;
-  }
 
-  /** CanvasObjectConstructor.execute
-   *    add object to canvas by calling restore
-   *    and return it as an object so label assignment
-   *    can be performed when user enters
-   *    'x = array()'
-   *    but not for
-   *    'y = x'
-   */
-  execute() {
-    this.newObj.restore();
-    return { constructed: this.newObj };
-  }
-
-  undo() {
-    this.newObj.destroy();
-  }
-}
-
+/** Array1DConstructor
+ *    array constructor syntax:
+ *      array([[initializer]], [[styleOptions]])
+ *
+ *      e.g. 
+ *      array("random", { ds: "tower" })
+ *      array([1, 2, 3, 4])
+ *      array()
+ *
+ *    default initializer is random
+ *    default array length is 8
+ */
 class Array1DConstructor extends CanvasObjectConstructor {
-  constructor(cState, initializer, styleOptions) {
-    super(cState);
+
+  executeChildren() {
+    super.executeChildren();
+    this.initializer = this.args[0];
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    this.styleOptions = this.args[1];
+  }
+
+  /** Array1DConstructor.checkArguments
+   *    initializer must be string "random"
+   *    or array
+   */
+  checkArguments() {
+    if (! (this.initializer == "random" || this.initializer instanceof Array))
+      this.parseError("Invalid array initializer. Must be 'random' or list");
+  }
+  
+  createObject() {
     this.coords = Array1D.defaultCoordinates(this.cState);
     this.newObj = new Array1D(this.cState, this.coords.x1, this.coords.y1, this.coords.x2,
       this.coords.y2);
 
-    // default parameters
-    if (initializer == undefined) initializer = "random";
-
-    if (initializer == "random")
-      for (var i = 0; i < Array1D.defaultLength; i++) this.newObj.append();
-    else if (initializer instanceof Array)
-      initializer.forEach(x => this.newObj.append(x));
-    else 
-      this.parseError("Invalid initializer");
+    if (this.initializer == "random")
+      randomArray(Array1D.defaultLength).forEach(x => this.newObj.append(x));
+    else if (this.initializer instanceof Array)
+      this.initializer.forEach(x => this.newObj.append(x));
   }
 
   usage() {
@@ -623,11 +735,8 @@ class Array1DConstructor extends CanvasObjectConstructor {
 }
 
 
-class Array1DCommand extends CanvasObjectCommand {
-  constructor(receiver) {
-    super();
-    this.receiver = receiver;
-  }
+
+class Array1DCommand extends CanvasObjectMethod {
 
   checkIndices(...indices) {
     var len = this.receiver.array.length;
@@ -640,7 +749,7 @@ class Array1DCommand extends CanvasObjectCommand {
 }
 
 class Array1DLengthCommand extends Array1DCommand {
-  execute() {
+  executeSelf() {
     return this.receiver.array.length; 
   }
 
@@ -657,10 +766,7 @@ class Array1DLengthCommand extends Array1DCommand {
  */
 class Array1DResizeCommand extends Array1DCommand {
   constructor(receiver, newLength) {
-    super(receiver);
-
-    if (newLength < 1)
-      this.parseErro(`Invalid array length: ${newLength}`);
+    super(receiver, newLength);
 
     this.newLength = newLength;
 
@@ -670,8 +776,19 @@ class Array1DResizeCommand extends Array1DCommand {
 
     this.newValues = null;
   }
+  
+  executeChildren() {
+    super.executeChildren();
+    this.newLength = this.args[0];
+    this.parseError("Array.resize argument must be number");
+  }
 
-  execute() {
+  checkArguments() {
+    if (this.newLength < 1)
+      this.parseError(`Invalid array length: ${newLength}`);
+  }
+
+  executeSelf() {
     var startLength = this.receiver.array.length;
 
     var newValues = [];
@@ -693,7 +810,7 @@ class Array1DResizeCommand extends Array1DCommand {
         var end = aidx[1];
         if (start >= this.newLength || end >= this.newLength) {
           this.prevArrows.set(aidx, arrow);
-          this.receiver.arrows.delete(aidx);
+          this.receiver.arrows.deleteEquiv(aidx);
           arrow.destroy();
         }
       });
@@ -709,23 +826,25 @@ class Array1DResizeCommand extends Array1DCommand {
 }
 
 class Array1DSwapCommand extends Array1DCommand {
-  constructor(receiver, index1, index2) {
-    super(receiver);
 
-    this.checkIndices(index1, index2);
-
-    this.i1 = index1;
-    this.i2 = index2;
+  executeChildren() {
+    super.executeChildren();
+    this.i1 = this.args[0];
+    this.i2 = this.args[1]; 
   }
 
-  execute() {
+  checkArguments() {
+    this.checkIndices(this.i1, this.i2);
+  }
+
+  executeSelf() {
     var t = this.receiver.array[this.i1];
     this.receiver.array[this.i1] = this.receiver.array[this.i2];
     this.receiver.array[this.i2] = t;
   }
 
   undo() {
-    this.execute();
+    this.executeSelf();
   }
 
   usage() {
@@ -735,20 +854,25 @@ class Array1DSwapCommand extends Array1DCommand {
 
 class Array1DArrowCommand extends Array1DCommand {
   constructor(receiver, index1, index2) {
-    super(receiver);
-
-    this.checkIndices(index1, index2);
-
-    this.i1 = index1;
-    this.i2 = index2;
-
+    super(receiver, index1, index2);
     this.arrow = null;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.i1 = this.args[0];
+    this.i2 = this.args[1];
+  }
+
+  checkArguments() {
+    this.checkIndices(this.i1, this.i2);
   }
 
   /** Array1DArrowCommand.execute
    *    add an arc from i1 to i2
    */
-  execute() {
+  executeSelf() {
+    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) return;
     var fromAnchor = this.receiver.array[this.i1];
     var toAnchor = this.receiver.array[this.i2];
 
@@ -776,22 +900,17 @@ class Array1DArrowCommand extends Array1DCommand {
       this.arrow.cp1.y = y - cs;
       this.arrow.cp2.y = y - cs;
     } 
-    this.receiver.cState.addCanvasObj(this.arrow);
-
-    // add arrow to array mapping
-    if (! this.receiver.arrows.hasEquiv([this.i1, this.i2])) 
-      this.receiver.arrows.set([this.i1, this.i2], this.arrow);
+    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
+    this.arrow.restore();
   }
 
   /** Array1DArrowCommand.undo
    *    remove arrow if it exists 
    */
   undo() {
-    // arrow exists
-    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) {
-      var toDelete = this.receiver.arrows.get([this.i1, this.i2]);
-      this.receiver.arrows.delete([this.i1, this.i2]);
-      toDelete.destroy();
+    if (this.arrow != null) {
+      this.arrow.destroy();
+      this.receiver.arrows.deleteEquiv([this.i1, this.i2]);
     }
   }
 
@@ -814,60 +933,57 @@ class Array1DArrowCommand extends Array1DCommand {
  *
  */
 class Array1DCopyCommand extends Array1DCommand {
-  constructor(receiver, destLabel, numCopy, srcIndex, destIndex) {
-    super(receiver);
-
-    this.destArr = VariableEnvironment.getCanvasObj(destLabel);
-
-    if (this.destArr == null)
-      this.parseError(`No canvas object with label '${destLabel}'.`);
-
-    if (! (this.destArr instanceof Array1D))
-      this.parseError(`'${destLabel}' is not an array.`);
-
-    if (numCopy !== undefined)
-      this.numCopy = numCopy;
-    else
-      this.numCopy = this.receiver.array.length;
-
-    if (srcIndex !== undefined) {
-      this.checkIndices(srcIndex);
-      this.srcStart = srcIndex;
-    }
-    else 
-      this.srcStart = 0;
-
-    if (destIndex !== undefined) {
-      if (destIndex < 0 || destIndex >= this.destArr.array.length)
-        this.parseError(`Invalid index: ${destIndex}`);
-      
-      this.destStart = parseInt(destIndex);
-    }
-    else
-      this.destStart = 0;
-
-    // clip bounds
-    this.srcEnd =
-      Math.min(this.srcStart + this.numCopy, this.receiver.array.length);
-    this.destEnd = 
-      Math.min(this.destStart + this.numCopy, this.destArr.array.length);
-
+  constructor(receiver, destArr, numCopy, srcIndex, destIndex) {
+    super(receiver, destArr, numCopy, srcIndex, destIndex);
     // save values for undo
     this.savedValues = null;
+  }
+  
+  executeChildren() {
+    super.executeChildren();
+    this.destArr = this.args[0];
+    this.numCopy = this.args[1];
+    this.srcStart = this.args[2];
+    this.destStart = this.args[3];
+
+    // default parameters
+    if (this.numCopy == undefined)
+      this.numCopy = this.receiver.array.length;
+    if (this.srcStart == undefined)
+      this.srcStart = 0;
+    else this.srcStart = this.srcStart;
+    if (this.destStart == undefined)
+      this.destStart = 0;
+    else this.destStart = this.destStart;
+  }
+
+  checkArguments() {
+    if (! (this.destArr instanceof Array1D))
+      this.parseError(`'${this.argNodes[0]}' is not an array.`);
+    if (this.destStart < 0 || this.destStart >= this.destArr.array.length)
+      this.parseError(`Invalid index: ${this.destStart}`);
+
+    // calculate upper bounds
+    this.srcEnd =
+      Math.min(this.srcStart + this.numCopy - 1, this.receiver.array.length - 1);
+    this.destEnd = 
+      Math.min(this.destStart + this.numCopy - 1, this.destArr.array.length - 1);
+
+    this.checkIndices(this.srcStart, this.srcEnd);
   }
 
   /** Array1DCopyCommand.execute
    *    iterate through each array and copy values
    *    as long as both arrays have remaining elements
    */
-  execute() {
+  executeSelf() {
     if (this.savedValues == null) {
       this.savedValues = 
         this.destArr.getChildren(this.srcStart, this.srcEnd).map((x) => x.value);
     }
 
     var si = this.srcStart, di = this.destStart;
-    for (; si < this.srcEnd && di < this.destEnd; si++, di++)
+    for (; si <= this.srcEnd && di <= this.destEnd; si++, di++)
       this.destArr.array[di].value = this.receiver.array[si].value; 
   }
 
@@ -881,7 +997,7 @@ class Array1DCopyCommand extends Array1DCommand {
   }
 
   usage() {
-    return "array.copy [destLabel] [[numCopy]] [[srcIndex]] [[dstIndex]]";
+    return "array.copy [destArr] [[numCopy]] [[srcIndex]] [[dstIndex]]";
   }
 
 }
@@ -893,7 +1009,7 @@ class Array1DSortCommand extends Array1DCommand {
     this.savedArray = this.receiver.array.slice(); 
   }
 
-  execute() {
+  executeSelf() {
     this.receiver.array = this.receiver.array.sort(
       (a, b) => a.value > b.value
     );
@@ -904,15 +1020,50 @@ class Array1DSortCommand extends Array1DCommand {
   }
 }
 
-
 /** LinkedList commands
  */
-class LinkedListCommand extends CanvasObjectCommand {
-  constructor(receiver) {
-    super();
-    this.receiver = receiver;
+
+/** LinkedListConstructor 
+ *    array constructor syntax:
+ *      array(initializer, styleOptions)
+ *
+ *      e.g. 
+ *      array("random", { ds: "tower" })
+ *      array([1, 2, 3, 4])
+ *      array()
+ *
+ *    default initializer is random
+ *    default array length is 8
+ */
+class LinkedListConstructor extends CanvasObjectConstructor {
+  constructor(cState, canvasClass, initializer, styleOptions) {
+    super(cState, canvasClass);
+    this.initializer = initializer;
+    this.styleOptions = styleOptions;
   }
 
+  createObject() {
+    this.coords = LinkedList.defaultCoordinates(this.cState);
+    this.newObj = new LinkedList(
+      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
+
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    if (this.initializer == "random")
+      randomArray(LinkedList.defaultLength).forEach(x => this.newObj.append(x));
+    else if (initializer instanceof Array)
+      this.initializer.forEach(x => this.newObj.append(x));
+    else 
+      this.parseError("Invalid initializer");
+  }
+
+  usage() {
+    return "array(initializer, styleOptions)";
+  }
+}
+
+class LinkedListCommand extends CanvasObjectMethod {
   checkIndices(...indices) {
     indices.forEach(i => {
       if (! (this.receiver.list.hasEquiv(i))) {
@@ -924,19 +1075,21 @@ class LinkedListCommand extends CanvasObjectCommand {
 }
 
 class LinkedListInsertCommand extends LinkedListCommand {
-  constructor(receiver, fromIndex, value) {
-    super(receiver);
 
-    fromIndex = parseInt(fromIndex);
-
-    this.checkIndices(fromIndex);
-
-    this.value = value;
-    this.fromNode = this.receiver.list.get(fromIndex);
-    this.newNode = null;
+  executeChildren() {
+    super.executeChildren();
+    this.fromIndex = this.args[0];
+    this.value = this.args[1];
   }
 
-  execute() {
+  checkArguments() {
+    this.checkIndices(this.fromIndex);
+    if (isNaN(Number(this.value)))
+      this.parseError("Invalid value for linked list:" + this.value);
+  }
+
+  executeSelf() {
+    this.fromNode = this.receiver.list.get(this.fromIndex);
     // addNode creates new node and new edge
     this.newNode = this.receiver.addNode(this.fromNode, this.value);
   }
@@ -948,19 +1101,20 @@ class LinkedListInsertCommand extends LinkedListCommand {
 }
 
 class LinkedListLinkCommand extends LinkedListCommand {
-  constructor(receiver, fromIndex, toIndex) {
-    super(receiver);
 
-    fromIndex = parseInt(fromIndex);
-    toIndex = parseInt(toIndex);
-
-    this.checkIndices(fromIndex, toIndex);
-  
-    this.fromNode = this.receiver.list.get(fromIndex);
-    this.toNode = this.receiver.list.get(toIndex);
+  executeChildren() {
+    super.executeChildren();
+    this.fromIndex = this.args[0];
+    this.toIndex = this.args[1];
   }
 
-  execute() {
+  checkArguments() {
+    this.checkIndices(this.fromIndex, this.toIndex);
+  }
+
+  executeSelf() {
+    this.fromNode = this.receiver.list.get(this.fromIndex);
+    this.toNode = this.receiver.list.get(this.toIndex);
     this.receiver.addEdge(this.fromNode, this.toNode);
   }
 
@@ -970,24 +1124,23 @@ class LinkedListLinkCommand extends LinkedListCommand {
 }
 
 class LinkedListCutCommand extends LinkedListCommand {
-  constructor(receiver, fromIndex, toIndex) {
-    super(receiver);
 
-    fromIndex = parseInt(fromIndex);
-    toIndex = parseInt(toIndex);
-
-    this.checkIndices(fromIndex, toIndex);
-
-    this.fromNode = this.receiver.list.get(fromIndex);
-    this.toNode = this.receiver.list.get(toIndex);
-    this.fromIndex = fromIndex;
-    this.toIndex = toIndex;
+  executeChildren() {
+    super.executeChildren();
+    this.fromIndex = this.args[0];
+    this.toIndex = this.args[1];
 
     // save state for undo
     this.edge = null;
   }
 
-  execute() {
+  checkArguments() {
+    this.checkIndices(this.fromIndex, this.toIndex);
+  }
+
+  executeSelf() {
+    this.fromNode = this.receiver.list.get(this.fromIndex);
+    this.toNode = this.receiver.list.get(this.toIndex);
     this.edge = this.receiver.removeEdge(this.fromNode, this.toNode);
   }
 
