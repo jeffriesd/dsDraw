@@ -1,4 +1,3 @@
-
 /** LinearCanvasObject
  *    super class of array, list, stack, queue
  */
@@ -26,7 +25,6 @@ class LinearCanvasObject extends CanvasObject {
         "font": "fontSize",
         "fontSize": "fontSize",
         "fs": "fontSize",
-        "label": "label",
         "cellSize": "cellSize",
         "cs": "cellSize",
         "indp": "indexPlacement",
@@ -58,7 +56,6 @@ class LinearCanvasObject extends CanvasObject {
    */
   destroy() {
     super.destroy();
-    this._arrows = new Map(this.arrows);
     this.arrows.forEach(arr => arr.destroy());
   }
 
@@ -67,14 +64,8 @@ class LinearCanvasObject extends CanvasObject {
    */
   restore() {
     super.restore();
-
-    this.arrows = this._arrows;
-
     this.arrows.forEach(arr => arr.restore());
   }
-
-  // getStartCoordinates() {
-  // }
 
   static defaultCoordinates(cState) {
     var center = cState.getCenter();
@@ -89,11 +80,12 @@ class LinearCanvasObject extends CanvasObject {
   /** LinearCanvasObject.getChildren
    *    return subarray from [low, high) 
    *
-   *    if no args provided, return full array
+   *    if either bound is null, replace it with
+   *    0 or nodes.length
    */
   getChildren(low, high) {
-    if (low == null)
-      return this.nodes.slice(0, this.nodes.length);
+    if (low == null) low = 0;
+    if (high == null) high = this.nodes.length;
     return this.nodes.slice(low, high);
   }
 
@@ -141,6 +133,20 @@ class LinearCanvasObject extends CanvasObject {
     });
 
     this.arrows.forEach(arr => arr.move(deltaX, deltaY, true));
+  }
+
+  /** LinearCanvasObject.deleteArrow
+   *    remove arrow object from map
+   */
+  deleteArrow(arrObj) {
+    this.arrows.forEach((arr, key) => {
+      if (arr === arrObj) this.arrows.delete(key);
+      arr.keyRestore = key;
+    });
+  }
+
+  restoreArrow(arrObj) {
+    this.arrows.set(arrObj.keyRestore, arrObj);
   }
 }
 
