@@ -15,7 +15,6 @@ Once video has been recorded for a clip, it is no longer editable. Recorded vide
 ## Basic mouse controls
 To __move__ an existing object, hold control and drag the object.  
 To __clone__ an existing object, hold alt and drag the object.  
-To __delete__ the most recently created object, press control-z.  
 To __delete__ any object, click on it to bring up the options and click the red X.   
 To change the settings of an existing object, click on it
 and select new options or configure it from the console.
