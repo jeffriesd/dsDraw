@@ -1,4 +1,3 @@
-
 /** LinkedList
  *    CanvasObject class for linked lists. Lists
  *    may be linear or have branches. 
@@ -15,13 +14,16 @@
 class LinkedList extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
+    LinkedList.defaultLength = 4;
     
     this.list = new Map();
     this.arrows = new Map();
 
     this.nodeStyle = "circle";
 
-    this.head = this.addNode();
+    this.head = this.addNode(null, 0);
+
+    LinkedList.randomSeed = 100;
   }
 
   /** LinkedList.nodes
@@ -60,8 +62,6 @@ class LinkedList extends LinearCanvasObject {
 
     this.arrows.forEach((arr, index) => {
       var cparrow = arr.clone();
-      this.cState.addCanvasObj(cparrow);
-      console.log("adding to canvas", cparrow);
       
       var i1 = index[0];
       var i2 = index[1];
@@ -93,14 +93,26 @@ class LinkedList extends LinearCanvasObject {
     return children;
   }
 
+  /** LinkedList.append
+   *    add a new node from the current node with highest index
+   */
+  append(value) {
+    var maxIdx = Array.from(this.list.keys()).reduce(
+      (acc, curr) => Math.max(acc, parseInt(curr)), -1);
+    this.addNode(this.nodes[maxIdx], value);
+  }
+
   /** LinkedList.addNode
    *    add a new node to linked list
    *    with incoming link from fromNode
+   *
+   *    fromNode must be actual NodeObject
    *
    *    after insertion check if list is still
    *    'linear' i.e. no branches
    */
   addNode(fromNode=null, value=null) {
+    console.log("adding node from ", fromNode ? fromNode.index : null, "to ", value);
     // assign new index
     var maxIdx = Array.from(this.list.keys()).reduce(
       (acc, curr) => Math.max(acc, parseInt(curr)), -1);
@@ -164,7 +176,7 @@ class LinkedList extends LinearCanvasObject {
     
     var arrow = new CurvedArrow(this.cState, 
       fromNode.x, fromNode.y, toNode.x, toNode.y, anchors);
-    this.cState.addCanvasObj(arrow);
+    console.log("creating new arrow");
 
     this.arrows.set(e, arrow);
   }
@@ -267,10 +279,10 @@ class ListNode extends NodeObject {
     this.hitCtx.fill();
 
     // leave node blank if value is null
-    if (this.showValues && this.value !== null)
+    if (this.getParent().showValues && this.showValues && this.value !== null)
       this.drawValue();
 
-    if (this.showIndices)
+    if (this.getParent().showIndices && this.showIndices)
       this.drawIndex(idx);
   }
 
@@ -316,7 +328,7 @@ class ListNode extends NodeObject {
    *    dragging head moves list label
    */
   drag(deltaX, deltaY) {
-    if (this.cState.hotkeys[SHIFT]) {
+    if (hotkeys[SHIFT]) {
       this.x += deltaX;
       this.y += deltaY;
 
