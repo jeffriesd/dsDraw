@@ -43,7 +43,6 @@ class FlowchartBox extends CanvasObject {
         "font": "fontSize",
         "fontSize": "fontSize",
         "fs": "fontSize",
-        "label": "label",
         "va": "verticalAlign",
         "ha": "horizontalAlign",
         "bg": "fill",
@@ -253,7 +252,7 @@ class FlowchartBox extends CanvasObject {
     this.resizePoint.y += deltaY;
   }
 
-  /** resize
+  /** FlowchartBox.resize
    *    cause box to change width by deltaX, height by deltaY,
    *    with top left corner staying in same position. 
    *    Gets called by child resizePoint.
@@ -379,13 +378,6 @@ class FlowchartBox extends CanvasObject {
 
 class RectBox extends FlowchartBox {
 
-  static outline(ctx, x1, y1, x2, y2) {
-    ctx.strokeStyle = "#000";
-    ctx.beginPath();
-    ctx.rect(x1, y1, x2 - x1, y2 - y1);
-    ctx.stroke();    
-  }
-
   /** RectBox.draw
    *    renders rectangular box on main canvas
    *    and hitCanvas and draws wrapped words
@@ -458,6 +450,8 @@ class RoundBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
+  /** RoundBox.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
     var radius = 10;
@@ -537,6 +531,8 @@ class DiamondBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
+  /** DiamondBox.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
     var hw = Math.floor((x2 - x1)/ 2);
@@ -606,6 +602,8 @@ class ParallelogramBox extends FlowchartBox {
     this.resizePoint.draw();
   }
 
+  /** ParallelogramBox.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
     var skewSlope = 3;
@@ -646,7 +644,6 @@ class TextBox extends FlowchartBox {
       "font": "fontSize",
       "fontSize": "fontSize",
       "fs": "fontSize",
-      "label": "label",
       "va": "verticalAlign",
       "ha": "horizontalAlign",
     }
@@ -726,6 +723,10 @@ class MathBox extends TextBox {
     };
   }
 
+  /** MathBox.setMath
+   *    gets called once client receives
+   *    rendered svg from server
+   */
   setMath(mathSVG) {
     this.svg = new Image();
     var src = "data:image/svg+xml; charset=utf8, " + 
@@ -800,6 +801,8 @@ class Connector extends FlowchartBox {
   }
 
 
+  /** Connector.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
 
@@ -854,6 +857,7 @@ class Arrow extends CanvasObject {
 
     // arrow may be 'locked' into place by parents
     if (locked) {
+      console.log("locked = ", locked);
       this.lockedFrom = locked.from;
       this.lockedTo = locked.to;
       this.locked = locked.from.getParent();
@@ -864,7 +868,6 @@ class Arrow extends CanvasObject {
 
   propNames() {
     return {
-      "label": "label",
       "thickness": "thickness",
       "st": "thickness",
       "color": "strokeColor",
@@ -902,21 +905,6 @@ class Arrow extends CanvasObject {
       headHeight: this.headHeight,
       label: this.label,
     };
-  }
-
-  /** CurvedArrow.destroy
-   */
-  destroy() {
-    super.destroy();
-    // remove from parent anchor if exists
-    if (this.locked) {
-      this.locked.arrows.forEach((arr, idx) => {
-        if (arr === this) {
-          this.locked.arrows.delete(idx);
-          return;
-        }
-      });
-    }
   }
 
   getToolbar() {
@@ -1040,6 +1028,8 @@ class CurvedArrow extends Arrow {
     this.head.draw(active);
   }
 
+  /** CurvedArrow.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
     ctx.beginPath();
@@ -1095,6 +1085,24 @@ class CurvedArrow extends Arrow {
       this.startPoint.x += deltaX;
       this.startPoint.y += deltaY;
     }
+  }
+
+  /** CurvedArrow.destroy
+   *    destroy self and also remove from parent mapping
+   *
+   *    locked.deleteArrow also stores the mapping key 
+   *    in this arrow object
+   */
+  destroy() {
+    super.destroy();
+    if (this.locked) 
+      this.locked.deleteArrow(this);
+  }
+
+  restore() {
+    super.restore();
+    if (this.locked && this.keyRestore)
+      this.locked.restoreArrow(this);
   }
 }
 
@@ -1248,6 +1256,8 @@ class RightAngleArrow extends Arrow {
     this.y2 += deltaY;
   }
 
+  /** RightAngleArrow.outline
+   */
   static outline(ctx, x1, y1, x2, y2) {
     ctx.strokeStyle = "#000";
     ctx.beginPath();
@@ -1360,7 +1370,7 @@ class ArrowHead extends CanvasChildObject {
     if (this.parentArrow instanceof RightAngleArrow) {
       var ori = this.parentArrow.endingOrientation();
       
-      var addNew = this.cState.hotkeys[SHIFT];
+      var addNew = hotkeys[SHIFT];
 
       if (addNew && !this.parentArrow.addedNewAngle) {
         // dont allow user to add more than one angle per drag
@@ -1429,13 +1439,17 @@ class ArrowHead extends CanvasChildObject {
     }
   }
 
-  /**Arrowhead.move
+  /**ArrowHead.move
    */
   move(deltaX, deltaY) {
     this.parentArrow.move(deltaX, deltaY);
   }
 }
 
+/**
+ *  TODO: generalize this to cover resize point and
+ *        controlpoint by passing in onDrag function
+ */
 class ResizePoint extends CanvasChildObject {
   constructor(canvasState, parentBox, x, y) {
     super(canvasState);
