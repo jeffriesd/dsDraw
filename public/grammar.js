@@ -1,0 +1,870 @@
+// Generated automatically by nearley, version 2.16.0
+// http://github.com/Hardmath123/nearley
+(function () {
+function id(x) { return x[0]; }
+
+
+/** About the grammar
+ *    math expressions involve the following operators:
+ *      +: numeric addition, concatenate strings, concatenate lists
+ *      -: unary numeric negation or numeric subtraction
+ *      *: numeric mult or list build e.g. '[0] * 4'
+ *      /: numeric (float and int (javascript / )) division
+ *      ^: numeric exponentiation
+ *
+ *      math expressions reduce to the following single 'terms':
+ *        number, list, string, callable, varName
+ *
+ *      math expressions are a strict subset of bool expressions
+ *
+ *    bool expressions are a superset of math expressions 
+ *    (5 || 0 makes sense; True * False does not). bool
+ *    expressions involve the following operators:
+ *      ||: logical incluisve or
+ *      &&: logical and
+ *      !: logical not
+ *
+ *    bool expressions reduce to the following single 'terms':
+ *      math expression terms + true, false, or parenthesized 
+ *      boolean expressions
+ *
+ *    expressions (most generic) are simply the union of bool expressions
+ *    and dictionary terms. dictionary terms have no applicable
+ *    operators, so they get their own classification
+ *
+ *    TODO: allow arbitrary number of list indices e.g. l[0][0][0]...
+ */
+
+  const lexer = moo.compile({
+    " ": " ",
+    "\t": "\t",
+    "-": "-",
+    "+": "+",
+    "*": "*",
+    "/": "/",
+    "^": "^",
+    LESSEQ: "<=",
+    GREATEQ: ">=",
+    EQEQ: "==",
+    NOTEQ: "!=",
+    TRUE: "true",
+    FALSE: "false",
+    ">": ">",
+    "<": "<",
+    ",": ",",
+    "(": "(",
+    ")": ")",
+    ".": ".",
+    "=": "=",
+    "{": "{",
+    "}": "}",
+    "[": "[",
+    "]": "]",
+    ";": ";",
+    QUOTE: "\"",
+    FOR: "for",
+    WHILE: "while",
+    number: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
+    methodName: /[a-zA-Z][a-zA-Z0-9]*\.[a-zA-Z]+/,
+    varName: /[a-zA-Z][a-zA-Z0-9]*/,
+    character: /[^\n"]/, 
+  });
+
+
+
+/** Postprocessors build a tree of function/operator calls
+ *  where each node is an object with the following properties:
+ *
+ *  isLiteral: this subtree is composed entirely of literal (string/number) nodes
+ *  opNodes: references to child nodes
+ *  command: command object that calculates the desired result by calling 
+ *           child node commands and combining these with the operator or function
+ *
+ *  About Command object nodes and evaluation:
+ *    semantic checks for errors in expressions like ("cat" + 3)
+ *    occur when the function is evaluated (i.e. when node.command.execute() is called), 
+ *    not when the tree is built. 
+ *    This is because the types of some operands may not be known at compiile time 
+ *    (i.e. variable and function calls)
+ */
+
+/** buildAddSub 
+ *    create addition or subtraction node
+ *
+ *    pattern:
+ *    sum -> sum _ ("+"|"-") _ product 
+ */
+function buildAddSub(operands) {
+  var operator = operands[2];
+  if (operator == "+")
+    return buildAdd(operands[0], operands[4]);
+  return buildSub(operands[0], operands[4]);
+}
+
+/** buildAdd 
+ *    valid operator only for two string/number results
+ */
+function buildAdd(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new AddCommand(opNode1, opNode2),
+  };
+}
+
+function buildSub(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new SubCommand(opNode1, opNode2),
+  };
+}
+
+
+/** buildMultDiv
+ *    create multiplication or division node
+ *
+ *    pattern:
+ *    product -> product _ ("*"|"/") _ exp
+ */
+function buildMultDiv(operands) {
+  var operator = operands[2];
+  if (operator == "*")
+    return buildMult(operands[0], operands[4]);
+  return buildDiv(operands[0], operands[4]);
+}
+
+
+/** buildMult 
+ *    valid operator only for two string/number results
+ */
+function buildMult(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new MultCommand(opNode1, opNode2),
+  };
+}
+
+/** buildDiv 
+ *    valid operator only for two number results
+ */
+function buildDiv(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new DivCommand(opNode1, opNode2),
+  };
+}
+
+/** buildExp
+ *    create exponentiation node (right associative)
+ *
+ *    pattern:
+ *    exp -> unaryNeg _ "^" _ exp  
+ */
+function buildExp(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new ExponentCommand(opNode1, opNode2),
+  };
+}
+
+/** buildNegate
+ *    create unary negation node 
+ *
+ *    pattern:
+ *    Negate -> "-" factor | factor
+ */
+function buildNegate(operands) {
+  var opNode = operands[1];
+  return {
+    isLiteral: opNode.isLiteral,
+    opNodes: [opNode],
+    command: new NegateNumberCommand(opNode),
+  };
+}
+
+
+/** buildFunctionCall 
+ *    build command node using 
+ *    factory method for function Command
+ *    objects
+ *
+ *    isLiteral false by definition
+ *
+ *  pattern:
+ *    function -> %varName "(" _ args _ ")" 
+ *              | %varName "(" ")"      
+ *   
+ */
+function buildFunctionCall(operands) {
+  var functionName = operands[0].text;
+  var functionArgs = []; // default (no args function)
+  if (operands.length == 6) 
+    functionArgs = operands[3];
+
+  // used to check if assignment should set label of 
+  // constructed object
+  var constructed = functionName in constructors;
+
+  return {
+    isLiteral: false,
+    opNodes: functionArgs,
+    constructed: constructed,
+    command: createFunctionCommand(functionName, functionArgs),
+  };
+}
+
+/** buildFunctionArguments
+ *    returns an array of nodes for use
+ *    in building function Command node
+ *
+ *    pattern: 
+ *      args -> funcarg (_ "," _ funcarg):* 
+ *      funcarg -> expr 
+ */
+function buildFunctionArguments(operands) {
+  var argNodes = [operands[0]];
+  for (var idx in operands[1]) 
+    argNodes.push(operands[1][idx][3]);
+  return argNodes;
+}
+
+/** buildMethodCall 
+ *    build command node using 
+ *    factory method for method Command
+ *    objects
+ *
+ *    isLiteral false by definition
+ *
+ *  pattern:
+ *    method -> %methodName "(" _ args _ ")" 
+ *            | %methodName "(" ")"      
+ */
+function buildMethodCall(operands) {
+  var methodName = operands[0].text;
+  var methodArgs = []; // default (no args method)
+  if (operands.length == 6) 
+    methodArgs = operands[3];
+
+  return {
+    isLiteral: false,
+    opNodes: methodArgs,
+    command: createMethodCommand(methodName, methodArgs),
+  };
+}
+
+function wrapNumber(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: { 
+      execute: function() { return Number(operands[0]); },
+      undo: function() {},
+    },
+  }
+}
+
+/** wrapString
+ *  
+ *  pattern:
+ *    "\"" [.]:* "\""
+ */
+function wrapString(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { 
+        return operands[1].join("");
+      },
+      undo: function() {},
+    },
+  };
+}
+
+/** wrapBool
+ *    create boolean evaluation node
+ *    pattern: %TRUE | %FALSE
+ */
+function wrapBool(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { return operands[0] == "true"; },
+      undo: function() {},
+    },
+  };
+}
+
+/** buildVariable
+ *    create getVariable node
+ *
+ *    pattern:
+ *      varName -> %varName
+ */
+function buildVariable(operands) {
+  var varName = operands[0].text;
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new GetVariableCommand(varName),
+  }
+}
+
+/** buildAssignment
+ *    create assignment node
+ *
+ *    pattern:
+ *      assignment -> %varName _ "=" _ math
+ */
+function buildAssignment(operands) {
+  var lValue = operands[0].text;
+  var rValue = operands[4];
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new AssignVariableCommand(lValue, rValue),
+  };
+}
+
+/** buildPropertyAssignment 
+ *    create property assignment node
+ *    for configuring property of single canvas object
+ *
+ *    pattern:
+ *      assignment -> %methodName _ "=" _ expr 
+ *
+ *    e.g.
+ *    arr.bg = "red"
+ *
+ */
+function buildPropertyAssignment(operands) {
+  var split = operands[0].text.split(".");
+  var canvasObjName = split[0];
+  var propName = split[1];
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new ConfigCommand(canvasObjName, propName, operands[4]),
+  }
+}
+
+
+/** buildRangePropertyAssignment
+ *    create a RangeConfig node 
+ *    pattern:
+ *      assignment -> accessor "." [a-zA-Z]:+ _ "=" _ expr 
+ */
+function buildRangePropertyAssignment(operands) {
+  var accessorNode = operands[0];
+  var propName = operands[2][0].text;
+  var rValueNode = operands[6];
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new RangeConfigCommand(accessorNode, propName, rValueNode),
+  };
+}
+
+/** buildComparison
+ *    create comparison (<, >, <=, >=) node
+ *       
+ *    pattern:
+ *      comp -> bool _ comparator _ bool  
+ */
+function buildComparison(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+
+  var comp = operands[2];
+  var compCommand;
+  if (comp == "<")
+    compCommand = LessThanCommand;
+  else if (comp == "<=")
+    compCommand = LessEqualThanCommand;
+  else if (comp == ">")
+    compCommand = GreaterThanCommand;
+  else if (comp == ">=")
+    compCommand = GreaterEqualThanCommand;
+
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new compCommand(opNode1, opNode2),
+  }
+}
+
+
+/** buildCommaSepStatements
+ *    return array of comma separated statement
+ *    nodes
+ *
+ *    pattern:
+ *      commaSepStatement -> statement _ ("," _ statement):*
+ */
+function buildCommaSepStatements(operands) {
+  var statements = [operands[0]];
+  for (var idx in operands[2]) 
+    statements.push(operands[2][idx][2]);
+  return statements; 
+}
+
+/** buildForPars
+ *    return a 2d array of statements
+ *
+ *    pattern:
+ *    forPars -> 
+ *      "(" _ (commaSepStatements _ ):? ";" _ (bool _):? ";" _ (commaSepStatements _):?  ")" 
+ *      
+ */
+function buildForPars(operands) {
+  var initStatements = operands[2] ? operands[2][0] : [];
+  var condition = operands[5] ? operands[5][0] : null;
+  var incrStatements = operands[8] ? operands[8][0] : [];
+  return [initStatements, condition, incrStatements];
+}
+
+/** buildForLoop
+ *    create for loop node with
+ *    statement subtrees or empty arrays as 'arguments'
+ *    i.e. setup statements, test condition, increment statements
+ *
+ *    pattern:
+ *      forLoop 
+          -> %FOR _  forPars _ "{" _ (statement ";"):* _ "}" 
+ */
+function buildForLoop(operands) {
+  var initStatements = operands[2][0];
+  var condition = operands[2][1];
+  var incrStatements = operands[2][2];
+
+  var loopStatements = [];
+  for (var idx in operands[6])
+    loopStatements.push(operands[6][idx][0]);
+
+  return {
+    isLiteral: false,
+    opNodes: loopStatements,
+    command: new ForLoopCommand(initStatements, condition, 
+          incrStatements, loopStatements),
+  };
+}
+
+/** buildWhileLoop
+ *    create while loop node (single condition)
+ *
+ *    pattern:
+ *      whileLoop ->
+ *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement ";"):* _ "}" 
+ */
+function buildWhileLoop(operands) {
+  var condition = operands[4];
+  
+  var loopStatements = [];
+  for (var idx in operands[10]) 
+    loopStatements.push(operands[10][idx][0])
+
+  return {
+    isLiteral: false,
+    opNodes: loopStatements,
+    command: new WhileLoopCommand(condition, loopStatements),
+  };
+}
+
+/** buildSingleAccess
+ *    create 
+ *  accessor -> %varName "[" _ expr _ "]               
+ *
+ */
+function buildSingleAccess(operands) {
+  var receiverName = operands[0].text;
+  var keyNode = operands[3]; 
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new GetChildCommand(receiverName, keyNode),
+  };
+}
+
+/** buildRangeAccess
+ *    create GetChildren node. When evaluated,
+ *    this node returns an array of children
+ *
+ *    syntax: 
+ *      arr[3:] - get children from index 3 to end (inclusive)
+ *      arr[:3] - get children from starting index up to 2
+ *      arr[3:5] - get children from index 3 to 4
+ *      arr[:] - get all children
+ *
+ *    pattern:
+ *      accessor -> %varName "[" _ (expr _):? ":" _ (expr _):? "]" 
+ */
+function buildRangeAccess(operands) {
+  var receiverName = operands[0].text;
+  var low = operands[3] ? operands[3][0] : null;
+  var high = operands[6] ? operands[6][0] : null;
+
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new GetChildrenCommand(receiverName, low, high),
+  };
+}
+
+/** buildList
+ *    create op node that just returns an array. List elements
+ *    get evaluated upon instantiation,
+ *    so the following sequence won't change the list:
+ *
+ *    x = 3
+ *    list = [x, 4, 5]
+ *    x = 4
+ *
+ *    pattern:
+ *      list -> "[" "]" 
+ *      list -> "[" _ args _ "]" 
+ */
+function buildList(operands) {
+  var elements = [];
+  if (operands.length > 2)
+    elements = operands[2];
+
+  return {
+    isLiteral: elements.every(x => x.isLiteral),
+    opNodes: elements,
+    command: {
+      execute: function() {
+        return elements.map(opNode => opNode.command.execute());
+      },
+      undo: function() {},
+    },
+  };
+}
+
+/** buildListAssignment
+ *    create op node that assigns
+ *    a value to a list
+ *
+ *    pattern:
+ *      assignment -> %varName "[" _ expr _ "]" _ "=" _ expr
+ */
+function buildListAssignment(operands) {
+  var listName = operands[0].text;
+  var indexNode = operands[3];
+  var rValueNode = operands[9];
+
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new AssignListElementCommand(listName, indexNode, rValueNode),
+  };
+}
+
+/** buildChildPropGet
+ *    create node to fetch a property from a
+ *    canvas child object e.g. 'array[0].bg'
+ *
+ *    mathTerminal -> accessor "." [a-zA-Z]:+  
+ */
+function buildChildPropGet(operands) {
+  var accessorNode = operands[0];
+  var propName = operands[2][0].text;
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new GetChildPropertyCommand(accessorNode, propName),
+  };
+}
+
+
+/** buildParentPropGet
+ *    create node to fetch property from
+ *    parent canvas object special case of
+ *    list.length 
+ *
+ *    pattern: 
+ *    mathTerminal -> %methodName
+ *                    
+ *    note: methodName just happens to match
+ *    the same pattern as "obj.property"
+ */
+function buildParentPropGet(operands) {
+  var spl = operands[0].text.split(".");
+  var varName = spl[0];
+  var propName = spl[1];
+  return {
+    isLiteral: false,
+    opNodes: [],
+    command: new GetParentPropertyCommand(spl[0], spl[1]),
+  };
+}
+
+/** buildDeepAccess
+ *
+ *  pattern:
+ *  deepAccessor -> %varName "[" _ expr _ "]" ("[" _ expr _ "]"):+   
+ *
+ */
+function buildDeepAccess(operands) {
+  var varName = operands[0].text;
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() {
+        var list = VariableEnvironment.getVar(varName);
+
+        var indices = [operands[3].command.execute()];
+        for (var idx in operands[6])
+          indices.push(operands[6][idx][2].command.execute());
+
+        indices.forEach(i => {
+          if (! (list instanceof Array)) throw "Deep access is only possible for lists";
+          if (i < 0 || i >= list.length) throw "Array index out of bounds";
+          list = list[i];
+        });
+        return list;
+      },
+      undo: function() {},
+    },
+  };
+}
+
+var grammar = {
+    Lexer: lexer,
+    ParserRules: [
+    {"name": "unsigned_int$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "unsigned_int$ebnf$1", "symbols": ["unsigned_int$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "unsigned_int", "symbols": ["unsigned_int$ebnf$1"], "postprocess": 
+        function(d) {
+            return parseInt(d[0].join(""));
+        }
+        },
+    {"name": "int$ebnf$1$subexpression$1", "symbols": [{"literal":"-"}]},
+    {"name": "int$ebnf$1$subexpression$1", "symbols": [{"literal":"+"}]},
+    {"name": "int$ebnf$1", "symbols": ["int$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "int$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "int$ebnf$2", "symbols": [/[0-9]/]},
+    {"name": "int$ebnf$2", "symbols": ["int$ebnf$2", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "int", "symbols": ["int$ebnf$1", "int$ebnf$2"], "postprocess": 
+        function(d) {
+            if (d[0]) {
+                return parseInt(d[0][0]+d[1].join(""));
+            } else {
+                return parseInt(d[1].join(""));
+            }
+        }
+        },
+    {"name": "unsigned_decimal$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "unsigned_decimal$ebnf$1", "symbols": ["unsigned_decimal$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "unsigned_decimal$ebnf$2$subexpression$1$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "unsigned_decimal$ebnf$2$subexpression$1$ebnf$1", "symbols": ["unsigned_decimal$ebnf$2$subexpression$1$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "unsigned_decimal$ebnf$2$subexpression$1", "symbols": [{"literal":"."}, "unsigned_decimal$ebnf$2$subexpression$1$ebnf$1"]},
+    {"name": "unsigned_decimal$ebnf$2", "symbols": ["unsigned_decimal$ebnf$2$subexpression$1"], "postprocess": id},
+    {"name": "unsigned_decimal$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "unsigned_decimal", "symbols": ["unsigned_decimal$ebnf$1", "unsigned_decimal$ebnf$2"], "postprocess": 
+        function(d) {
+            return parseFloat(
+                d[0].join("") +
+                (d[1] ? "."+d[1][1].join("") : "")
+            );
+        }
+        },
+    {"name": "decimal$ebnf$1", "symbols": [{"literal":"-"}], "postprocess": id},
+    {"name": "decimal$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "decimal$ebnf$2", "symbols": [/[0-9]/]},
+    {"name": "decimal$ebnf$2", "symbols": ["decimal$ebnf$2", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "decimal$ebnf$3$subexpression$1$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "decimal$ebnf$3$subexpression$1$ebnf$1", "symbols": ["decimal$ebnf$3$subexpression$1$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "decimal$ebnf$3$subexpression$1", "symbols": [{"literal":"."}, "decimal$ebnf$3$subexpression$1$ebnf$1"]},
+    {"name": "decimal$ebnf$3", "symbols": ["decimal$ebnf$3$subexpression$1"], "postprocess": id},
+    {"name": "decimal$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "decimal", "symbols": ["decimal$ebnf$1", "decimal$ebnf$2", "decimal$ebnf$3"], "postprocess": 
+        function(d) {
+            return parseFloat(
+                (d[0] || "") +
+                d[1].join("") +
+                (d[2] ? "."+d[2][1].join("") : "")
+            );
+        }
+        },
+    {"name": "percentage", "symbols": ["decimal", {"literal":"%"}], "postprocess": 
+        function(d) {
+            return d[0]/100;
+        }
+        },
+    {"name": "jsonfloat$ebnf$1", "symbols": [{"literal":"-"}], "postprocess": id},
+    {"name": "jsonfloat$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "jsonfloat$ebnf$2", "symbols": [/[0-9]/]},
+    {"name": "jsonfloat$ebnf$2", "symbols": ["jsonfloat$ebnf$2", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "jsonfloat$ebnf$3$subexpression$1$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "jsonfloat$ebnf$3$subexpression$1$ebnf$1", "symbols": ["jsonfloat$ebnf$3$subexpression$1$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "jsonfloat$ebnf$3$subexpression$1", "symbols": [{"literal":"."}, "jsonfloat$ebnf$3$subexpression$1$ebnf$1"]},
+    {"name": "jsonfloat$ebnf$3", "symbols": ["jsonfloat$ebnf$3$subexpression$1"], "postprocess": id},
+    {"name": "jsonfloat$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "jsonfloat$ebnf$4$subexpression$1$ebnf$1", "symbols": [/[+-]/], "postprocess": id},
+    {"name": "jsonfloat$ebnf$4$subexpression$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "jsonfloat$ebnf$4$subexpression$1$ebnf$2", "symbols": [/[0-9]/]},
+    {"name": "jsonfloat$ebnf$4$subexpression$1$ebnf$2", "symbols": ["jsonfloat$ebnf$4$subexpression$1$ebnf$2", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "jsonfloat$ebnf$4$subexpression$1", "symbols": [/[eE]/, "jsonfloat$ebnf$4$subexpression$1$ebnf$1", "jsonfloat$ebnf$4$subexpression$1$ebnf$2"]},
+    {"name": "jsonfloat$ebnf$4", "symbols": ["jsonfloat$ebnf$4$subexpression$1"], "postprocess": id},
+    {"name": "jsonfloat$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "jsonfloat", "symbols": ["jsonfloat$ebnf$1", "jsonfloat$ebnf$2", "jsonfloat$ebnf$3", "jsonfloat$ebnf$4"], "postprocess": 
+        function(d) {
+            return parseFloat(
+                (d[0] || "") +
+                d[1].join("") +
+                (d[2] ? "."+d[2][1].join("") : "") +
+                (d[3] ? "e" + (d[3][1] || "+") + d[3][2].join("") : "")
+            );
+        }
+        },
+    {"name": "_$ebnf$1", "symbols": []},
+    {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", "wschar"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": function(d) {return null;}},
+    {"name": "__$ebnf$1", "symbols": ["wschar"]},
+    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
+    {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
+    {"name": "line", "symbols": ["statement"], "postprocess": id},
+    {"name": "line", "symbols": ["forLoop"], "postprocess": id},
+    {"name": "statement", "symbols": ["assignment"], "postprocess": id},
+    {"name": "statement", "symbols": ["expr"], "postprocess": id},
+    {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildAssignment},
+    {"name": "assignment", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildPropertyAssignment},
+    {"name": "assignment$ebnf$1", "symbols": [/[a-zA-Z]/]},
+    {"name": "assignment$ebnf$1", "symbols": ["assignment$ebnf$1", /[a-zA-Z]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "assignment", "symbols": ["accessor", {"literal":"."}, "assignment$ebnf$1", "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
+    {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
+    {"name": "expr", "symbols": ["bool"], "postprocess": id},
+    {"name": "bool", "symbols": ["math"], "postprocess": id},
+    {"name": "bool", "symbols": ["comp"], "postprocess": id},
+    {"name": "bool", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)], "postprocess": wrapBool},
+    {"name": "bool", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)], "postprocess": wrapBool},
+    {"name": "comparator$subexpression$1", "symbols": [{"literal":"<"}]},
+    {"name": "comparator$subexpression$1", "symbols": [{"literal":">"}]},
+    {"name": "comparator$subexpression$1", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},
+    {"name": "comparator$subexpression$1", "symbols": [(lexer.has("GREATEQ") ? {type: "GREATEQ"} : GREATEQ)]},
+    {"name": "comparator", "symbols": ["comparator$subexpression$1"], "postprocess": id},
+    {"name": "comp", "symbols": ["bool", "_", "comparator", "_", "bool"], "postprocess": buildComparison},
+    {"name": "comp", "symbols": ["bool", "_", (lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ), "_", "bool"]},
+    {"name": "comp", "symbols": ["bool", "_", (lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ), "_", "bool"]},
+    {"name": "math$subexpression$1", "symbols": [{"literal":"+"}]},
+    {"name": "math$subexpression$1", "symbols": [{"literal":"-"}]},
+    {"name": "math", "symbols": ["math", "_", "math$subexpression$1", "_", "product"], "postprocess": buildAddSub},
+    {"name": "math", "symbols": ["product"], "postprocess": id},
+    {"name": "product$subexpression$1", "symbols": [{"literal":"*"}]},
+    {"name": "product$subexpression$1", "symbols": [{"literal":"/"}]},
+    {"name": "product", "symbols": ["product", "_", "product$subexpression$1", "_", "exp"], "postprocess": buildMultDiv},
+    {"name": "product", "symbols": ["exp"], "postprocess": id},
+    {"name": "exp", "symbols": ["unaryNeg", "_", {"literal":"^"}, "_", "exp"], "postprocess": buildExp},
+    {"name": "exp", "symbols": ["unaryNeg"], "postprocess": id},
+    {"name": "unaryNeg", "symbols": [{"literal":"-"}, "mathTerminal"], "postprocess": buildNegate},
+    {"name": "unaryNeg", "symbols": ["mathTerminal"], "postprocess": id},
+    {"name": "nonQuote", "symbols": [{"literal":" "}]},
+    {"name": "nonQuote", "symbols": [{"literal":"\t"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"-"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"+"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"*"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"/"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"^"}]},
+    {"name": "nonQuote", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("GREATEQ") ? {type: "GREATEQ"} : GREATEQ)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)]},
+    {"name": "nonQuote", "symbols": [{"literal":">"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"<"}]},
+    {"name": "nonQuote", "symbols": [{"literal":","}]},
+    {"name": "nonQuote", "symbols": [{"literal":"("}]},
+    {"name": "nonQuote", "symbols": [{"literal":")"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"."}]},
+    {"name": "nonQuote", "symbols": [{"literal":"="}]},
+    {"name": "nonQuote", "symbols": [{"literal":"{"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"}"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"["}]},
+    {"name": "nonQuote", "symbols": [{"literal":"]"}]},
+    {"name": "nonQuote", "symbols": [{"literal":";"}]},
+    {"name": "nonQuote", "symbols": [(lexer.has("number") ? {type: "number"} : number)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("character") ? {type: "character"} : character)]},
+    {"name": "mathTerminal", "symbols": ["number"], "postprocess": id},
+    {"name": "mathTerminal", "symbols": ["callable"], "postprocess": id},
+    {"name": "mathTerminal", "symbols": ["accessor"], "postprocess": id},
+    {"name": "mathTerminal", "symbols": ["list"], "postprocess": id},
+    {"name": "mathTerminal$ebnf$1", "symbols": []},
+    {"name": "mathTerminal$ebnf$1", "symbols": ["mathTerminal$ebnf$1", "nonQuote"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "mathTerminal", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "mathTerminal$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
+    {"name": "mathTerminal", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
+    {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
+    {"name": "mathTerminal$ebnf$2", "symbols": [/[a-zA-Z]/]},
+    {"name": "mathTerminal$ebnf$2", "symbols": ["mathTerminal$ebnf$2", /[a-zA-Z]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "mathTerminal", "symbols": ["accessor", {"literal":"."}, "mathTerminal$ebnf$2"], "postprocess": buildChildPropGet},
+    {"name": "mathTerminal", "symbols": ["deepAccessor"], "postprocess": id},
+    {"name": "mathTerminal", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)], "postprocess": buildParentPropGet},
+    {"name": "number", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": wrapNumber},
+    {"name": "list", "symbols": [{"literal":"["}, {"literal":"]"}], "postprocess": buildList},
+    {"name": "list", "symbols": [{"literal":"["}, "_", "args", "_", {"literal":"]"}], "postprocess": buildList},
+    {"name": "accessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}], "postprocess": buildSingleAccess},
+    {"name": "accessor$ebnf$1$subexpression$1", "symbols": ["expr", "_"]},
+    {"name": "accessor$ebnf$1", "symbols": ["accessor$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "accessor$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "accessor$ebnf$2$subexpression$1", "symbols": ["expr", "_"]},
+    {"name": "accessor$ebnf$2", "symbols": ["accessor$ebnf$2$subexpression$1"], "postprocess": id},
+    {"name": "accessor$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "accessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "accessor$ebnf$1", {"literal":":"}, "_", "accessor$ebnf$2", {"literal":"]"}], "postprocess": buildRangeAccess},
+    {"name": "deepAccessor$ebnf$1$subexpression$1", "symbols": [{"literal":"["}, "_", "expr", "_", {"literal":"]"}]},
+    {"name": "deepAccessor$ebnf$1", "symbols": ["deepAccessor$ebnf$1$subexpression$1"]},
+    {"name": "deepAccessor$ebnf$1$subexpression$2", "symbols": [{"literal":"["}, "_", "expr", "_", {"literal":"]"}]},
+    {"name": "deepAccessor$ebnf$1", "symbols": ["deepAccessor$ebnf$1", "deepAccessor$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "deepAccessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "deepAccessor$ebnf$1"], "postprocess": buildDeepAccess},
+    {"name": "callable", "symbols": ["function"], "postprocess": id},
+    {"name": "callable", "symbols": ["method"], "postprocess": id},
+    {"name": "method", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildMethodCall},
+    {"name": "method", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), {"literal":"("}, {"literal":")"}], "postprocess": buildMethodCall},
+    {"name": "function", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildFunctionCall},
+    {"name": "function", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"("}, {"literal":")"}], "postprocess": buildFunctionCall},
+    {"name": "args$ebnf$1", "symbols": []},
+    {"name": "args$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "funcarg"]},
+    {"name": "args$ebnf$1", "symbols": ["args$ebnf$1", "args$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "args", "symbols": ["funcarg", "args$ebnf$1"], "postprocess": buildFunctionArguments},
+    {"name": "funcarg", "symbols": ["expr"], "postprocess": id},
+    {"name": "commaSepStatements$ebnf$1", "symbols": []},
+    {"name": "commaSepStatements$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "statement"]},
+    {"name": "commaSepStatements$ebnf$1", "symbols": ["commaSepStatements$ebnf$1", "commaSepStatements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "commaSepStatements", "symbols": ["statement", "commaSepStatements$ebnf$1"], "postprocess": buildCommaSepStatements},
+    {"name": "forPars$ebnf$1$subexpression$1", "symbols": ["commaSepStatements", "_"]},
+    {"name": "forPars$ebnf$1", "symbols": ["forPars$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "forPars$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "forPars$ebnf$2$subexpression$1", "symbols": ["bool", "_"]},
+    {"name": "forPars$ebnf$2", "symbols": ["forPars$ebnf$2$subexpression$1"], "postprocess": id},
+    {"name": "forPars$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "forPars$ebnf$3$subexpression$1", "symbols": ["commaSepStatements", "_"]},
+    {"name": "forPars$ebnf$3", "symbols": ["forPars$ebnf$3$subexpression$1"], "postprocess": id},
+    {"name": "forPars$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "forPars", "symbols": [{"literal":"("}, "_", "forPars$ebnf$1", {"literal":";"}, "_", "forPars$ebnf$2", {"literal":";"}, "_", "forPars$ebnf$3", {"literal":")"}], "postprocess": buildForPars},
+    {"name": "forLoop$ebnf$1", "symbols": []},
+    {"name": "forLoop$ebnf$1$subexpression$1", "symbols": ["statement", "_", {"literal":";"}, "_"]},
+    {"name": "forLoop$ebnf$1", "symbols": ["forLoop$ebnf$1", "forLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "forLoop", "symbols": [(lexer.has("FOR") ? {type: "FOR"} : FOR), "_", "forPars", "_", {"literal":"{"}, "_", "forLoop$ebnf$1", {"literal":"}"}], "postprocess": buildForLoop},
+    {"name": "whileLoop$ebnf$1", "symbols": []},
+    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["statement", {"literal":";"}]},
+    {"name": "whileLoop$ebnf$1", "symbols": ["whileLoop$ebnf$1", "whileLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "whileLoop$ebnf$1", "_", {"literal":"}"}], "postprocess": buildWhileLoop}
+]
+  , ParserStart: "line"
+}
+if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
+   module.exports = grammar;
+} else {
+   window.grammar = grammar;
+}
+})();
