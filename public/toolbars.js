@@ -1,4 +1,3 @@
-
 function initDOM() {
   // initialize clip menu buttons
   $("#contButton").click((event) => {
@@ -10,7 +9,7 @@ function initDOM() {
   $("#deleteClipButton").click((event) => {
     var clipIds = $(".activeClip")
       .toArray().map(x => parseInt(x.id.replace("thumbnail", "")));
-    var delCmd = new DeleteClipCommand(null, clipIds);
+    var delCmd = new DeleteClipCommand(CanvasState.getInstance(), clipIds);
     delCmd.execute();
   });
 }
