@@ -1,5 +1,8 @@
 // TODO
 // organize command classes into separate files
+//
+// TODO
+// create range() function ala python
 
 /*  Command classes encapsulate actions on the canvas
  *  through either mouse clicks or commands entered in the
@@ -596,19 +599,21 @@ class GetChildPropertyCommand extends ConsoleCommand {
 
 class GetParentPropertyCommand extends ConsoleCommand {
   constructor(varName, property) {
-    super(varName);
-    this.property = property;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.receiver = this.args[0];
+    super();
+    this.propName = property;
+    this.receiver = VariableEnvironment.getVar(varName);
+    this.varName = varName;
   }
 
   checkArguments() {
-    if (this.receiver instanceof Array && this.property == "length") return;
+    if (this.receiver instanceof Array && this.propName == "length") return;
     if (! (this.receiver instanceof CanvasObject))
       throw "Cannot access property of " + this.receiver;
+    if (this.receiver instanceof CanvasObject)
+      this.property = this.receiver.propNames()[this.propName];
+    else this.property = this.propName;
+    if (this.receiver[this.property] == undefined)
+      throw `'${this.propName}' is undefined for '${this.varName}'.`;
   }
 
   executeSelf() {
@@ -865,7 +870,7 @@ class Array1DResizeCommand extends Array1DCommand {
 
   checkArguments() {
     if (this.newLength < 1)
-      this.parseError(`Invalid array length: ${newLength}`);
+      this.parseError(`Invalid array length: ${this.newLength}`);
   }
 
   executeSelf() {
