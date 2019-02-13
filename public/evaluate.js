@@ -38,7 +38,7 @@ class MathCommand extends ConsoleCommand {
 class AddCommand extends MathCommand {
   checkArguments() {
     if (typeof this.op1 == "number" && typeof this.op2 == "number")
-      super.checkArguments();
+      return super.checkArguments();
     if (this.op1 instanceof Array && this.op2 instanceof Array) return;
     throw "Operands for '+' must be two lists or two numbers";
   }
