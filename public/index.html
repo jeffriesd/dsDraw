@@ -13,6 +13,7 @@
       <button id="blankButton">Blank</button>
       <button id="contButton">Continue</button>
       <button id="deleteClipButton">Delete</button>
+      <button id="exportClipButton">Export</button>
       </div>
       <div id="clipMenu"> 
       </div>
@@ -110,8 +111,20 @@
   <canvas id="editCanvas" 
     style="background-color:rgba(235, 255, 255);"> </canvas>
 
+  <div class="sigma-scene"></div>
+  <div class="sigma-mouse"></div>
+  <div class="sigma-labels"></div>
+
   <canvas hidden id="hitCanvas" > </canvas>
+  <!--External library scripts -->
+  <script src="lib/jquery-3.3.1.min.js"></script>
+  <script src="lib/mousetrap.min.js"></script>
+  <script src="lib/sigma.min.js"></script>
+  <script src="lib/moo.js"></script>
+  <script src="lib/nearley.js"></script>
+  <!-- -->
   <script src="globals.js"></script>
+  <script src="variables.js"></script>
   <script src="client-connection.js"></script>
   <script src="player.js"></script>
   <script src="canvas-object.js"></script>
@@ -123,12 +136,12 @@
   <script src="arrays.js"></script>
   <script src="util-command.js"></script>
   <script src="command.js"></script>
-  <script src="canvas-tool.js"></script>
+  <script src="evaluate.js"></script>
+  <script src="command-factory.js"></script>
+  <script src="control-flow.js"></script>
+  <script src="grammar.js"></script>
   <script src="canvas-util.js"></script>
   <script src="console.js"></script>
-  <!--External library scripts -->
-  <script src="lib/jquery-3.3.1.min.js"></script>
-  <script src="lib/mousetrap.min.js"></script>
   
   <!--main -->
   <script src="main.js"></script>
