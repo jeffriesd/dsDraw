@@ -1,5 +1,8 @@
-//  TODO make 'math' a keyword or change $math.op
+//  TODO add boolean operators
 //  to use different name
+//
+//  TODO check if arithmetic arguments are booleans
+//
 
 /** Possible tokens:
  *    - number (3, 0.5, -5)
@@ -13,12 +16,113 @@
  *    
  */
 
+class MathCommand extends ConsoleCommand {
 
-Array.prototype.peek = function() {
-  return this.length ? this[this.length - 1] : null;
-};
+  /** MathCommand.executeChildren
+   *    default behavior for binary operators
+   */
+  executeChildren() {
+    this.operands = this.argNodes.map(node => node.command.execute());
+    this.op1 = this.operands[0];
+    this.op2 = this.operands[1];
+  }
+
+  checkArguments() {
+    if (isNaN(this.op1) || isNaN(this.op2))
+      throw `Invalid operands for operator '${this.constructor.name}': ${this.op1}, ${this.op2}`;
+  }
+
+  undo() {}
+}
+
+class AddCommand extends MathCommand {
+  checkArguments() {
+    if (typeof this.op1 == "number" && typeof this.op2 == "number")
+      super.checkArguments();
+    if (this.op1 instanceof Array && this.op2 instanceof Array) return;
+    throw "Operands for '+' must be two lists or two numbers";
+  }
+
+  /** AddCommand.executeSelf
+   *    perform addition or list concatenation
+   */
+  executeSelf() { 
+    if (this.op1 instanceof Array)
+      return this.op1.concat(this.op2);
+    return this.op1 + this.op2; 
+  };
+}
+
+class SubCommand extends MathCommand {
+  executeSelf() { return this.op1 - this.op2; };
+}
+
+class MultCommand extends MathCommand {
+  checkArguments() {
+    if (typeof this.op1 == "number" && typeof this.op2 == "number")
+      super.checkArguments();
+    if (this.op1 instanceof Array && typeof this.op2 == "number") {
+      if (isNaN(this.op2) || this.op2 <= 0)
+        throw `Cannot perform list extension with operand '${this.op2}'.`;
+      else return;
+    }
+    throw `Invalid operands for '*': '${this.op1}', '${this.op2}'.`;
+  }
+  executeSelf() { 
+    if (this.op1 instanceof Array) {
+      var extended = this.op1.slice();
+      for (var i = 1; i < this.op2; i++)
+        extended = extended.concat(this.op1.slice());
+      return extended;
+    }
+    return this.op1 * this.op2;
+  }
+}
+
+class DivCommand extends MathCommand {
+  checkArguments() {
+    super.checkArguments();
+    if (this.op2 == 0)
+      throw "Divide by zero error";
+  }
+  executeSelf() { return this.op1 / this.op2; };
+}
+
+class ExponentCommand extends MathCommand {
+  executeSelf() { return this.op1 ** this.op2; };
+}
+
+class NegateNumberCommand extends MathCommand {
+  executeChildren() {
+    this.op1 = this.argNodes[0].command.execute();
+  }
+
+  checkArguments() {
+    if (isNaN(this.op1))
+      throw `Invalid operands for operator '${this.opName}': ${this.op1}, ${this.op2}`;
+  }
+
+  executeSelf() { return -this.op1; }
+}
+
+class LessThanCommand extends MathCommand {
+  executeSelf() { return this.op1 < this.op2; }
+}
+
+class LessEqualThanCommand extends MathCommand {
+  executeSelf() { return this.op1 <= this.op2; }
+}
+
+class GreaterThanCommand extends MathCommand {
+  executeSelf() { return this.op1 > this.op2; }
+}
+
+class GreaterEqualThanCommand extends MathCommand {
+  executeSelf() { return this.op1 >= this.op2; }
+}
 
 const precedence = {
+  "UNARY-": 4,
   "^": 3,
   "*": 2,
   "/": 2,
@@ -26,10 +130,6 @@ const precedence = {
   "+": 1,
   "=": 0,
 };
-
-function higherPrec(op1, op2) {
-  return precedence[op1] > precedence[op2];
-}
 
 function containsParens(expr) {
   return /[\(\)]/.test(expr);
@@ -40,7 +140,7 @@ function isChar(ch) {
 }
 
 function isOperator(ch) {
-  return ch.match(/^[\*\/\+\-\^=]$/);
+  return ch.match(/^(UNARY|)[\*\/\+\-\^=]$/);
 }
 
 function isEquals(ch) {
@@ -48,7 +148,7 @@ function isEquals(ch) {
 }
 
 function isNum(ch) {
-  return ch.match(/^\d+$/);
+  return ch.match(/^(\d|\.)$/);
 }
 
 function isLeftParen(ch) {
@@ -63,20 +163,42 @@ function isParen(ch) {
   return isLeftParen(ch) || isRightParen(ch);
 }
 
+function isLeftSqBracket(ch) {
+  return ch == "[";
+}
+
+function isRightSqBracket(ch) {
+  return ch == "]";
+}
+
 function isComma(ch) {
   return ch.match(/^,$/);
 }
 
+/** parenBalanced
+ *    check for balanced parentheses
+ */
 function parenBalanced(expr) {
   var parenCount = 0;
+  var pars = [];
   expr.split("").forEach(ch => {
     if (parenCount < 0) return false;
-    if (isLeftParen(ch)) parenCount++;
-    if (isRightParen(ch)) parenCount--;
+    if (isLeftParen(ch) || isLeftSqBracket(ch)) parenCount++;
+    if (isRightParen(ch) || isRightSqBracket(ch)) parenCount--;
+    if (isLeftSqBracket(ch)) pars.push(ch);
+    if (isLeftParen(ch)) pars.push(ch);
+    if (isRightSqBracket(ch) && ! isLeftSqBracket(pars.pop())) return false;
+    if (isRightParen(ch) && ! isLeftParen(pars.pop())) return false;
   });
   return parenCount == 0;
 }
 
+/** tokenize
+ *    return array of tokens from string expr
+ *
+ *    use a special prefix to indicate whether
+ *    token is unary operator
+ */
 function tokenize(expr) {
   numBuffer = [];
   charBuffer = [];
@@ -95,30 +217,41 @@ function tokenize(expr) {
 
   expr = expr.replace(/\s+/g, "").split("");
 
+  var lastCh = "";
+  var prefix;
   expr.forEach(ch => {
     if (isChar(ch)) 
       charBuffer.push(ch);
     if (isNum(ch))
       numBuffer.push(ch);
-
     if (isOperator(ch) || isParen(ch)) {
+      if ((lastCh == "" || isOperator(lastCh) || isComma(lastCh))
+        && isOperator(ch))
+        ch = "UNARY" + ch;
       flushBuffers();
       tokens.push(ch);
     }
     if (isComma(ch))
       flushBuffers();
-
+    lastCh = ch;
   });
+
+  flushBuffers();
+
   return tokens;
 }
 
+/** polish
+ *    convert array of tokens into reverse 
+ *    polish notation for evaluation
+ */
 function polish(tokens) {
   var operators = [];
   var output = [];
 
   tokens.forEach(t => { 
     if (isOperator(t)) {
-      while (higherPrec(operators.peek(), t)) // while op on top has higher prec
+      while (precedence[operators.peek()] >= precedence[t]) 
         output.push(operators.pop());
       operators.push(t);
     }
@@ -137,91 +270,102 @@ function polish(tokens) {
   return output.concat(operators.reverse());
 }
 
+/** convertBinOp
+ *    convert binary operators to function calls
+ *    using obj.method() syntax
+ */
 function convertBinOp(operator, operand1, operand2) {
   switch (operator) {
-    case "*": return `$math.mult(${operand1}, ${operand2})`;
-    case "/": return `$math.div(${operand1}, ${operand2})`;
-    case "+": return `$math.add(${operand1}, ${operand2})`;
-    case "-": return `$math.sub(${operand1}, ${operand2})`;
-    case "^": return `$math.exp(${operand1}, ${operand2})`;
+    case "*": return `mult(${operand1}, ${operand2})`;
+    case "/": return `div(${operand1}, ${operand2})`;
+    case "+": return `add(${operand1}, ${operand2})`;
+    case "-": return `sub(${operand1}, ${operand2})`;
+    case "UNARY-": return `negateNum(${operand1})`; 
+    case "^": return `exp(${operand1}, ${operand2})`;
+    case "=": return `assign("${operand1}", ${operand2})`;
   }
 }
 
-function binOpsToFunctions(tokens) {
+/** infixMathEval
+ *    evaluates infix math expression
+ */
+function infixMathEval(operator, operand1, operand2) {
+  operand1 = Number(operand1);
+  operand2 = Number(operand2);
+  switch (operator) {
+    case "*": return operand1 * operand2;
+    case "/": return operand1 / operand2;
+    case "+": return operand1 + operand2;
+    case "-": return operand1 - operand2;
+    case "UNARY-": return -operand1;
+    case "^": return operand1 ** operand2;
+  }
+}
+
+/** evaluateTokens 
+ *    convert array of tokens (function calls, 
+ *    operators, numbers (created from splitOperands))
+ *    into all function calls
+ *
+ *    operators are passed in reverse order because
+ *    of reverse polish notation algorithm
+ */
+function evaluateTokens(tokens, evaluator) {
+  console.log("toks = ", tokens);
   if (tokens.length == 1) return tokens.pop();
   var polished = polish(tokens);
   var operands = [];
   var output = "";
+  var result;
+  console.log("polish = ", polished);
   polished.forEach(op => {
     if (isOperator(op)) {
       var operand1 = operands.pop();
-      var operand2 = operands.pop();
-      operands.push(convertBinOp(op, operand1, operand2));
+      if (op.startsWith("UNARY")) { 
+        result = evaluator(op, operand1);
+        console.log("applying", op, "to", operand1);
+      }
+      else {
+        var operand2 = operands.pop();
+        result = evaluator(op, operand2, operand1);
+      }
     }
     else 
-      operands.push(op);
+      result = op;
+    if (result == null) throw `Error evaluating expression '${tokens}' on operator '${op}'.`;
+    operands.push(result);
   });
   if (operands[0] == undefined) throw `Error evaluating '${tokens.join(" ")}'`;
   return operands.pop();
 }
 
-var objects = {
-  "$asdf.child(4).value()": 5,
-  "$jkl.length()": 2,
-  "$arr.length(4, 3)": 99,
-}
-
-
-/** evaluateMethods
- *    all method calls take the form
- *    $obj.method((expr), (expr), ...)
- *
- *    - match function calls using regex:
- *      /\$[a-zA-Z]+(\.[a-zA-Z]+\([0-9,\s]*\))+/g;
- *      regex breakdown:
- *      object name:
- *      \$[a-zA-Z]+ = starts with $ and followed by 1 or more alphabetic chars 
- *
- *      methods and arguments:
- *      (\.[a-zA-Z]+\([0-9,\s]*\))+
- *      (\.[a-zA-Z]\( ... \))+ = one or more chained method calls with arguments enclosed in parens
- *
- *      method arguments:
- *      [\$\w\.\(\)\*\+\-\/\^,\s]* = expressions, commas, spaces
- *      
- *
- *      note: method calls may contain other method calls as arguments e.g.
- *      $arr.child($arr.length - 1),
- *      so arguments themselves must be parsed as expressions
+/** parDepths
+ *    return an array of parenthetical 'depths'
+ *    given a (balanced) parenthesized expression
+ *    e.g. 
+ *     0000000111111111111111210 
+ *    'a.call(1, 2 * f.call())'
  */
-function evaluateMethods(expr) {
-  console.log("raw expr =", expr);
-  // var methodPattern = /\$[a-zA-Z]+[^\s]+/g;
-  var methodPattern = /\$[a-zA-Z]+(\.[a-zA-Z]+\([\w,\s]*\))+/g;
-  var matches = expr.match(methodPattern);
-  if (matches == null) return expr;
-  console.log("matches = ", matches);
-  matches.forEach(m => {
-    expr = expr.replace(m, objects[m]);
-  });
-  console.log("ev = ", expr);
-  return expr;
-}
-
 function parDepths(chars) {
   var depths = [];
   var d = 0;
   chars.forEach(ch => {
-    if (isLeftParen(ch)) d++;
-    if (isRightParen(ch)) d--;
+    if (isLeftParen(ch) || isLeftSqBracket(ch)) d++;
+    if (isRightParen(ch) || isRightSqBracket(ch)) d--;
     depths.push(d);
   });
   return depths;
 }
 
-/** splitArgs
- *    for expr '1, 2, $c.call(1, (3+ 4)), 5',
- *    return [1, 2, $c.call(1, (3+4)), 5]
+/** splitExpression
+ *    split an expression into an array of whitespace-trimmed
+ *    components using some delimiter(s)
+ *
+ *    delimFunction is a boolean function which recognizes
+ *    delimiting characters
+ *
+ *    includeDelim, when set true, includes each delimiter in the
+ *    resulting array
  */
 function splitExpression(expr, delimFunction, includeDelim=false) {
   var args = [];
@@ -239,25 +383,45 @@ function splitExpression(expr, delimFunction, includeDelim=false) {
   return args;
 }
 
+/** splitArgs
+ *    split expression on and exclude commas
+ */
 function splitArgs(expr) {
   return splitExpression(expr, isComma);
 }
 
+/** splitOperands
+ *    split expression into operators and operands
+ */
 function splitOperands(expr) {
   return splitExpression(expr, isOperator, true);
 }
 
+/** getFuncArgs
+ *    converts function or method call (string) to object
+ *    containing function name (including '()') and array of arguments
+ *    e.g.
+ *
+ *    getFuncArgs("arr1.swap(0, arr1.length() - 1)")
+ *    returns
+ *    
+ *    func: "arr1.swap()"
+ *    args: ["0", "arr1.length() - 1"]
+ *
+ *    '()' is included to differentiate functions from
+ *    string literals in evaluation of tree
+ *
+ *    note: methodPattern and functionPattern match opening paren
+ */
 function getFuncArgs(funcExpr) {
-  // find first occurrence of $,
-  // find its opening paren
-  var methodPattern = /\$[a-zA-Z]+\.[a-zA-Z]+/;
   var match = funcExpr.match(methodPattern);
+  if (match == null) match = funcExpr.match(functionPattern);
   if (match == null) throw `Malformed expression: '${funcExpr}'`;
   var funcName = match[0];
   var leftParIdx = match.index + funcName.length;
 
   // find matching right par
-  var parDepth = 0;
+  var parDepth = 1;
   var rightParIdx = -1;
   var ch = "";
   for (var idx = leftParIdx; idx < funcExpr.length; idx++) {
@@ -270,13 +434,9 @@ function getFuncArgs(funcExpr) {
     }
   }
   return {
-    func: funcName, 
-    args: splitArgs(funcExpr.substring(leftParIdx + 1, rightParIdx)),
+    func: funcName + ")",
+    args: splitArgs(funcExpr.substring(leftParIdx, rightParIdx)),
   };
-}
-
-function decomposeFunction(funcExpr) {
-  
 }
 
 class TreeNode {
@@ -284,6 +444,24 @@ class TreeNode {
     this.value = value;
     this.result = value;
     this.children = [];
+  }
+
+  get receiver() {
+    if (this.value.match(methodPattern))
+      return this.value.split(".")[0];
+    throw `Can't get receiver of non-method '${this.value}'.`;
+  }
+
+  get methodName() {
+    if (this.value.match(methodPattern))
+      return this.value.split(".")[1];
+    throw `Can't get method name of non-method '${this.value}'.`;
+  }
+
+  get functionName() {
+    if (this.value.match(functionPattern))
+      return this.value;
+    throw `Can't get function name of non-function '${this.value}'.`;
   }
   
   addChild(value) {
@@ -300,91 +478,151 @@ class TreeNode {
 }
 
 /** buildTree
- *    - take function e.g. '$f($a(5), (2 + 5), 3)'
+ *    - take function expression e.g. 
+ *      'f.call(a(5), (2 + 5), 3)'
  *      and split it into its name and its arguments
- *      -> func = $f; args = [$a(5), (2 + 5), 3]
+ *      => func = f.call; args = [a(5), (2 + 5), 3]
  *
  *    - create a new node for top-level function and
  *      recursively build children
  *
+ *    - pure math expressions get evaluated immediately,
+ *      while string literals (alphanumeric) simply evaluate
+ *      to themselves
+ *
  *    - arguments may themselves be expressions containing 
  *      function calls, so replace each binary operator with
- *      function to simplify tree building
+ *      function call to simplify tree building
+ *      e.g. 
+ *      f.call(1, 2) + b.call(5) + 6 
+ *      => math.add(6, math.add(b.call(5), f.call(1, 2)))
  */
 function buildTree(expr) {
+  if (! parenBalanced(expr)) throw `Unbalanced parens in expression: '${expr}'.`;
   if (expr == "") return null;
-  if (! expr.includes("$")) 
+  if (! (expr.match(functionPattern) || expr.match(methodPattern) || expr.match(assignmentPattern))) {
+    if (! (expr.match(variablePattern) || expr.match(stringLiteralPattern))) {
+      if (expr.match(mathCharsPattern))
+        expr = String(evaluateMath(expr));
+      else
+        throw `Invalid literal expression: '${expr}'.`;
+    }
+    // return string or number literal
     return new TreeNode(expr);
-  else {
-    // replace binary ops with functions 
-    expr = binOpsToFunctions(splitOperands(expr));  
-
-    var fargs = getFuncArgs(expr);
-    var args = fargs.args;
-
-    // create new node for this function call
-    var func = new TreeNode(fargs.func);
-
-    args.forEach(argExpr => {
-      var newChild = buildTree(argExpr);
-      if (newChild) // may be null e.g. $f()
-        func.addChild(newChild);
-    });
   }
-  return func;
+
+  // replace binary ops with functions 
+  expr = evaluateTokens(splitOperands(expr), convertBinOp);
+
+  var fargs = getFuncArgs(expr);
+  var args = fargs.args;
+  console.log("func:", fargs.func, ", args:", args);
+
+  // create new node for this function call
+  var funcTree = new TreeNode(fargs.func);
+
+  // parse each argument and create new node
+  // (unless result is null, in which case
+  // children = [] (0 arg function))
+  args.forEach(argExpr => {
+    var newChild = buildTree(argExpr);
+    if (newChild) // may be null e.g. f()
+      funcTree.addChild(newChild);
+  });
+  
+  return funcTree;
 }
 
-function getFunction(funcName) {
-  return function(...args) {
-    if (args.length == 0) return 1;
-    if (args.length == 1) return args[0];
-    if (args.length >= 2) return args[0] + args[1];
-  };
+/** evaluateMath
+ *    evaluate math expression (no function calls) 
+ *    by first converting to reverse polish
+ */
+function evaluateMath(mathExpr) {
+  return evaluateTokens(tokenize(mathExpr), infixMathEval);
 }
 
-function evaluateTree(root) {
+/** evaluateTree
+ *    evaluate function tree in postorder traversal
+ *    and push commands onto undo stack as they are evaluated
+ */
+function evaluateTree(root, undoStack) {
   if (root == null) return;
   var operands = [];
   root.children.forEach(node => {
-    evaluateTree(node);
+    evaluateTree(node, undoStack);
   });
-  console.log("applying", root.value, "to ", root.children.map(n => n.result));
-  var operands = root.children.map(node => node.value);
-  // apply function
-  if (root.value.startsWith("$"))
-    root.result = getFunction(root.value).apply(null, operands);
+
+  var operands = root.children.map(node => node.result);
+  // apply method i.e. arr.swap, args=[3, 5]
+  if (root.value.match(methodPattern)) {
+    if (root.command == undefined) 
+      root.command = createMethodCommand(root.receiver, root.methodName, operands);
+    root.result = root.command.execute();
+  }
+  else if (root.value.match(functionPattern)) {
+    if (root.command == undefined)
+      root.command = createFunctionCommand(root.functionName, operands)
+    root.result = root.command.execute();
+  } 
+  else if (root.value.match(variablePattern)) {
+    //TODO figure out how to treat varnames vs string literals
+    if (root.command == undefined)
+      root.command = new GetVariableCommand(root.value);
+    root.result = root.command.execute();
+  }
+  else if (root.value.match(stringLiteralPattern))
+    root.result = root.value;
+  else if (root.value.match(numberPattern))
+    root.result = root.value;
+  else 
+    root.result = root.value;//TODO remove this
+    //throw `Error evaluating function '${root.value}'.`;
+
+  if (root.command)
+    undoStack.push(root.command)
 }
 
-/** evaluateExpression
- *    - check for balanced parentheses
- *    - build function call tree
- *    - evaluate nodes in postorder
- */
-function evaluateExpression(expr) {
-  if (! parenBalanced(expr))
-    throw `Unbalanced parentheses in expression '${expr}'.`;
-  var p = polish(tokenize(evaluateMethods(expr)));
-  return p;
+class CommandExpression {
+  constructor(cState, expression) {
+    this.cState = cState;
+    this.expression = expression;
+
+    this.functionTree = buildTree(expression);
+    console.log("function tree:");
+    this.functionTree.preorder();
+
+    // maintain reverse post order for undoing
+    // commands in reverse order of normal evaluation
+    this.undoStack = [];
+  }
+
+  execute() {
+    if (this.functionTree == null) return;
+    this.undoStack = [];
+    evaluateTree(this.functionTree, this.undoStack);
+    this.undoStack = this.undoStack.reverse();
+    return this.functionTree.result;
+  }
+
+  undo() {
+    this.undoStack.forEach(cmdObj => {
+      cmdObj.undo();
+    });
+  }
+
 }
 
-// var expr = "x = 3 *    $asdf.child(4 - ($arr.length(4) ^ 1), 3).value() - $arr2.length()";
+// var expr = "x = 3 *    asdf.child(4 - ($arr.length(4) ^ 1), 3).value() - $arr2.length()";
 // var expr = "x = 3 *    $asdf.child((4 - 1), 3).value() - $arr2.length()";
 // // var expr = "x = 3 * 4 + (5 - (8 * 2))";
 // console.log("polish = ", evaluateExpression(expr));
-
-var expr = "$a.call(1, $c.call($b.call($a.call() + 3 * 4), 2), (2 * 4 + 1), 3) + 3";
-var expr = "$a.call() + (2 * 4 + 1)  + 3";
-var tree = buildTree(expr);
-tree.preorder();
-
-evaluateTree(tree);
-console.log(tree.result);
-
-// var fargs = getFuncArgs("$a.call($b.call()+ 5 * $c.call(3, 4))");
-// var args = "$b.call($a.call(), 3)";
-// console.log("args = ", args);
-// var spl = splitOperands(args);
-// console.log(binOpsToFunctions(spl));
 //
 //
 
+// var expr = "$a.call(1, $c.call($b.call($a.call() + 3 * 4), 2), (2 * 4 + 1), 3) + 3";
+// var expr = "$a.call() + (2 * 4 + 1)  + 3";
+// var expr = "3 * 4 + 4 * 4 + (9 / 2 * 3 ^ 1 )";
+// var expr = "arr[1,2].call([1, 2, 3], 4) + 3";
+// var tree = buildTree(expr);
+// console.log("\n\n");
+// tree.preorder();
