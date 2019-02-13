@@ -3,13 +3,11 @@ canvasObjectClasses = {
   "RoundBox": RoundBox,
   "DiamondBox": DiamondBox,
   "ParallelogramBox": ParallelogramBox,
+  "TextBox": TextBox,
+  "MathBox": MathBox,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
   "Array1D": Array1D,
-};
-
-canvasToolClasses = {
-  "SelectTool": CanvasSelect,
 };
 
 
@@ -120,7 +118,6 @@ class CanvasState {
     // keeping track of canvas objects
     this.drawMode = "SelectTool";
     this.objects = [];
-    this.labeled = new Map();
     this.objectFactory = new CanvasObjectFactory(this);
 
     this.activeCommandType = null;
@@ -137,15 +134,7 @@ class CanvasState {
     this.uniqueColors = new Set();
     this.colorHash = {};
 
-    // hotkey state
-    this.hotkeys = {
-      [CTRL]: false,
-      [SHIFT]: false,
-      [ALT]: false,
-    };
-
     // initialize toolbars and buttons
-    this.bindKeys();
     this.toolbars = {};
     this.initToolbars();
     this.initButtons();
@@ -153,7 +142,7 @@ class CanvasState {
     CanvasState.instance = this;
   }
 
-  getInstance() {
+  static getInstance() {
     if (CanvasState.instance == null)
       throw "Eager instantiation failed for CanvasState";
     return CanvasState.instance;
@@ -202,21 +191,6 @@ class CanvasState {
     return this.ctx.measureText("_").width * 2;
   }
 
-  /** CanvasState.bindKeys
-   *    bind key press/release to change of 
-   *    hotkeys object
-   */
-  bindKeys() {
-    document.onkeydown = (event) => {
-      if (event.keyCode in this.hotkeys) 
-        this.hotkeys[event.keyCode] = true;
-    };
-    document.onkeyup = (event) => {
-      if (event.keyCode in this.hotkeys) 
-        this.hotkeys[event.keyCode] = false;
-    };
-  }
-
   /** CanvasState.createNewCanvasObject
    *    call objectFactory to instantiate new object
    *    if in "create" mode
@@ -254,7 +228,7 @@ class CanvasState {
   }
 
   updateLabels() {
-    this.objects.forEach(obj => this.labeled.set(obj.label, obj));
+    this.objects.forEach(obj => VariableEnvironment.setVar(obj.label, obj));
   } 
 
 
@@ -267,8 +241,8 @@ class CanvasState {
       return (item !== removeObj);
     });
 
-    this.labeled.delete(removeObj.label);
-
+    if (VariableEnvironment.hasVar(removeObj.label))
+      VariableEnvironment.deleteVar(removeObj.label);
     removeObj.deactivate();
   }
 
@@ -277,7 +251,7 @@ class CanvasState {
    *    whenever mouse press happens
    */
   setCommandStartState() {
-    this.hotkeyStartState = Object.assign({}, this.hotkeys);
+    this.hotkeyStartState = Object.assign({}, hotkeys);
     this.startPoint = this.mouseDown;
   }
 
@@ -324,7 +298,6 @@ class CanvasState {
     return {x: Math.floor(w / 2), y: Math.floor(h / 2)};
   }
 
-
   /* getClickedObject
    *   get coordinates of mouse release
    *   and check hitCanvas/colormap to see what's
@@ -355,16 +328,15 @@ class CanvasState {
       var toolClass = null;
       if (this.drawMode in canvasObjectClasses)
         toolClass = canvasObjectClasses[this.drawMode];
-      if (this.drawMode in canvasToolClasses)
-        toolClass = canvasToolClasses[this.drawMode];
+      else 
+        toolClass = CanvasObject; // default
 
-      if (toolClass)  {
-        var x1 = this.mouseDown.x;
-        var y1 = this.mouseDown.y;
-        var x2 = this.mouseMove.x;
-        var y2 = this.mouseMove.y;
-        toolClass.outline(this.ctx, x1, y1, x2, y2);
-      }
+
+      var x1 = this.mouseDown.x;
+      var y1 = this.mouseDown.y;
+      var x2 = this.mouseMove.x;
+      var y2 = this.mouseMove.y;
+      toolClass.outline(this.ctx, x1, y1, x2, y2);
     }
 
     this.objects.forEach((obj) => {
@@ -477,10 +449,10 @@ class CanvasEventHandler {
   }
   
   mouseDown(event) {
-    this.cState.mouseDown = {x: event.offsetX, y: event.offsetY};
+    this.cState.mouseDown = {x: event.clientX, y: event.clientY};
     this.cState.mouseUp = null;
 
-    var canvasObj = cState.getClickedObject(event.offsetX, event.offsetY);
+    var canvasObj = cState.getClickedObject(event.clientX, event.clientY);
 
     if (canvasObj) {
       // don't try to create new object/textbox/etc
@@ -498,8 +470,8 @@ class CanvasEventHandler {
       canvasObj.mouseDown();
 
       // set offset for dragging
-      this.dragOffsetX = event.offsetX;
-      this.dragOffsetY = event.offsetY;
+      this.dragOffsetX = event.clientX;
+      this.dragOffsetY = event.clientY;
 
       // show toolbar
       this.cState.showToolbar();
@@ -528,17 +500,17 @@ class CanvasEventHandler {
   }
 
   mouseMove(event) {
-    this.cState.mouseMove = {x: event.offsetX, y: event.offsetY};
+    this.cState.mouseMove = {x: event.clientX, y: event.clientY};
 
     // dragging mouse and haven't released yet
     if (this.cState.mouseDown && !this.cState.mouseUp) {
-      var deltaX = event.offsetX - this.dragOffsetX;
-      var deltaY = event.offsetY - this.dragOffsetY;
+      var deltaX = event.clientX - this.dragOffsetX;
+      var deltaY = event.clientY - this.dragOffsetY;
 
 
       // draw commands happen here
       if (this.cState.activeObj) {
-        if (this.cState.hotkeys[CTRL]) {
+        if (hotkeys[CTRL]) {
           this.cState.activeObj.move(deltaX, deltaY);
           // Group select move
           if (this.cState.selectGroup.has(this.cState.activeParent())) {
@@ -572,7 +544,7 @@ class CanvasEventHandler {
   }
   
   mouseUp(event) {
-    this.cState.mouseUp = {x: event.offsetX, y: event.offsetY};
+    this.cState.mouseUp = {x: event.clientX, y: event.clientY};
 
     // only create new canvas object if actually dragged to new location
     if (this.cState.mouseUp.x !== this.cState.mouseDown.x
@@ -585,7 +557,7 @@ class CanvasEventHandler {
       }
 
       // clone clicked object
-      else if (this.cState.activeObj && this.cState.hotkeys[ALT])
+      else if (this.cState.activeObj && hotkeys[ALT])
         this.cState.activeCommandType = "clone";
     }
 
