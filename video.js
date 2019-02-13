@@ -98,6 +98,7 @@ class VideoManager {
    *    (with sendClient setVideoURL as callback)
    */
   addClip(clipId, buffer) {
+    console.log("adding clip: ", clipId);
     var clipPath = this.idToPath(clipId);
 
     // add clip to map
@@ -146,15 +147,25 @@ class VideoManager {
   }
 
   /** VideoManager.removeClips
-   *    delete clips in file system and notify
+   *    delete clips in file system, from clip id => 
+   *    path map and notify
    *    client to remove from clip menu
    */
   removeClips(clipIds) {
+    this.deleteClipFiles(clipIds);
+    clipIds.forEach((id) => {
+      this.sendClient(id, "removeClip");
+      this.clips.delete(id);
+    });
+  }
+
+  /** VideoManager.deleteClipFiles
+   *    remove video files from file system
+   */
+  deleteClipFiles(clipIds) {
     clipIds.forEach((id) => {
       if (! this.clips.has(id)) return;
-      this.clips.delete(id);
       fs.unlinkSync(this.idToPath(id), (err) => console.log("Cleanup error:", err));
-      this.sendClient(id, "removeClip");
     });
   }
 
@@ -179,14 +190,14 @@ class VideoManager {
    */
   truncateClip(clipId, timeStamp) {
     var clipPath = this.idToPath(clipId);
-    // var truncated = ffmpeg(clipPath).videoBitrate(BITRATE);
 
     var truncId = tempFile();
     var truncPath = this.idToPath(truncId);
 
+    console.log("clip map = ", this.clips);
     fu.truncateVideo(clipPath, truncPath, timeStamp)
       .then(() => {
-        this.removeClips([clipId]);
+        this.deleteClipFiles([clipId]);
       })
       .then(() => {
         fs.rename(truncPath, clipPath, 
