@@ -217,6 +217,7 @@ class MediaController {
   setCurrentClip(id) {
     if (this.getState() !== this.pauseState) return;
     if (this.clips.get(id) == null) return;
+    if (this.activeClipId == id) return;
 
     if (this.clips.get(id).url) 
       this.setVideoURL(id, this.clips.get(id).url);
@@ -631,7 +632,7 @@ class CommandRecorder {
    *    optional redo flag - if true, dont clear redo stack
    */
   execute(cmdObj, redo) {
-    if (cmdObj instanceof UtilCommand || cmdObj instanceof CommandExpression) 
+    if (cmdObj instanceof UtilCommand)
       return cmdObj.execute();
     if (this.postRecording) return alert("Clip can no longer be edited");
 
@@ -662,7 +663,7 @@ class CommandRecorder {
    *    if clip hasn't been recorded over yet
    */
   undo(cmdObj) {
-    if (cmdObj instanceof UtilCommand || cmdObj instanceof CommandExpression) 
+    if (cmdObj instanceof UtilCommand)
       return cmdObj.undo();
     if (this.postRecording) return alert("Clip can no longer be edited");
 
@@ -711,8 +712,6 @@ class CommandRecorder {
       if (cmdTime.type == "undo") cmdTime.command.execute();
       this.futureCmds.push(cmdTime);
     }
-
-    this.printStacks();
   }
 
   fullRewind() {
