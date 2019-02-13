@@ -26,7 +26,7 @@ const cState = new CanvasState(canvas, editCanvas, hitCanvas);
 // eager instantiation for singletons
 const mc = new MediaController(cState);
 const clientSocket = new ClientSocket(websock, mc, cState);
-const varenv = new VariableEnvironment();
+const varEnv = new VariableEnvironment();
 
 // start animation loop
 function main() {
