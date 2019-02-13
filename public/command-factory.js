@@ -44,7 +44,6 @@ const constructors = {
   "pbox":     CanvasObjectConstructor,
   "conn":     CanvasObjectConstructor,
   "arrow":    CanvasObjectConstructor,
-  "graph":    CanvasObjectConstructor,
 }
 
 const canvasClasses = {

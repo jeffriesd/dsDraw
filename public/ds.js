@@ -1,25 +1,25 @@
-class SigmaContainer {
+class Graph extends CanvasObject {
   constructor(cState, x1, y1, x2, y2) {
-    this.cState = cState;
-    this.ctx = cState.ctx;
-    this.hitCtx = cState.hitCtx; 
+    super(cState, x1, y1, x2, y2);
 
-    this.x1 = x1;
-    this.x2 = x2;
-    this.y1 = y1;
-    this.y2 = y2;
-
+    this.fill = "rgba(100, 100, 100, 0.5)";
+    this.fill = "blue";
     this.maxId = 0;
-
-    this.width = x2 - x1;
-    this.height = y2 - y1;
-
     this.sigInst = null;
-    init();
+    this.init();
   }
 
   init() {
     this.container = document.createElement("div");
+    this.container.id = "sigmaCont";
+    this.container.style.backgroundColor = "red";
+    this.container.style.position = "absolute";
+    this.container.style.left = this.x1 + "px";
+    this.container.style.top = this.y1 + "px";
+    this.container.style.width = this.width + "px";
+    this.container.style.height = this.height + "px";
+
+    document.body.appendChild(this.container);
   
     this.sigInst = new sigma(
       {
@@ -31,9 +31,9 @@ class SigmaContainer {
     );
 
     // set width and height and draw
-    var sigmaScene = document.findElementsByClassName("sigma-scene")[0];
-    var sigmaMouse = document.findElementsByClassName("sigma-mouse")[0];
-    var sigmaLabels = document.findElementsByClassName("sigma-labels")[0];
+    var sigmaScene = document.getElementsByClassName("sigma-scene")[0];
+    var sigmaMouse = document.getElementsByClassName("sigma-mouse")[0];
+    var sigmaLabels = document.getElementsByClassName("sigma-labels")[0];
 
     sigmaScene.setAttribute("width", this.width.toString() + "px");
     sigmaScene.setAttribute("height", this.height.toString() + "px");
@@ -45,11 +45,21 @@ class SigmaContainer {
     this.sigInst.refresh();
   }
 
-  draw() {
-    // draw background of pseudo-container on canvas
+  configureOptions(active) {
+    this.ctx.fillStyle = this.fill; 
+    this.hitCtx.fillStyle = this.hashColor;
+  }
+
+  draw(active) {
+    this.configureOptions(active);
+
+    this.ctx.beginPath();
+    this.ctx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
   }
 
   click() {
+    console.log("clicked");
     this.sigInst.graph.addNode(
       {
         id: this.maxId,
