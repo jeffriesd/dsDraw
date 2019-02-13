@@ -1,33 +1,6 @@
-mainCommands = {
-  "create": ConsoleCreateCommand,
-  "delete": ConsoleDestroyCommand,
-  "snap": ExportToImageCommand,
-  "play": PlayVideoCommand,
-  "pause": PauseVideoCommand,
-  "record": RecordCommand,
-  "truncate": TruncateVideoCommand,
-  "show": SelectVideoCommand,
-  "export": ExportVideoCommand,
-  "blank": BlankClipCommand,
-  "cont": ContinueClipCommand,
-  "delete": DeleteClipCommand,
-};
-
-objectCommands = {
-  "Array1Dresize": Array1DResizeCommand,
-  "Array1Dswap": Array1DSwapCommand,
-  "Array1Darc": Array1DArrowCommand,
-  "Array1Dcopy": Array1DCopyCommand,
-  "Array1Dsort": Array1DSortCommand,
-  "LinkedListinsert": LinkedListInsertCommand,
-  "LinkedListlink": LinkedListLinkCommand,
-  "LinkedListcut": LinkedListCutCommand,
-}
-
-
 class CommandConsole {
-
   constructor(canvasState) {
+    if (CommandConsole.instance != null) return CommandConsole.instance;
     this.cState = canvasState;
     this.cmdConsole = document.getElementById("commandConsole");
     this.commandLine = document.getElementById("commandLine");
@@ -67,6 +40,8 @@ class CommandConsole {
     this.initStyle();
     this.bindKeys();
     this.bindActions();
+
+    CommandConsole.instance = this;
   }
 
   initStyle() {
@@ -161,7 +136,7 @@ class CommandConsole {
   bindKeys() {
     this.commandLine.onkeydown = (event) => {
       // allow user to CTRL-Z/CTRL-Y from console
-      if (this.cState.hotkeys[CTRL]) {
+      if (hotkeys[CTRL]) {
         if (event.keyCode == Z) {
           event.preventDefault(); // dont undo typing
           var mc = MediaController.getInstance(this.cState);
@@ -183,7 +158,7 @@ class CommandConsole {
         this.cycleCommands(1);
       else if (event.keyCode == DOWN)
         this.cycleCommands(-1);
-      else if (event.keyCode == C && this.cState.hotkeys[CTRL]) {
+      else if (event.keyCode == C && hotkeys[CTRL]) {
         this.commandLine.value = "";
         this.historyStack = [];
         this.showHistory();
@@ -206,7 +181,7 @@ class CommandConsole {
     if (this.cycleIndex > 0) {
       var cycledCmd = this.historyStack[fromEnd];
       // skip over errors
-      if (cycledCmd.startsWith("[ERROR]"))
+      if (cycledCmd.includes("ERROR")) //TODO Error objects
         this.cycleCommands(direction);
       else
         this.commandLine.value = cycledCmd;
@@ -226,7 +201,8 @@ class CommandConsole {
       return ret;
     }
     catch (error) {
-      return "[ERROR]: " + error.toString() 
+      console.log("EXEC ERROR: " + error.stack);
+      return "[EXEC ERROR]: " + error.toString() 
     }
   }
 
@@ -246,23 +222,24 @@ class CommandConsole {
 
     // multiline command has ended, 
     // parse it and clear the buffer
-    if (line.includes("}")) {
-      this.multiLine = false;
+    // if (line.includes("}")) {
+    //   this.multiLine = false;
 
-      parseFunc = this.parser.parseMultiLine.bind(this.parser);
-      rawCommand = this.multiCommand.slice();
-      this.multiCommand = []; // clear multiline buffer
-    }
-    // multiline command starting
-    else if (line.includes("{")) {
-      this.multiLine = true;
+    //   parseFunc = this.parser.parseMultiLine.bind(this.parser);
+    //   rawCommand = this.multiCommand.slice();
+    //   this.multiCommand = []; // clear multiline buffer
+    // }
+    // // multiline command starting
+    // else if (line.includes("{")) {
+    //   this.multiLine = true;
 
-      // push starting line so it can be included
-      // in final parsing step
-      var stripped = line.replace("{", "").trim();
-      this.multiCommand.push(stripped);
-    }
-    else if (line.trim()) {
+    //   // push starting line so it can be included
+    //   // in final parsing step
+    //   var stripped = line.replace("{", "").trim();
+    //   this.multiCommand.push(stripped);
+    // }
+    //else 
+      if (line.trim()) {
       // if in the middle of a multiline command,
       // simply append the following lines to history
       if (this.multiLine) {
@@ -277,7 +254,7 @@ class CommandConsole {
       }
     }
 
-    var err;
+    var parseErr, execErr, commandRet;
 
     // try to parse line
     if (parseFunc && rawCommand) {
@@ -285,28 +262,33 @@ class CommandConsole {
         cmdObj = parseFunc(rawCommand);
       }
       catch (error) {
-        err = "[ERROR]: " + error.toString();
+        console.log("ERROR: " + error.stack);
+        parseErr = "[PARSE ERROR]: " + error.toString();
       }
     }
 
-    // if command obj instantiated
-    if (cmdObj && ! err) 
-      err = this.executeCommand(cmdObj);
-
-    // add to command history 
+    // add entered line to command history 
     if (line && line.trim()) 
       this.historyStack.push(line);
 
-    // print error (but ignore returned objects)
-    if (err && String(err).includes("ERROR"))
-      this.historyStack.push(err);
+    if (parseErr)
+      this.historyStack.push(parseErr);
+    else if (cmdObj)
+      commandRet = this.executeCommand(cmdObj);
+
+    console.log("command returned:", commandRet);
+    // print error or literal result
+    if (commandRet != undefined) {
+      if (String(commandRet).includes("ERROR")
+        || (typeof commandRet == "string" || typeof commandRet == "number"))
+        this.historyStack.push(String(commandRet));
+    }
 
     // redraw command history
     this.showHistory();
 
     // keep history scrolled to bottom
     this.history.scrollTop = this.history.scrollHeight; 
-
   }
 
 
@@ -339,20 +321,52 @@ class CommandInterpreter {
   }
 
   /** CommandInterpreter.parseMultiLine
+   *    helper method for multi-line commands.
+   *    currently supporting 'create' and 'macro'
+   *
+   *    returns MacroCommand composed of 
+   *    individual config command objects
+   */
+  parseMultiLine(cmds) {
+    var firstLine = cmds[0];
+    if (firstLine.startsWith("create"))
+      return this.parseConstructor(cmds); 
+    else if (firstLine.startsWith("macro"))
+      return this.parseMacro(cmds); 
+  }
+
+  /** CommandInterpreter.parseMacro
+   *    syntax is
+   *    'macro macroName arg1 arg2 {
+   *      cmd1
+   *      cmd2 $arg1 $arg2
+   *      cmd3 $arg1 4 5
+   *      $arg1.resize 4 3
+   *    }'
+   *
+   *    TODO: need to differentiate between
+   *    macro def/declaration and macro call
+   */
+  parseMacro(cmds) {
+    var args = cmds[0].split(" ");
+    var macroName = args[1];
+    args = args.slice(1);
+    if (macroName == null) throw "Usage: 'macro macroName'";
+    cmds = cmds.slice(1);
+    if (cmds.length == 0) throw "Empty macro";
+    
+  }
+
+  /** CommandInterpreter.parseConstructor
    *    helper method for constructor-type
    *    commands, e.g. 
    *
-   *    create ____ {
+   *    create [objType] [[objName]] {
    *      prop1: value1
    *      prop2: value2
    *    }
-   *
-   *  returns MacroCommand composed of 
-   *  individual config command objects
    */
-  parseMultiLine(cmds) {
-    var commands = [];
-
+  parseConstructor(cmds) {
     var firstLine = cmds[0];
     // create actual object so it can be configured
     // by following lines
@@ -362,92 +376,97 @@ class CommandInterpreter {
     else
       throw "Invalid command: " + firstLine;
 
-    // need temp name to do config commands
-    // if no name was provided
-    var label;
-    if (newObj.label == "") 
-      newObj.label = "TEMP";
-    else
-      label = newObj.label;
-
     // all following lines are config commands
     var lines = cmds.slice(1);
     console.log("lines = ", lines);
 
     // convert lines to one-liner equivalents
+    var commands = [];
     lines.forEach((line) => {
-      var oneliner = label + " " + line.replace(":", " ");
+      var oneliner = newObj.label + " " + line.replace(":", " ");
       var lineCmd = this.parseLine(oneliner);
       commands.push(lineCmd);
     });
-
-    // undo TEMP labeling
-    if (label == "TEMP") {
-      this.cState.labeled.clear("TEMP");
-      newObj.label = "";
-    }
 
     return new MacroCommand(commands);
   }
 
   /** CommandInterpreter.parseLine
    *    parsing method for single line commands
+   *    with some basic syntax checking
    */
   parseLine(cmdStr) {
-    var spl = cmdStr.split(/(\s)/).filter((s) => s.trim().length);
-    var mainCmd = "";
-    var args =  [];
+    this.nearleyParser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar), {});
+    var parseTree = this.nearleyParser.feed(cmdStr);
+    if (parseTree.results.length > 1)
+      throw "Ambiguous grammar";
+    this.nearleyParser.finish();
 
-    var mainCmd = spl[0];
-    if (spl.length > 1)
-      args = spl.slice(1);
-
-    // check if 'mainCmd' is 
-    // 1. labeled object with subcommand
-    // 2. labeled object with config command
-    // 3. a command type 
-    //  e.g
-    // 1. 'myarr123.swap 0 5'
-    // 2. 'myarr123[1:3] bg #ff0' or 'myarr123 fs 12'
-    // 3. 'create array myarr123'
-    
-    if (mainCmd.includes(".")) {
-      var name = mainCmd.split(".")[0];
-      if (this.cState.labeled.get(name))
-        return this.createObjectCommand(mainCmd, args);
-      throw `No object named ${name}`;
-    }
-
-    // name is first word up to [ symbol
-    var name = mainCmd.match(/[^\[]*/).toString();
-    if (this.cState.labeled.get(name)) 
-      return this.createConfigCommand(mainCmd, args);
-    else
-      return this.createMainCommand(mainCmd, args);
+    return parseTree.results[0].command;
+    // if (! cmdStr.match(expressionChars))
+    //   throw `Unexpected characters in '${cmdStr}'.`;
+    // // check for balanced parens
+    // if (! parenBalanced(cmdStr))
+    //   throw `Unbalanced parentheses in '${cmdStr}'.`;
+    //  
+    // return new CommandExpression(this.cState, cmdStr);
   }
+
+  // parseLine(cmdStr) {
+  //   var spl = cmdStr.split(/(\s)/).filter((s) => s.trim().length);
+  //   var mainCmd = "";
+  //   var args =  [];
+
+  //   var mainCmd = spl[0];
+  //   if (spl.length > 1)
+  //     args = spl.slice(1);
+
+  //   // check if 'mainCmd' is 
+  //   // 1. labeled object with subcommand
+  //   // 2. labeled object with config command
+  //   // 3. a command type 
+  //   //  e.g
+  //   // 1. '$myarr123.swap(0,5)'
+  //   // 2. '$myarr123[1:3] bg #ff0' or 'myarr123 fs 12'
+  //   // 3. '$create array myarr123'
+  //   
+  //   if (mainCmd.includes(".")) {
+  //     var name = mainCmd.split(".")[0];
+  //     // if (this.cState.labeled.get(name))
+  //     //   return this.createObjectCommand(mainCmd, args);
+  //     // throw `No object named ${name}`;
+  //   }
+
+  //   // name is first word up to [ symbol
+  //   var name = mainCmd.match(/[^\[]*/).toString();
+  //   if (this.cState.labeled.get(name)) 
+  //     return this.createConfigCommand(mainCmd, args);
+  //   else
+  //     return this.createMainCommand(mainCmd, args);
+  // }
 
   /** CommandInterpreter.createObjectCommand
    *    parses command with an object label and a '.'
    *    and returns command object -- may throw exception
    *    if parsing errors or bad arguments
    */
-  createObjectCommand(mainCmd, args) {
-    var cmdSpl = mainCmd.split(".");
-    var receiverName = cmdSpl[0];
-    var commandName = cmdSpl[1];
+  // createObjectCommand(mainCmd, args) {
+  //   var cmdSpl = mainCmd.split(".");
+  //   var receiverName = cmdSpl[0];
+  //   var commandName = cmdSpl[1];
 
-    var receiverObj = this.cState.labeled.get(receiverName); 
+  //   var receiverObj = this.cState.labeled.get(receiverName); 
 
-    // keys of command map are ClassnameCommandName
-    var cmdKey = receiverObj.constructor.name + commandName;
+  //   // keys of command map are ClassnameCommandName
+  //   var cmdKey = receiverObj.constructor.name + commandName;
 
-    var commandClass = objectCommands[cmdKey];
-    
-    if (commandClass == null)
-      throw `No command '${commandName}' for class '${receiverObj.constructor.name}'`;
+  //   var commandClass = objectCommands[cmdKey];
+  //   
+  //   if (commandClass == null)
+  //     throw `No command '${commandName}' for class '${receiverObj.constructor.name}'`;
 
-    return new commandClass(receiverObj, ...args);
-  }
+  //   return new commandClass(receiverObj, ...args);
+  // }
 
   /** CommandInterpreter.createConfigCommand
    *    parses commands with an object label and no '.'
@@ -462,7 +481,7 @@ class CommandInterpreter {
     // either configure single object or range of child objects
     // such as cells in an array
     var receiverName = mainCmd.match(/[^\[]*/).toString();
-    var receiverObj = this.cState.labeled.get(receiverName);
+    var receiverObj = VariableEnvironment.getCanvasObj(receiverName);
 
     var configCommand;
     if (mainCmd.includes("[")) {
@@ -479,7 +498,7 @@ class CommandInterpreter {
    *    parse command with mainCmd as the commandType and
    *    returns a new command object 
    */
-  createMainCommand(mainCmd, args, named=false) {  
+  createMainCommand(mainCmd, args) {  
     var commandObj = mainCommands[mainCmd];
     if (commandObj)
       return new commandObj(this.cState, ...args);
