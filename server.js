@@ -48,7 +48,12 @@ app.ws("/", (ws, req) => {
   console.log("new conn req", req.session.id);
 
   ws.on("message", (message) => {
-    serverSocket.processClientMessage(ws, req, message);
+    try {
+      serverSocket.processClientMessage(ws, req, message);
+    } catch (err) {
+      console.log("Server error: ", err);
+      serverSocket.sendMessage(ws, { error: err }, "error");
+    }
   });
                                                             
   ws.on("end", () => {                                    
