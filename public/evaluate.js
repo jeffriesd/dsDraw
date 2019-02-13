@@ -60,7 +60,7 @@ class SubCommand extends MathCommand {
 class MultCommand extends MathCommand {
   checkArguments() {
     if (typeof this.op1 == "number" && typeof this.op2 == "number")
-      super.checkArguments();
+      return super.checkArguments();
     if (this.op1 instanceof Array && typeof this.op2 == "number") {
       if (isNaN(this.op2) || this.op2 <= 0)
         throw `Cannot perform list extension with operand '${this.op2}'.`;
