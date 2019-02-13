@@ -18,21 +18,21 @@ class Array1D extends LinearCanvasObject {
     var width = this.x2 - this.x1;
     this.x2 = this.x1 + Math.floor(width / this.cellSize) * this.cellSize;
 
-    this.numElements = (this.x2 - this.x1) / this.cellSize + 1;
+    Array1D.defaultLength = 8;
 
     this.array = [];
     this.cellType = typeof 0;
     this.maxTowerHeight = 8;
 
+    this.displayStyle = "tower";
 
     // keep track of anchored arrows 
     // (keyed by start and endpoints)
     this.arrows = new Map();
 
     // randomly assign values between 0 and randSeed
-    this.randSeed = 10;
-
-    this.initCells();
+    this.randomSeed = 100;
+    Array1D.randomSeed = 100;
   }
 
   /** Array1D.nodes
@@ -48,7 +48,7 @@ class Array1D extends LinearCanvasObject {
       "display": "displayStyle",
       "ds": "displayStyle",
       "height": "maxTowerHeight",
-      "seed": "randSeed",
+      "seed": "randomSeed",
     };
   }
 
@@ -56,7 +56,7 @@ class Array1D extends LinearCanvasObject {
     return {
       ...super.config(),
       maxTowerHeight: this.maxTowerHeight,
-      randSeed: this.randSeed,
+      randomSeed: this.randomSeed,
     };
   }
 
@@ -77,7 +77,6 @@ class Array1D extends LinearCanvasObject {
     // copy arrows
     this.arrows.forEach((arr, index) => {
       var cparrow = arr.clone();
-      this.cState.addCanvasObj(cparrow);
       
       // index is [a, b]
       var i1 = index[0];
@@ -110,8 +109,7 @@ class Array1D extends LinearCanvasObject {
 
   static defaultCoordinates(cState) {
     var cellSize = 40; // default cell size TODO define in constants
-    var numCells = 8;  // default length
-    var length = cellSize * numCells;
+    var length = cellSize * Array1D.defaultLength;
     var center = cState.getCenter();
 
     return {
@@ -133,7 +131,7 @@ class Array1D extends LinearCanvasObject {
    */  
   append(value="random") {
     if (value == "random")
-      value = Math.random() * this.randSeed | 0;
+      value = Math.random() * this.randomSeed | 0;
     var arrNode = new ArrayNode(this.cState, this, value);
     
     this.array.push(arrNode); 
@@ -180,17 +178,6 @@ class Array1D extends LinearCanvasObject {
       arrNode.draw(active, idx);
       idx++;
     });
-  }
-
-  /*  outline
-   *    method to show hollow box as user drags mouse 
-   *    to create new array
-   */
-  static outline(ctx, x1, y1, x2, y2) {
-    ctx.strokeStyle = "#000";
-    ctx.beginPath(); // required to avoid tons of rectangles being drawn 
-    ctx.rect(x1, y1, x2 - x1, y2 - y1);
-    ctx.stroke();
   }
 }
 
