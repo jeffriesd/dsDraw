@@ -62,7 +62,6 @@ const canvasClasses = {
   "pbox":     ParallelogramBox,
   "conn":     Connector,
   "arrow":    CurvedArrow,
-  "graph":    Graph,
 }
 
 /** 
