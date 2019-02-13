@@ -26,7 +26,7 @@ class ExportToImageCommand extends UtilCommand {
 }
 
 class VideoCommand extends UtilCommand {
-  constructor(cState, clipIds) {
+  constructor(cState, ...clipIds) {
     super();
     this.cState = cState;
     this.mc = MediaController.getInstance(cState);
@@ -34,7 +34,7 @@ class VideoCommand extends UtilCommand {
     // looks clunky but parseInt takes up to 3 args,
     // so regular map(parseInt) doesn't work
     this.clipIds = 
-      clipIds.map(x => parseInt(x))
+      clipIds.map(x => parseInt(x.command.execute()))
       .filter(x => this.mc.clips.has(x));
   }
 }
@@ -73,7 +73,7 @@ class TruncateVideoCommand extends VideoCommand {
     var conn = ClientSocket.getInstance();
     var currTime = this.mc.player.video.currentTime;
 
-    var clipId = this.mc.activeClipId;
+    var clipId = parseInt(this.mc.activeClipId);
 
     this.mc.waiting = true;
     this.mc.cmdRecorder.truncate(currTime);
@@ -173,5 +173,13 @@ class DeleteClipCommand extends VideoCommand {
     }
     else 
       this.mc.newClipBlank();
+  }
+}
+
+class SleepCommand extends UtilCommand {
+  //TODO make synchronous
+  execute() {
+    var start = new Date().getTime();
+    while (new Date().getTime() - start < 2000) {}
   }
 }
