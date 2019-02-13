@@ -388,6 +388,7 @@ class AssignVariableCommand extends ConsoleCommand {
   executeChildren() {
     super.executeChildren();
     this.value = this.args[0];
+    this.constructed = this.argNodes[0].constructed;
   }
 
   /** AssignVariableCommand.execute
@@ -396,8 +397,12 @@ class AssignVariableCommand extends ConsoleCommand {
    *    VarEnv.setVar
    */
   executeSelf() {
-    VariableEnvironment.setVar(this.variableName, this.value); 
+    if (this.constructed)
+      this.value.label = this.variableName;
+    else
+      VariableEnvironment.setVar(this.variableName, this.value); 
   }
+
   undo() {
     if (VariableEnvironment.hasVar(this.variableName))
       VariableEnvironment.deleteVar(this.variableName);
@@ -474,7 +479,6 @@ class ConfigCommand extends ConsoleCommand {
   }
 }
 
-
 /** GetChildrenCommand
  *    this command acts as an overloaded operator. 
  *    it returns an array, either from the elements of a user
@@ -541,7 +545,10 @@ class GetChildCommand extends ConsoleCommand {
 
   checkArguments() {
     if (typeof this.key != "number")
-      throw "Accessor key is not a number:" + this.low;
+      throw "Accessor key is not a number: " + this.low;
+    if (this.receiver instanceof Array)
+      if (this.key < 0 || this.key >= this.receiver.length)
+        throw "Array index out of bounds: " + this.key;
   }
 
   /** GetChildCommand.executeSelf
@@ -561,16 +568,58 @@ class GetChildCommand extends ConsoleCommand {
   }
 }
 
+class GetChildPropertyCommand extends ConsoleCommand {
+  constructor(accessorNode, property) {
+    super(accessorNode);
+    this.property = property;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
+  }
+
+  checkArguments() {
+    if (! this.receiver instanceof CanvasChildObject)
+      throw "Cannot access property of " + this.receiver;
+    // get actual property name in case of alias
+    var propNames = this.receiver.propNames();
+    this.property = propNames[this.property];
+    if (this.receiver[this.property] == undefined)
+      throw `Undefined property '${this.property}' for ${this.receiver.constructor.name}.`;
+  }
+
+  executeSelf() {
+    return this.receiver[this.property]; 
+  }
+}
+
+class GetParentPropertyCommand extends ConsoleCommand {
+  constructor(varName, property) {
+    super(varName);
+    this.property = property;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
+  }
+
+  checkArguments() {
+    if (this.receiver instanceof Array && this.property == "length") return;
+    if (! (this.receiver instanceof CanvasObject))
+      throw "Cannot access property of " + this.receiver;
+  }
+
+  executeSelf() {
+    return this.receiver[this.property];
+  }
+}
+
 /** RangeConfigCommand
- *    accepts an iterable and a property value or
- *    interable of property values
+ *    set a property for a range of child objects
  *
- *    e.g.
- *    myarr[0:5] bg red
- *
- *    myarr[] fg white   // [] = entire list
- *
- *    myarr[0:5] = other[0:5]   // copy values
+ *    e.g. arr[2:].bg = "red"
  */
 class RangeConfigCommand extends ConsoleCommand {
   constructor(accessorNode, property, rValueNode) {
@@ -606,6 +655,38 @@ class RangeConfigCommand extends ConsoleCommand {
 
   undo() {
     this.configCommands.forEach(cmd => command.undo());
+  }
+}
+
+class AssignListElementCommand extends ConsoleCommand {
+  constructor(listName, indexNode, rValueNode) {
+    super(indexNode, rValueNode);
+    console.log("in assignlist");
+    console.log("listname = ", listName);
+    this.list = VariableEnvironment.getVar(listName);
+
+    if (! (this.list instanceof Array))
+      throw "Cannot assign value to non-list " + listName;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.index = this.args[0];
+    this.rValue = this.args[1];
+  }
+
+  checkArguments() {
+    if (this.index < 0 || this.index >= this.list.length) 
+      throw "Array index out of bounds: " + this.index;
+  }
+
+  executeSelf() {
+    this.oldValue = this.list[this.index];
+    this.list[this.index] = this.rValue;
+  }
+
+  undo() {
+    this.list[this.index] = this.oldValue;
   }
 }
 
@@ -724,7 +805,7 @@ class Array1DConstructor extends CanvasObjectConstructor {
       this.coords.y2);
 
     if (this.initializer == "random")
-      randomArray(Array1D.defaultLength).forEach(x => this.newObj.append(x));
+      randomArray(Array1D.defaultLength, Array1D.randomSeed).forEach(x => this.newObj.append(x));
     else if (this.initializer instanceof Array)
       this.initializer.forEach(x => this.newObj.append(x));
   }
@@ -767,9 +848,6 @@ class Array1DLengthCommand extends Array1DCommand {
 class Array1DResizeCommand extends Array1DCommand {
   constructor(receiver, newLength) {
     super(receiver, newLength);
-
-    this.newLength = newLength;
-
     // save old array for undo
     this.prevArray = this.receiver.array.slice();
     this.prevArrows = new Map();
@@ -780,7 +858,9 @@ class Array1DResizeCommand extends Array1DCommand {
   executeChildren() {
     super.executeChildren();
     this.newLength = this.args[0];
-    this.parseError("Array.resize argument must be number");
+
+    if (typeof this.newLength != "number")
+      this.parseError("Array.resize argument must be number");
   }
 
   checkArguments() {
@@ -1036,10 +1116,14 @@ class Array1DSortCommand extends Array1DCommand {
  *    default array length is 8
  */
 class LinkedListConstructor extends CanvasObjectConstructor {
-  constructor(cState, canvasClass, initializer, styleOptions) {
-    super(cState, canvasClass);
-    this.initializer = initializer;
-    this.styleOptions = styleOptions;
+
+  executeChildren() {
+    super.executeChildren();
+    this.initializer = this.args[0];
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    this.styleOptions = this.args[1];
   }
 
   createObject() {
@@ -1051,8 +1135,8 @@ class LinkedListConstructor extends CanvasObjectConstructor {
     if (this.initializer == undefined) this.initializer = "random";
 
     if (this.initializer == "random")
-      randomArray(LinkedList.defaultLength).forEach(x => this.newObj.append(x));
-    else if (initializer instanceof Array)
+      randomArray(LinkedList.defaultLength, LinkedList.randomSeed).forEach(x => this.newObj.append(x));
+    else if (this.initializer instanceof Array)
       this.initializer.forEach(x => this.newObj.append(x));
     else 
       this.parseError("Invalid initializer");
