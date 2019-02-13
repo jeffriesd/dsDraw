@@ -53,7 +53,7 @@ class CanvasObject {
     // tries to rename object by its current name (don't change it)
     while (VariableEnvironment.hasVar(value)) {
       if (VariableEnvironment.getVar(value) === this) break;
-      console.log("[WARNING]: label already in use: ", value);
+      // console.log("[WARNING]: label already in use: ", value);
       var numPattern = /\d*$/;
       var match = value.match(numPattern);
       var matchStr = match[0];
@@ -241,7 +241,6 @@ class CanvasChildObject {
 
   restore() {
     this.cState.registerCanvasObj(this);
-    VariableEnvironment.setVar(this.label, this);
   }
 
   /** CanvasChildObject.hover
