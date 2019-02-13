@@ -46,8 +46,11 @@ class ClientSocket {
         this.mc.setVideoDownload(pathToURL(msgObj.body.url));
         break;
       case "setMath":
-        var textBox = this.cState.labeled.get(msgObj.body.label);
+        var textBox = VariableEnvironment.getCanvasObj(msgObj.body.label);
         textBox.setMath(msgObj.body.mathSVG);
+        break;
+      case "error":
+        alert("Error: " + msgObj.body.error);
         break;
     }
   }
