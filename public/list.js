@@ -176,7 +176,7 @@ class LinkedList extends LinearCanvasObject {
     
     var arrow = new CurvedArrow(this.cState, 
       fromNode.x, fromNode.y, toNode.x, toNode.y, anchors);
-    console.log("creating new arrow");
+    arrow.restore();
 
     this.arrows.set(e, arrow);
   }
