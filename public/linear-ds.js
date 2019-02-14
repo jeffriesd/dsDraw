@@ -56,7 +56,10 @@ class LinearCanvasObject extends CanvasObject {
    */
   destroy() {
     super.destroy();
-    this.arrows.forEach(arr => arr.destroy());
+    this.arrows.forEach((arr, key) => {
+      arr.destroy();
+      arr.keyRestore = key;
+    });
   }
 
   /** LinearCanvasObject.restore
