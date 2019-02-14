@@ -58,6 +58,14 @@ Object.defineProperty(Map.prototype, "hasEquiv", {
   enumerable: false,
 });
 
+Object.defineProperty(Map.prototype, "getEquiv", {
+  value: function(key) {
+    for (var k in this)
+      if (k == key) return this[k];
+  },
+  enumerable: false,
+});
+
 Object.defineProperty(Map.prototype, "deleteEquiv", {
   value: function(key) {
     this.forEach((v, k) => {

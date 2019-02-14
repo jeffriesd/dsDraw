@@ -187,8 +187,7 @@ class LinkedList extends LinearCanvasObject {
     if (! (this.arrows.hasEquiv(e)))
       throw `Edge ${e} does not exist.`;
      
-    var edge = this.arrows.get(e);
-    console.log("edge = ", e, "arrs = ", this.arrows);
+    var edge = this.arrows.getEquiv(e);
     edge.destroy();
     return edge;
   }
