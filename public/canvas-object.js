@@ -179,6 +179,7 @@ class CanvasObject {
    */
   mouseDown() {
     var idx = this.cState.objects.indexOf(this);
+    if (idx == -1) return;
     this.cState.objects.splice(idx, 1);
     this.cState.objects.push(this);
   }
