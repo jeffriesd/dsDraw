@@ -112,7 +112,6 @@ class LinkedList extends LinearCanvasObject {
    *    'linear' i.e. no branches
    */
   addNode(fromNode=null, value=null) {
-    console.log("adding node from ", fromNode ? fromNode.index : null, "to ", value);
     // assign new index
     var maxIdx = Array.from(this.list.keys()).reduce(
       (acc, curr) => Math.max(acc, parseInt(curr)), -1);
@@ -183,7 +182,6 @@ class LinkedList extends LinearCanvasObject {
 
   removeEdge(fromNode, toNode) {
     var e = [fromNode.index, toNode.index];
-    console.log("this.arrows = ", Object.keys(this.arrows));
     if (! (this.arrows.hasEquiv(e)))
       throw `Edge ${e} does not exist.`;
      
@@ -192,17 +190,6 @@ class LinkedList extends LinearCanvasObject {
     return edge;
   }
 
-  /** LinkedList.draw
-   *    draw nodes, arrows will draw themselves
-   */
-  draw(active, idx) {
-    this.configureOptions(active);
-
-    // draw nodes
-    this.list.forEach((node, idx) => {
-      node.draw(active, idx);
-    });
-  }
 }
 
 class ListNode extends NodeObject {

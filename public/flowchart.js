@@ -282,7 +282,7 @@ class FlowchartBox extends CanvasObject {
     this.resizePoint.y = this.y2;
   }
 
-  /** click(event)
+  /** FlowchartBox.click
    *  bring up <textarea> to edit text
    */
   click(event) {
@@ -857,7 +857,6 @@ class Arrow extends CanvasObject {
 
     // arrow may be 'locked' into place by parents
     if (locked) {
-      console.log("locked = ", locked);
       this.lockedFrom = locked.from;
       this.lockedTo = locked.to;
       this.locked = locked.from.getParent();
@@ -893,7 +892,7 @@ class Arrow extends CanvasObject {
     };
   }
 
-  /** CurvedArrow.config
+  /** Arrow.config
    */
   config() {
     return {
@@ -1099,10 +1098,17 @@ class CurvedArrow extends Arrow {
       this.locked.deleteArrow(this);
   }
 
+  /** CurvedArrow.restore
+   *    only add to canvas if
+   *    not being handled by locker object 
+   */
   restore() {
-    super.restore();
-    if (this.locked && this.keyRestore)
-      this.locked.restoreArrow(this);
+    VariableEnvironment.setVar(this.label, this);
+    if (this.locked) {
+      if (this.keyRestore) this.locked.restoreArrow(this);
+    }
+    else
+      this.cState.addCanvasObj(this);
   }
 }
 

@@ -77,6 +77,7 @@ class Array1D extends LinearCanvasObject {
     // copy arrows
     this.arrows.forEach((arr, index) => {
       var cparrow = arr.clone();
+      cparrow.restore();
       
       // index is [a, b]
       var i1 = index[0];
@@ -88,9 +89,7 @@ class Array1D extends LinearCanvasObject {
       cparrow.locked = copy;
 
       copy.arrows.set(index, cparrow);
-      console.log("copied arrs = ", copy.arrows);
     });
-    console.log("source arrs = ", this.arrows);
 
     return copy;
   }
@@ -166,18 +165,6 @@ class Array1D extends LinearCanvasObject {
         arrNode.towerHeight = -Math.floor(tHeight * this.cellSize);
       });
     }
-  }
-
-  /** Array1D.draw
-   */
-  draw(active) {
-    this.configureOptions(active);
-
-    var idx = 0;
-    this.array.forEach((arrNode) => {
-      arrNode.draw(active, idx);
-      idx++;
-    });
   }
 }
 

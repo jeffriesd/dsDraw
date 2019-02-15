@@ -56,10 +56,6 @@ class LinearCanvasObject extends CanvasObject {
    */
   destroy() {
     super.destroy();
-    this.arrows.forEach((arr, key) => {
-      arr.destroy();
-      arr.keyRestore = key;
-    });
   }
 
   /** LinearCanvasObject.restore
@@ -67,7 +63,9 @@ class LinearCanvasObject extends CanvasObject {
    */
   restore() {
     super.restore();
-    this.arrows.forEach(arr => arr.restore());
+    this.arrows.forEach(arr => {
+      arr.restore()
+    });
   }
 
   static defaultCoordinates(cState) {
@@ -116,13 +114,12 @@ class LinearCanvasObject extends CanvasObject {
   draw(active) {
     this.configureOptions(active);
 
-    var idx = 0;
-    this.nodes.forEach((node) => {
+    this.nodes.forEach((node, idx) => {
       node.draw(active, idx);
       idx++;
     });
 
-    this.arrows.forEach(arr => arr.draw());
+    this.arrows.forEach(arr => arr.draw(active));
   }
 
   /** LinearCanvasObject.move
