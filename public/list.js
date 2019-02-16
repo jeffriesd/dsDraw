@@ -175,7 +175,7 @@ class LinkedList extends LinearCanvasObject {
     
     var arrow = new CurvedArrow(this.cState, 
       fromNode.x, fromNode.y, toNode.x, toNode.y, anchors);
-    arrow.restore();
+    arrow.keyRestore = [fromNode.index, toNode.index];
 
     this.arrows.set(e, arrow);
   }
@@ -208,42 +208,64 @@ class ListNode extends NodeObject {
     return Math.floor(this.getParent().cellSize / 2);
   }
 
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
     this.nodeStyle = this.getParent().nodeStyle;
   }
 
   /** ListNode.lockArrow
    *    put tip of arrow on outer edge of node and use
    *    angle to determine placement on circumference 
+   *
+   *    move control point as well to avoid oscillation
+   *    between two different angles 
+   *    (visual glitch that occurs when control point is inside node)
    */
   lockArrow(arrow, dir) {
     var endAngle = arrow.endingAngle();
     var startAngle = arrow.startingAngle();
 
-    // center is this.x, this.y
-    var x, y;
-    if (dir == "from") {
-      x = this.x - this.radius * Math.cos(startAngle);
-      y = this.y - this.radius * Math.sin(startAngle);
+    // determine offsets from 
+    // node center 
+    var offX, offY;
 
-      arrow.x1 = x;
-      arrow.y1 = y;
-      arrow.startPoint.x = x;
-      arrow.startPoint.y = y;
+    let inside = (n, cp) => 
+      (Math.abs(n.x - cp.x) <= n.radius 
+        && Math.abs(n.y - cp.y) <= n.radius);
+
+    // center is this.x, this.y
+    if (dir == "from") {
+      offX = this.radius * Math.cos(startAngle);
+      offY = this.radius * Math.sin(startAngle);
+
+      arrow.x1 = this.x - offX;
+      arrow.y1 = this.y - offY;
+      arrow.startPoint.x = arrow.x1;
+      arrow.startPoint.y = arrow.y1;
+
+      // fix angle to avoid oscillation
+      if (inside(this, arrow.cp1)) {
+        arrow.cp1.x = this.x - 2 * offX;
+        arrow.cp1.y = this.y - 2 * offY;
+      }
     }
     else {
-      x = this.x - this.radius * Math.cos(endAngle);
-      y = this.y - this.radius * Math.sin(endAngle);
-      arrow.x2 = x;
-      arrow.y2 = y;
+      offX = this.radius * Math.cos(endAngle);
+      offY = this.radius * Math.sin(endAngle);
+
+      arrow.x2 = this.x - offX;
+      arrow.y2 = this.y - offY;
+      if (inside(this, arrow.cp2)) {
+        arrow.cp2.x = this.x - 2 * offX;
+        arrow.cp2.y = this.y - 2 * offY;
+      }
     }
   }
 
   /** ListNode.draw
    */
-  draw(active, idx) {
-    this.configureOptions(active);    
+  draw(idx) {
+    this.configureOptions();    
 
     this.ctx.beginPath();
     this.hitCtx.beginPath();
