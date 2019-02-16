@@ -180,7 +180,7 @@ class CanvasState {
 
 
   /** CanvasState.activeParent
-   *    returns active macro object (parent of active obj)
+   *    returns selected parent object 
    */
   activeParent() {
     if (this.activeObj)
@@ -341,14 +341,10 @@ class CanvasState {
 
     this.objects.forEach((obj) => {
       // add some highlighting to show active object/group
-      var active = 
-        (this.activeParent() === obj && !this.selectGroup.size)
-        || this.selectGroup.has(obj);
-
-      if (active)
+      if (this.isActive(obj))
         obj.drawLabel();
 
-      obj.draw(active);
+      obj.draw();
     });
 
     // dispatch mouseMove event even when mouse is stationary 
@@ -359,6 +355,16 @@ class CanvasState {
       mouseMove.offsetY = this.mouseMove.y;
       this.editCanvas.dispatchEvent(mouseMove);
     }
+  }
+
+  /** CanvasState.isActive
+   *    returns boolean indicating
+   *    whether this object has been selected
+   *    by the user
+   */
+  isActive(canvasObj) {
+    return (this.activeParent() === canvasObj && !this.selectGroup.size)
+            || this.selectGroup.has(canvasObj);
   }
 
   /** CanvasState.initButtons
@@ -414,7 +420,8 @@ class CanvasState {
     else
       activeToolbar = this.toolbars["default"];
 
-    activeToolbar.show();
+    if (active)
+      activeToolbar.show();
   }
 
 }
