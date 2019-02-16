@@ -128,6 +128,14 @@ class CanvasObject {
     VariableEnvironment.setVar(this.label, this);
   }
 
+  /** CanvasObject.active
+   *    return whether this object
+   *    has been selected by the user
+   */
+  active() {
+    return this.cState.isActive(this);
+  }
+
   deactivate() {
     this.getOptions().hide();
   }
@@ -216,6 +224,16 @@ class CanvasChildObject {
     Object.assign(copy, this.config());
     return copy;
   }
+
+  /** CanvasChildObject.active
+   *    return whether this object
+   *    has been selected by the user
+   */
+  active() {
+    return this.cState.isActive(this) || this.getParent().active();
+  }
+
+
 
   deactivate() {
   }
