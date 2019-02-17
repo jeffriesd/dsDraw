@@ -277,7 +277,7 @@ class CanvasState {
         case "drag":
           return new DragCommand(this, this.activeObj);
         case "clone":
-          return new CloneCommand(this, this.activeObj);
+          return new CloneCommand(this, this.activeParent());
       }
     }
     else {
@@ -339,13 +339,7 @@ class CanvasState {
       toolClass.outline(this.ctx, x1, y1, x2, y2);
     }
 
-    this.objects.forEach((obj) => {
-      // add some highlighting to show active object/group
-      if (this.isActive(obj))
-        obj.drawLabel();
-
-      obj.draw();
-    });
+    this.objects.forEach((obj) => obj.draw());
 
     // dispatch mouseMove event even when mouse is stationary 
     // for hover actions
