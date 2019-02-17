@@ -311,17 +311,12 @@ class CloneCanvasCommand {
     this.receivers = this.originals
       .filter(obj => ! obj.locked)
       .map(obj => obj.clone());
-    this.receivers.forEach(x => {
-      console.log("cloning item, locked = ", x.locked);
-    });
   }
 
   execute() {
     if (this.receivers == null) this.doClone();
 
-    this.receivers.forEach(r => {
-      r.restore();
-    });
+    this.receivers.forEach(r => r.restore());
 
     // necessary to bind labels to objects
     // in new clip when switching and labels are shared
@@ -977,6 +972,7 @@ class Array1DArrowCommand extends Array1DCommand {
 
       this.arrow = 
         new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
+      this.arrow.keyRestore = [this.i1, this.i2];
 
       // set control points so arc goes above by default
       var mid = Math.floor((x1 + x2) / 2);
@@ -1219,7 +1215,7 @@ class LinkedListCutCommand extends LinkedListCommand {
     this.fromIndex = this.args[0];
     this.toIndex = this.args[1];
 
-    // save state for undo
+    // save arrow object for undo
     this.edge = null;
   }
 
@@ -1234,10 +1230,50 @@ class LinkedListCutCommand extends LinkedListCommand {
   }
 
   /** LinkedListCutCommand.undo 
-   *    restore cut edge
+   *    restore cut edge (it will add itself back
+   *    to parent map in its restore method)
    */
   undo() {
-    this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
     this.edge.restore();
+  }
+}
+
+class BSTCommand extends CanvasObjectMethod {
+}
+
+class BSTInsertCommand extends BSTCommand {
+  constructor(receiver, valueNode) {
+    super(receiver, valueNode);
+
+    // save tree exactly for undo
+    this.oldTree = receiver.clone();
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+
+  checkArguments() {
+    if (isNaN(Number(this.value)))
+      throw "BST only supports numeric values";
+  }
+
+  executeSelf() {
+    this.receiver.insert(this.value);
+    // fetch node stored during insert operation
+    this.inserted = this.receiver.inserted;   
+    console.log("inserted = ", this.inserted.value);
+  }
+
+  /** BSTInsertCommand.undo
+   *    remove inserted node
+   */
+  undo() {
+    var par = this.inserted.parNode;
+    if (this.inserted === par.left)
+      par.left = null;
+    else if (this.inserted === par.right)
+      par.right = null;
   }
 }
