@@ -15,9 +15,6 @@ class CanvasObject {
     this.x2 = x2;
     this.y2 = y2;
 
-    this.width = this.x2 - this.x1;
-    this.height = this.y2 - this.y1;
-
     this.cState.registerCanvasObj(this);
     
     this._label = "";
@@ -90,6 +87,26 @@ class CanvasObject {
     return 100;
   }
 
+  get width() {
+    return this.x2 - this.x1;
+  }
+
+  get height() {
+    return this.y2 - this.y1;
+  }
+
+  static defaultCoordinates(cState) {
+    var center = cState.getCenter();
+    var w = 200;
+    var h = 200;
+    return {
+      x1: center.x,
+      y1: center.y,
+      x2: center.x + w,
+      y2: center.y + h,
+    };
+  }
+
   get x() {
     return this.x1;
   }
@@ -158,6 +175,14 @@ class CanvasObject {
   }
 
   drag(deltaX, deltaY) {
+  }
+
+  /** CanvasObject.draw
+   *    all CanvasObjects call this
+   *    to draw label
+   */
+  draw() {
+    if (this.active()) this.drawLabel();
   }
 
   drawLabel() {
@@ -243,7 +268,7 @@ class CanvasChildObject {
   }
 
   move(deltaX, deltaY) {
-    console.log("move not implemented for", this.constructor.name);
+    this.getParent().move(deltaX, deltaY);
   }
 
   drag(deltaX, deltaY) {
