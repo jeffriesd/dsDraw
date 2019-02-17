@@ -8,6 +8,7 @@ const objectCommands = {
   "LinkedListinsert": LinkedListInsertCommand,
   "LinkedListlink": LinkedListLinkCommand,
   "LinkedListcut": LinkedListCutCommand,
+  "BSTinsert": BSTInsertCommand,
 };
 
 const mainCommands = {
@@ -44,6 +45,7 @@ const constructors = {
   "pbox":     CanvasObjectConstructor,
   "conn":     CanvasObjectConstructor,
   "arrow":    CanvasObjectConstructor,
+  "bst":      CanvasObjectConstructor,
 }
 
 const canvasClasses = {
@@ -62,6 +64,7 @@ const canvasClasses = {
   "pbox":     ParallelogramBox,
   "conn":     Connector,
   "arrow":    CurvedArrow,
+  "bst":      BST,
 }
 
 /** 
