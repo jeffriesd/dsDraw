@@ -20,16 +20,16 @@ class LinearCanvasObject extends CanvasObject {
 
   propNames() {
     return {
-        "ff": "fontFamily",
-        "fontFamily": "fontFamily",
-        "font": "fontSize",
-        "fontSize": "fontSize",
-        "fs": "fontSize",
-        "cellSize": "cellSize",
-        "cs": "cellSize",
-        "indp": "indexPlacement",
-        "ind": "showIndices",
-        "val": "showValues",
+      "ff": "fontFamily",
+      "fontFamily": "fontFamily",
+      "font": "fontSize",
+      "fontSize": "fontSize",
+      "fs": "fontSize",
+      "cellSize": "cellSize",
+      "cs": "cellSize",
+      "indp": "indexPlacement",
+      "ind": "showIndices",
+      "val": "showValues",
     };
   }
 
@@ -51,11 +51,13 @@ class LinearCanvasObject extends CanvasObject {
     };
   }
 
-  /** LinearCanvasObject.destroy
-   *    remove array as well as any arcs it is a parent of
+  /** LinearCanvasObject.clone
+   *    clone and add parent object references
    */
-  destroy() {
-    super.destroy();
+  clone() {
+    var copy = super.clone();
+    copy.nodes.forEach(node => node.parentObject = copy);
+    return copy;
   }
 
   /** LinearCanvasObject.restore
@@ -94,9 +96,9 @@ class LinearCanvasObject extends CanvasObject {
    *    set border, border color,
    *    font, and set style (cell or tower)
    */
-  configureOptions(active) {
+  configureOptions() {
     this.ctx.lineWidth = this.borderThickness;
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
 
     var font = "";
     if (this.fontStyle)
@@ -111,15 +113,16 @@ class LinearCanvasObject extends CanvasObject {
 
   /** LinearCanvasObject.draw
    */
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.nodes.forEach((node, idx) => {
-      node.draw(active, idx);
+      node.draw(idx);
       idx++;
     });
 
-    this.arrows.forEach(arr => arr.draw(active));
+    this.arrows.forEach(arr => arr.draw());
   }
 
   /** LinearCanvasObject.move
@@ -146,7 +149,8 @@ class LinearCanvasObject extends CanvasObject {
   }
 
   restoreArrow(arrObj) {
-    this.arrows.set(arrObj.keyRestore, arrObj);
+    if (! this.arrows.hasValue(arrObj))
+      this.arrows.set(arrObj.keyRestore, arrObj);
   }
 }
 
@@ -198,8 +202,9 @@ class NodeObject extends CanvasChildObject {
     };
   }
 
-  configureOptions(active) {
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : "#000";
+
+  configureOptions() {
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : "#000";
     this.ctx.fillStyle = this.fill;
     this.ctx.lineWidth = this.borderThickness;
 
