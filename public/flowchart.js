@@ -52,18 +52,6 @@ class FlowchartBox extends CanvasObject {
     };
   }
 
-  static defaultCoordinates(cState) {
-    var center = cState.getCenter();
-    var w = 200;
-    var h = 200;
-    return {
-      x1: center.x,
-      y1: center.y,
-      x2: center.x + w,
-      y2: center.y + h,
-    };
-  }
-
   /** FlowchartBox.config
    *    return object with configurable 
    *    attribute names and values for
@@ -152,11 +140,11 @@ class FlowchartBox extends CanvasObject {
 
   /** FlowchartBox.configureOptions
    */
-  configureOptions(active) {
+  configureOptions() {
     // editor bg color
     this.editor.style.backgroundColor = this.fill;
 
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.border;
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
     this.ctx.lineWidth = this.borderThickness;
 
     this.ctx.fillStyle = this.fill;
@@ -268,9 +256,6 @@ class FlowchartBox extends CanvasObject {
     if (this.y2 < this.y1)
       this.y2 = this.y1;
 
-    this.width = this.x2 - this.x1;
-    this.height = this.y2 - this.y1;
-
     // resize editor as well
     this.positionEditor();
 
@@ -317,9 +302,9 @@ class FlowchartBox extends CanvasObject {
    *    only here to show border when border color = #0000
    *    i.e. transparent
    */
-  draw(active) {
+  draw() {
     // check for transparency
-    // if (!active && this.showBorder && this.border.startsWith("#")) {
+    // if (!this.active() && this.showBorder && this.border.startsWith("#")) {
     //   // border color is #xxx0 or #xxxxxx00
     //   var len = this.border.length;
     //   var alpha;
@@ -382,9 +367,9 @@ class RectBox extends FlowchartBox {
    *    renders rectangular box on main canvas
    *    and hitCanvas and draws wrapped words
    */
-  draw(active) {
-    super.draw(active);
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.rect(this.x1, this.y1, this.width, this.height);
@@ -412,16 +397,16 @@ class RoundBox extends FlowchartBox {
     this.radius = 10;
   } 
 
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
 
   }
 
   /** RoundBox.draw
    */
-  draw(active) {
-    super.draw(active);
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     // draw rounded box
     this.ctx.beginPath();
@@ -478,8 +463,8 @@ class DiamondBox extends FlowchartBox {
   /** configureOptions  
    *    set style options for drawing and redefine edge points
    */
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
 
 
     var hw = Math.floor(this.width / 2);
@@ -498,9 +483,9 @@ class DiamondBox extends FlowchartBox {
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
    */
-  draw(active) {
-    super.draw(active);
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.ctx.beginPath();
 
@@ -557,8 +542,8 @@ class ParallelogramBox extends FlowchartBox {
     this.skewSlope = 3;
   } 
 
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
 
 
     this.bottomLeft = {
@@ -574,9 +559,9 @@ class ParallelogramBox extends FlowchartBox {
 
   /** ParallelogramBox.draw
    */
-  draw(active) {
-    super.draw(active);
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -660,8 +645,8 @@ class TextBox extends FlowchartBox {
     }
   }
 
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
     this.ctx.setLineDash(this.lineDash);
   }
 
@@ -669,8 +654,9 @@ class TextBox extends FlowchartBox {
    *    display dotted line border in editor
    *    but nothing in recording
    */
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.ctx.editCtx.beginPath();
     this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
@@ -760,8 +746,8 @@ class Connector extends FlowchartBox {
     super(canvasState, x1, y1, x2, y2);
   }
 
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
 
     var dx = Math.pow(this.x2 - this.x1, 2);
     var dy = Math.pow(this.y2 - this.y1, 2);
@@ -776,9 +762,9 @@ class Connector extends FlowchartBox {
 
   /**  Connector.draw
    */
-  draw(active) {
-    super.draw(active);
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -969,9 +955,9 @@ class CurvedArrow extends Arrow {
    *    set drawing options and update endpoints
    *    if locked to parent
    */
-  configureOptions(active) {
+  configureOptions() {
     this.ctx.lineWidth = this.thickness;
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.strokeColor;
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.strokeColor;
 
     if (this.dashed)
       this.ctx.setLineDash(this.lineDash);
@@ -990,8 +976,9 @@ class CurvedArrow extends Arrow {
 
   /** CurvedArrow.draw
    */
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
@@ -1024,7 +1011,7 @@ class CurvedArrow extends Arrow {
     }
 
     // draw head so it appears on top
-    this.head.draw(active);
+    this.head.draw();
   }
 
   /** CurvedArrow.outline
@@ -1039,6 +1026,7 @@ class CurvedArrow extends Arrow {
 
   /** CurvedArrow.endingAngle
    *    return ending angle from 2nd control point to end point
+   *    in radians
    */
   endingAngle() {
     var dx = this.x2 - this.cp2.x;
@@ -1107,7 +1095,7 @@ class CurvedArrow extends Arrow {
     if (this.locked) {
       if (this.keyRestore) this.locked.restoreArrow(this);
     }
-    else
+    else 
       this.cState.addCanvasObj(this);
   }
 }
@@ -1209,8 +1197,9 @@ class RightAngleArrow extends Arrow {
    *    (draw slightly thicker on hit canvas so
    *    arrow can be more easily clicked)
    */
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    super.draw();
+    this.configureOptions();
 
     var curX = this.x1;
     var curY = this.y1;
@@ -1244,7 +1233,7 @@ class RightAngleArrow extends Arrow {
     hitCtx.lineTo(this.x2, this.y2);
     hitCtx.stroke();
 
-    this.head.draw(active);
+    this.head.draw();
   }
 
   /** RightAngleArrow.move
@@ -1309,8 +1298,8 @@ class ArrowHead extends CanvasChildObject {
  
   /** ArrowHead.configureOptions
    */
-  configureOptions(active) {
-    this.ctx.strokeStyle = active ? this.cState.activeBorder : this.parentArrow.strokeColor;
+  configureOptions() {
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.parentArrow.strokeColor;
     this.ctx.fillStyle = this.getParent().headFill;
     this.hitCtx.fillStyle = this.hashColor;
 
@@ -1320,8 +1309,8 @@ class ArrowHead extends CanvasChildObject {
 
   /** ArrowHead.draw
    */
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    this.configureOptions();
 
     var arrow = this.getParent();
   
@@ -1443,12 +1432,6 @@ class ArrowHead extends CanvasChildObject {
         this.parentArrow.y2 += deltaY;
       }
     }
-  }
-
-  /**ArrowHead.move
-   */
-  move(deltaX, deltaY) {
-    this.parentArrow.move(deltaX, deltaY);
   }
 }
 
