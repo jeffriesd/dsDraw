@@ -14,9 +14,18 @@ Object.defineProperty(Array.prototype, "peek", {
   enumerable: false,
 });
 
+// array max
+Object.defineProperty(Array.prototype, "max", {
+  value: function() {
+    if (this.length == 0) return null;
+    if (! this.every(x => typeof x == "number")) 
+      throw "Array.prototype.max only defined for numeric arrays";
+    return this.reduce((acc, cur) => Math.max(acc, cur));
+  },
+  enumerable: false,
+});
+
 // object equivalence
-
-
 Object.defineProperty(Object.prototype, "equiv", {
   value: 
     function(other) {
@@ -58,10 +67,17 @@ Object.defineProperty(Map.prototype, "hasEquiv", {
   enumerable: false,
 });
 
+Object.defineProperty(Map.prototype, "hasValue", {
+  value: function(obj) {
+    return Array.from(this.values()).includes(obj);
+  },
+  enumerable: false,
+});
+
 Object.defineProperty(Map.prototype, "getEquiv", {
   value: function(key) {
-    for (var k in this)
-      if (k == key) return this[k];
+    for ([k, v] of this.entries())
+      if (equivalent(k, key)) return v;
   },
   enumerable: false,
 });
