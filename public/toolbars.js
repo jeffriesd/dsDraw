@@ -230,8 +230,8 @@ class FlowchartBoxOptions extends ToolOptions {
   }
 
   setSelectOptions() {
-    $("#fontSize").val(this.cState.activeObj.getParent().fontSize + "px");
-    $("#fontFamily").val(this.cState.activeObj.getParent().fontFamily);
+    $("#fontSize").val(this.cState.activeParent().fontSize + "px");
+    $("#fontFamily").val(this.cState.activeParent().fontFamily);
   }
 
 }
