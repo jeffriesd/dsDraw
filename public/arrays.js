@@ -24,7 +24,7 @@ class Array1D extends LinearCanvasObject {
     this.cellType = typeof 0;
     this.maxTowerHeight = 8;
 
-    this.displayStyle = "tower";
+    this.displayStyle = "cell";
 
     // keep track of anchored arrows 
     // (keyed by start and endpoints)
@@ -77,7 +77,6 @@ class Array1D extends LinearCanvasObject {
     // copy arrows
     this.arrows.forEach((arr, index) => {
       var cparrow = arr.clone();
-      cparrow.restore();
       
       // index is [a, b]
       var i1 = index[0];
@@ -92,14 +91,6 @@ class Array1D extends LinearCanvasObject {
     });
 
     return copy;
-  }
-
-  /** Array1D.destroy
-   *    remove array as well as any arcs it is a parent of
-   */
-  destroy() {
-    super.destroy();
-    this.arrows.forEach(arr => arr.destroy());
   }
 
   getStartCoordinates() {
@@ -141,8 +132,8 @@ class Array1D extends LinearCanvasObject {
    *    set border, border color,
    *    font, and set style (cell or tower)
    */
-  configureOptions(active) {
-    super.configureOptions(active);
+  configureOptions() {
+    super.configureOptions();
 
     this.cellSize = parseInt(this.cellSize);
 
@@ -219,8 +210,8 @@ class ArrayNode extends NodeObject {
     }
   }
 
-  configureOptions(active, idx) {
-    super.configureOptions(active);
+  configureOptions(idx) {
+    super.configureOptions();
 
     this.x = (idx * this.cellSize) + this.getParent().x1;
     this.y = this.getParent().y1;
@@ -228,8 +219,8 @@ class ArrayNode extends NodeObject {
 
   /** ArrayNode.draw
    */
-  draw(active, idx) {
-    this.configureOptions(active, idx);
+  draw(idx) {
+    this.configureOptions(idx);
 
     // draw box
     this.ctx.beginPath();
