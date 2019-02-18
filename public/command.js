@@ -302,27 +302,6 @@ class RelabelCommand {
 }
 
 
-class ConsoleDestroyCommand {
-  constructor(cState, receiver) {
-    this.cState = cState;
-    this.receiver = receiver;
-    if (! (this.receiver instanceof CanvasObject))
-      throw `Cannot delete non-CanvasObject '${this.receiver}'.`;
-
-    // save label for undoing
-    this.objLabel = receiver.label;
-  }
-
-  execute() {
-    this.receiver.destroy();
-  }
-
-  undo() {
-    this.receiver.restore();
-    this.receiver.label = this.objLabel;
-  }
-}
-
 class CloneCanvasCommand {
   constructor(cState) {
     this.cState = cState;
@@ -403,6 +382,35 @@ class ConsoleCommand {
 
   //TODO undo postorder traversal...
 }
+
+class ConsoleDestroyCommand extends ConsoleCommand {
+  constructor(cState, receiver) {
+    super(receiver);
+    this.cState = cState;
+    // save label for undoing
+    this.objLabel = receiver.command.execute().label;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
+  }
+
+  checkArguments() {
+    if (! (this.receiver instanceof CanvasObject))
+      throw `Cannot delete non-CanvasObject '${this.receiver}'.`;
+  }
+
+  executeSelf() {
+    this.receiver.destroy();
+  }
+
+  undo() {
+    this.receiver.restore();
+    this.receiver.label = this.objLabel;
+  }
+}
+
 
 class AssignVariableCommand extends ConsoleCommand {
   constructor(variableName, value) {
@@ -510,14 +518,15 @@ class ConfigCommand extends ConsoleCommand {
  *    defined 'list' or the elements of a data structure
  */
 class GetChildrenCommand extends ConsoleCommand {
-  constructor(receiverName, low, high) {
-    super(low, high);
-    this.receiver = VariableEnvironment.getVar(receiverName);
+  constructor(receiver, low, high) {
+    super(receiver, low, high);
     this.lowArgNode = low;
     this.highArgNode = high;
   }
 
   executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
     if (this.lowArgNode != null)
       this.low = this.lowArgNode.command.execute();
     else this.low = null;
@@ -538,6 +547,7 @@ class GetChildrenCommand extends ConsoleCommand {
    *    otherwise slice the array
    */
   executeSelf() {
+    console.log("childr rec = ", this.receiver.constructor.name);
     if (this.receiver instanceof Array) {
       if (this.low == null) this.low = 0;
       if (this.high == null) this.high = this.receiver.length;
@@ -555,17 +565,19 @@ class GetChildrenCommand extends ConsoleCommand {
 /** GetChildCommand
  *    this command acts as an overloaded operator. 
  *    it returns a single element, either from the elements of a user
- *    defined 'list' or the elements of a data structure
+ 1    defined 'list' or the elements of a data structure
+ *
+ *    now works with arbitrary expression (e.g. varname[] or function()[])
  */
 class GetChildCommand extends ConsoleCommand {
-  constructor(receiverName, key) {
-    super(key);
-    this.receiver = VariableEnvironment.getVar(receiverName);
+  constructor(receiver, key) {
+    super(receiver, key);
   }
 
   executeChildren() {
     super.executeChildren();
-    this.key = this.args[0];
+    this.receiver = this.args[0];
+    this.key = this.args[1];
   }
 
   checkArguments() {
@@ -1303,6 +1315,50 @@ class LinkedListRemoveCommand extends LinkedListCommand {
   }
 }
 
+class BSTConstructor extends CanvasObjectConstructor {
+
+  executeChildren() {
+    super.executeChildren();
+    this.initializer = this.args[0];
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    this.styleOptions = this.args[1];
+  }
+
+  buildComplete(bst, arr, low, high) {
+    var mid = Math.floor((low + high) / 2);
+    var left = buildComplete(bst, arr, low, mid);
+    var right = buildComplete(bst, arr, mid, high);
+  }
+
+  createObject() {
+    this.coords = BST.defaultCoordinates(this.cState);
+    this.newObj = new BST(
+      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
+
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    var len = BST.defaultSize;
+    if (this.initializer == "random")
+      randomArray(len, BST.randomSeed).forEach(x => this.newObj.insert(x));
+    else if (this.initializer == "complete") {
+      var vals = randomArray(2 ** 5 - 1, BST.randomSeed).sort();
+      buildComplete(this.newObj, vals, 0, len);
+    }
+    else if (this.initializer instanceof Array)
+      this.initializer.forEach(x => this.newObj.insert(x));
+    else 
+      this.parseError("Invalid initializer");
+  }
+
+  usage() {
+    return "array(initializer, styleOptions)";
+  }
+}
+
+
 class BSTCommand extends CanvasObjectMethod {
 }
 
@@ -1353,6 +1409,8 @@ class BSTRemoveCommand extends BSTCommand {
   checkArguments() {
     if (typeof this.value !== "number")
       throw "BST only supports numeric values";
+    if (this.receiver.find(this.value) == null)
+      throw `Cannot remove '${this.value}': not present in tree.`;
   }
 
   executeSelf() {
@@ -1393,4 +1451,30 @@ class BSTFindCommand extends BSTCommand {
   undo() {
   }
 
+}
+
+class BSTInorderCommand extends BSTCommand {
+  executeSelf() {
+    return this.receiver.inorder().map(node => node.value);
+  }
+
+  undo() {}
+}
+
+
+class BSTPreorderCommand extends BSTCommand {
+  executeSelf() {
+    return this.receiver.preorder().map(node => node.value);
+  }
+
+  undo() {}
+}
+
+
+class BSTPostorderCommand extends BSTCommand {
+  executeSelf() {
+    return this.receiver.postorder().map(node => node.value);
+  }
+
+  undo() {}
 }
