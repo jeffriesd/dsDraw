@@ -628,7 +628,9 @@ class GetParentPropertyCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (this.receiver instanceof Array && this.propName == "length") return;
+    if (this.receiver instanceof Array && this.propName == "length") { 
+      this.property = "length"; return;
+    }
     if (! (this.receiver instanceof CanvasObject))
       throw "Cannot access property of " + this.receiver;
     if (this.receiver instanceof CanvasObject)
@@ -639,6 +641,7 @@ class GetParentPropertyCommand extends ConsoleCommand {
   }
 
   executeSelf() {
+    console.log("getting prop ", this.property, "from ", this.receiver.constructor.name);
     return this.receiver[this.property];
   }
 }
