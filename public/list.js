@@ -264,7 +264,10 @@ class ListNode extends NodeObject {
 
   /** ListNode.draw
    */
-  draw(idx) {
+  draw() {
+    // list uses unique (i.e. not positional like array)
+    // indices
+    var idx = this.index;
     this.configureOptions();    
 
     this.ctx.beginPath();
@@ -329,25 +332,22 @@ class ListNode extends NodeObject {
     this.ctx.fillText(idx, this.x, this.y + yOffset);
 
   }
-
-  /** ListNode.drag
+    
+  /** ListNode.shiftDrag
    *    shift + regular drag moves individual nodes around
    *
    *    dragging head moves list label
    */
-  drag(deltaX, deltaY) {
-    if (hotkeys[SHIFT]) {
-      this.x += deltaX;
-      this.y += deltaY;
+  shiftDrag(deltaX, deltaY) {
+    this.x += deltaX;
+    this.y += deltaY;
 
-      var list = this.getParent();
-
-      if (this === this.getParent().head) {
-        list.x1 += deltaX;
-        list.y1 += deltaY;
-        list.x2 += deltaX;
-        list.y2 += deltaY;
-      }
+    var list = this.getParent();
+    if (this === this.getParent().head) {
+      list.x1 += deltaX;
+      list.y1 += deltaY;
+      list.x2 += deltaX;
+      list.y2 += deltaY;
     }
   }
 }
