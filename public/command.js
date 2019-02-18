@@ -127,6 +127,33 @@ class DragCommand extends DrawCommand {
   }
 }
 
+
+class ShiftDragCommand extends DrawCommand {
+  constructor(cState, receiver) {
+    super(cState, receiver);
+
+    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
+    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
+
+    this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
+    this.newPos = {x: this.receiver.x, y: this.receiver.y };
+  }
+
+  execute() {
+    var dx = this.newPos.x - this.receiver.x;
+    var dy = this.newPos.y - this.receiver.y;
+    this.receiver.shiftDrag(dx, dy);
+  }
+
+  undo() {
+    var dx = this.oldPos.x - this.receiver.x;
+    var dy = this.oldPos.y - this.receiver.y;
+    // drag back to initial point
+    this.receiver.shiftDrag(dx, dy);
+  }
+}
+
+
 class CloneCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
@@ -1238,15 +1265,48 @@ class LinkedListCutCommand extends LinkedListCommand {
   }
 }
 
+class LinkedListRemoveCommand extends LinkedListCommand {
+  constructor(receiver, removeIdx) {
+    super(receiver, removeIdx);
+
+    this.node = null;
+    this.removedArrows = [];
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.removeIndex = this.args[0];
+  }
+
+  checkArguments() {
+    this.checkIndices(this.removeIndex);
+  }
+
+  executeSelf() {
+    if (this.node == null) {
+      this.node = this.receiver.list.get(this.removeIndex);
+      this.receiver.arrows.forEach((arr, idx) => {
+        if (idx.includes(this.removeIndex))
+          this.removedArrows.push(arr);
+      });
+    }
+    this.receiver.list.delete(this.removeIndex);
+    this.removedArrows.forEach(arr => arr.destroy());
+  }
+
+  undo() {
+    this.receiver.list.set(this.removeIndex, this.node);
+    this.removedArrows.forEach(arr => arr.restore());
+  }
+}
+
 class BSTCommand extends CanvasObjectMethod {
 }
 
 class BSTInsertCommand extends BSTCommand {
   constructor(receiver, valueNode) {
     super(receiver, valueNode);
-
-    // save tree exactly for undo
-    this.oldTree = receiver.clone();
+    this.oldTree = this.receiver.root.deepCopy();
   }
 
   executeChildren() {
@@ -1255,25 +1315,79 @@ class BSTInsertCommand extends BSTCommand {
   }
 
   checkArguments() {
-    if (isNaN(Number(this.value)))
+    if (typeof this.value !== "number")
       throw "BST only supports numeric values";
   }
 
   executeSelf() {
-    this.receiver.insert(this.value);
-    // fetch node stored during insert operation
-    this.inserted = this.receiver.inserted;   
-    console.log("inserted = ", this.inserted.value);
+    if (this.newTree == undefined) {
+      this.receiver.insert(this.value);
+      this.newTree = this.receiver.root.deepCopy();
+    }
+    this.receiver.root = this.newTree.deepCopy();
+    this.receiver.claimChildren(this.receiver.root);
   }
 
   /** BSTInsertCommand.undo
    *    remove inserted node
    */
   undo() {
-    var par = this.inserted.parNode;
-    if (this.inserted === par.left)
-      par.left = null;
-    else if (this.inserted === par.right)
-      par.right = null;
+    this.receiver.root = this.oldTree.deepCopy();
+    this.receiver.claimChildren(this.receiver.root);
   }
+}
+
+class BSTRemoveCommand extends BSTCommand {
+  constructor(receiver, valueNode) {
+    super(receiver, valueNode);
+    this.oldTree = this.receiver.root.deepCopy();
+  }
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.value !== "number")
+      throw "BST only supports numeric values";
+  }
+
+  executeSelf() {
+    if (this.newTree == undefined) {
+      this.receiver.remove(this.value);
+      this.newTree = this.receiver.root.deepCopy();
+    }
+    this.receiver.root = this.newTree.deepCopy();
+    this.receiver.claimChildren(this.receiver.root);
+  }
+
+  /** BSTInsertCommand.undo
+   *    remove inserted node
+   */
+  undo() {
+    this.receiver.root = this.oldTree.deepCopy();
+    this.receiver.claimChildren(this.receiver.root);
+  }
+
+}
+
+
+class BSTFindCommand extends BSTCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.value !== "number")
+      throw "BST only supports numeric values";
+  }
+
+  executeSelf() {
+    return this.receiver.find(this.value);
+  }
+
+  undo() {
+  }
+
 }
