@@ -255,37 +255,13 @@ class CanvasState {
     this.startPoint = this.mouseDown;
   }
 
-  /** CanvasState.addDrawCommand
+  /** CanvasState.executeDrawCommand
    *    call createDrawCommand and push it 
    *    onto undoStack
    */
-  addDrawCommand() {
-    var drawCommand = this.createDrawCommand();
+  executeDrawCommand() {
+    var drawCommand = createDrawCommand(this);
     if (drawCommand) CommandRecorder.execute(drawCommand);
-  }
-
-  /** CanvasState.createDrawCommand
-   *    Create new command object
-   */
-  createDrawCommand() {
-    if (this.activeObj) {
-      switch (this.activeCommandType) {
-        case "clickCreate":
-          return new ClickCreateCommand(this, this.activeObj);
-        case "move":
-          return new MoveCommand(this, this.activeObj);
-        case "drag":
-          return new DragCommand(this, this.activeObj);
-        case "clone":
-          return new CloneCommand(this, this.activeParent());
-      }
-    }
-    else {
-      switch (this.drawMode) {
-        case "SelectTool":
-          return new SelectCommand(this);
-      }
-    }
   }
 
   /** CanvasState.getCenter
@@ -523,6 +499,10 @@ class CanvasEventHandler {
 
           this.cState.activeCommandType = "move";
         }
+        else if (hotkeys[SHIFT]) {
+          this.cState.activeObj.shiftDrag(deltaX, deltaY);
+          this.cState.activeCommandType = "shiftDrag";
+        }
         else {
           this.cState.activeObj.drag(deltaX, deltaY);
           this.cState.activeCommandType = "drag";
@@ -581,7 +561,7 @@ class CanvasEventHandler {
     }
 
     // create DrawCommand object and push onto undo stack
-    this.cState.addDrawCommand();
+    this.cState.executeDrawCommand();
     this.cState.activeCommandType = "";
 
     if (this.cState.selectGroup.size)
