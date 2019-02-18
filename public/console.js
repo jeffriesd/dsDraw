@@ -280,8 +280,14 @@ class CommandConsole {
     // print error or literal result
     if (commandRet != undefined) {
       if (String(commandRet).includes("ERROR")
-        || (typeof commandRet == "string" || typeof commandRet == "number"))
+        || (typeof commandRet == "string" || typeof commandRet == "number"
+              || commandRet instanceof Array)) {
+
+        if (commandRet instanceof Array)
+          commandRet = "[" + String(commandRet) + "]";
+
         this.historyStack.push(String(commandRet));
+      }
     }
 
     // redraw command history
