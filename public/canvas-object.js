@@ -177,6 +177,14 @@ class CanvasObject {
   drag(deltaX, deltaY) {
   }
 
+  /** CanvasObject.shiftDrag
+   *    default behavior 
+   *    is to ignore hotkey
+   */
+  shiftDrag(deltaX, deltaY) {
+    this.drag(deltaX, deltaY);
+  }
+
   /** CanvasObject.draw
    *    all CanvasObjects call this
    *    to draw label
@@ -257,8 +265,6 @@ class CanvasChildObject {
   active() {
     return this.cState.isActive(this) || this.getParent().active();
   }
-
-
 
   deactivate() {
   }
