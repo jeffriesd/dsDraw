@@ -140,8 +140,8 @@ accessor -> objExpr "[" _ (expr _):? ":" _ (expr _):? "]" {% buildRangeAccess %}
 # 'i < a.length' is a function name
 objExpr -> callable {% id %}
          | accessor {% id %}
-         | list {% id %}
-         | propGet {% id %}
+         | list     {% id %}
+         | propGet  {% id %}
          | %varName {% buildVariable %}
 
 # dot operator
