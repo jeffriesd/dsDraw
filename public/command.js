@@ -389,6 +389,7 @@ class ConsoleCommand {
   }
 
   //TODO undo postorder traversal...
+  undo() {}
 }
 
 class ConsoleDestroyCommand extends ConsoleCommand {
@@ -575,6 +576,8 @@ class GetChildrenCommand extends ConsoleCommand {
     }
     throw `Cannot perform access on '{this.receiver.constructor.name}'.`;
   }
+
+  undo() {}
 }
 
 /** GetChildCommand
