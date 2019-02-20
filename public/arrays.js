@@ -49,6 +49,12 @@ class Array1D extends LinearCanvasObject {
       "ds": "displayStyle",
       "height": "maxTowerHeight",
       "seed": "randomSeed",
+      "length": Array1DLengthCommand,
+      "resize": Array1DResizeCommand,
+      "swap": Array1DSwapCommand,
+      "arc": Array1DArrowCommand,
+      "copy": Array1DCopyCommand,
+      "sort": Array1DSortCommand,
     };
   }
 
