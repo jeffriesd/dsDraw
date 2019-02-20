@@ -743,11 +743,10 @@ class AssignListElementCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (this.index < 0 || this.index >= this.list.length) 
-      throw "Array index out of bounds: " + this.index;
-
     if (! (this.list instanceof Array))
       throw "Cannot assign value to non-list " + listName;
+    if (this.index < 0 || this.index >= this.list.length) 
+      throw "Array index out of bounds: " + this.index;
   }
 
   executeSelf() {
