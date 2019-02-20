@@ -27,8 +27,6 @@
  *    expressions (most generic) are simply the union of bool expressions
  *    and dictionary terms. dictionary terms have no applicable
  *    operators, so they get their own classification
- *
- *    TODO: allow arbitrary number of list indices e.g. l[0][0][0]...
  */
 
   const lexer = moo.compile({
@@ -39,6 +37,7 @@
     "*": "*",
     "/": "/",
     "^": "^",
+    "DOT": ".",
     LESSEQ: "<=",
     GREATEQ: ">=",
     EQEQ: "==",
@@ -50,7 +49,6 @@
     ",": ",",
     "(": "(",
     ")": ")",
-    ".": ".",
     "=": "=",
     "{": "{",
     "}": "}",
@@ -60,8 +58,7 @@
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
-    number: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
-    methodName: /[a-zA-Z][a-zA-Z0-9]*\.[a-zA-Z]+/,
+    number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     varName: /[a-zA-Z][a-zA-Z0-9]*/,
     character: /[^\n"]/, 
   });
@@ -77,10 +74,9 @@ line -> statement {% id %}
 
 statement -> assignment {% id %} | expr {% id %}
 
-assignment -> %varName _ "=" _ expr {% buildAssignment %}
-            | %methodName _ "=" _ expr {% buildPropertyAssignment %}
-            | accessor "." [a-zA-Z]:+ _ "=" _ expr {% buildRangePropertyAssignment %}
-            | %varName "[" _ expr _ "]" _ "=" _ expr {% buildListAssignment %} 
+assignment -> %varName _ "=" _ expr                   {% buildAssignment %}
+            | expr  %DOT %varName _ "=" _ expr        {% buildRangePropertyAssignment %}
+            | expr "[" _ expr _ "]" _ "=" _ expr      {% buildListAssignment %} 
 
 expr -> bool {% id %}
 
@@ -106,7 +102,7 @@ unaryNeg -> "-" mathTerminal {% buildNegate %}
           | mathTerminal     {% id %}
 
 nonQuote -> " " | "\t" | "-" | "+" | "*" | "/" | "^" | %LESSEQ | %GREATEQ | %EQEQ 
-          | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "." | "=" | "{" 
+          | %DOT | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "=" | "{" 
           | "}" | "[" | "]" | ";" 
           | %number 
           | %methodName 
@@ -120,29 +116,41 @@ mathTerminal -> number            {% id %}
        | %QUOTE nonQuote:* %QUOTE {% wrapString %}
        | %varName                 {% buildVariable %}
        | "(" _ bool _ ")"         {% d => d[2] %}     # drop parens
-       | accessor "." [a-zA-Z]:+  {% buildChildPropGet %}
-       | deepAccessor             {% id %} 
-       | %methodName              {% buildParentPropGet %}
-       # methodName = obj.property 
+       | propGet                  {% id %}
 
 number -> %number {% wrapNumber %}
 
 # list is just an array of expressions
-list -> "[" "]" {% buildList %}
-list -> "[" _ args _ "]" {% buildList %}
+list -> "[" "]"           {% buildList %}
+list -> "[" _ args _ "]"  {% buildList %}
 
-# accessor returns a canvas child object or an array of canvas child objects
-accessor -> %varName "[" _ expr _ "]"                      {% buildSingleAccess %}
-accessor -> %varName "[" _ (expr _):? ":" _ (expr _):? "]" {% buildRangeAccess %}
-deepAccessor -> %varName "[" _ expr _ "]" ("[" _ expr _ "]"):+   {% buildDeepAccess %}    #lists only
+# accessor returns an element, a sublist, or a list of 
+# data structure child objects (e.g. nodes in a range)
+# TODO -- add step e.g. list[2:10:2] or list[::-1]
+accessor -> objExpr "[" _ expr _ "]"                      {% buildSingleAccess %}
+accessor -> objExpr "[" _ (expr _):? ":" _ (expr _):? "]" {% buildRangeAccess %}
 
-callable -> function {% id %} | method {% id %} 
 
-method -> %methodName "(" _ args _ ")" {% buildMethodCall %}
-        | %methodName "(" ")"      {% buildMethodCall %}
+# objExpr is used to differentiate between expressions that can 
+# be called (function names) or accessed (for a property or element)
+# and plain old math/bool expressions
+#
+# otherwise parser has trouble with
+# 'i < a.length()' because it will think
+# 'i < a.length' is a function name
+objExpr -> callable {% id %}
+         | accessor {% id %}
+         | list {% id %}
+         | propGet {% id %}
+         | %varName {% buildVariable %}
 
-function -> %varName "(" _ args _ ")" {% buildFunctionCall %}
-          | %varName "(" ")"      {% buildFunctionCall %}
+# dot operator
+propGet -> objExpr %DOT %varName {% buildPropGet %}
+
+callable -> function {% id %} 
+
+function -> objExpr "(" _ args _ ")" {% buildFunctionCall %}
+          | objExpr "(" ")"      {% buildFunctionCall %}
 
 # note no spaces before or after bookend args
 args -> funcarg (_ "," _ funcarg):* {% buildFunctionArguments %}
@@ -290,25 +298,25 @@ function buildNegate(operands) {
  *    isLiteral false by definition
  *
  *  pattern:
- *    function -> %varName "(" _ args _ ")" 
- *              | %varName "(" ")"      
+ *    function -> expr "(" _ args _ ")" 
+ *              | expr "(" ")"      
  *   
  */
 function buildFunctionCall(operands) {
-  var functionName = operands[0].text;
+  var functionNode = operands[0];
   var functionArgs = []; // default (no args function)
   if (operands.length == 6) 
     functionArgs = operands[3];
 
   // used to check if assignment should set label of 
   // constructed object
-  var constructed = functionName in constructors;
+  var constructed = functionNode.text in constructors;
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
     constructed: constructed,
-    command: createFunctionCommand(functionName, functionArgs),
+    command: createFunctionCommand(functionNode, functionArgs),
   };
 }
 
@@ -431,20 +439,20 @@ function buildAssignment(operands) {
  *    for configuring property of single canvas object
  *
  *    pattern:
- *      assignment -> %methodName _ "=" _ expr 
+ *      assignment -> %varName %DOT %varName _ "=" _ expr 
+ *                      |expr  %DOT %varName _ "=" _ expr     
  *
  *    e.g.
  *    arr.bg = "red"
  *
  */
 function buildPropertyAssignment(operands) {
-  var split = operands[0].text.split(".");
-  var canvasObjName = split[0];
-  var propName = split[1];
+  var canvasObjName = operands[0].text;
+  var propName = operands[2].text;
   return {
     isLiteral: false,
     opNodes: [],
-    command: new ConfigCommand(canvasObjName, propName, operands[4]),
+    command: new ConfigCommand(canvasObjName, propName, operands[6]),
   }
 }
 
@@ -452,16 +460,16 @@ function buildPropertyAssignment(operands) {
 /** buildRangePropertyAssignment
  *    create a RangeConfig node 
  *    pattern:
- *      assignment -> accessor "." [a-zA-Z]:+ _ "=" _ expr 
+ *      assignment -> expr %DOT %varName _ "=" _ expr        
  */
 function buildRangePropertyAssignment(operands) {
-  var accessorNode = operands[0];
-  var propName = operands[2][0].text;
+  var receiverNode = operands[0];
+  var propName = operands[2].text;
   var rValueNode = operands[6];
   return {
     isLiteral: false,
     opNodes: [],
-    command: new RangeConfigCommand(accessorNode, propName, rValueNode),
+    command: new RangeConfigCommand(receiverNode, propName, rValueNode),
   };
 }
 
@@ -572,16 +580,16 @@ function buildWhileLoop(operands) {
 
 /** buildSingleAccess
  *    create 
- *  accessor -> %varName "[" _ expr _ "]               
+ *  accessor -> expr "[" _ expr _ "]               
  *
  */
 function buildSingleAccess(operands) {
-  var receiverName = operands[0].text;
+  var receiver = operands[0];
   var keyNode = operands[3]; 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new GetChildCommand(receiverName, keyNode),
+    command: new GetChildCommand(receiver, keyNode),
   };
 }
 
@@ -599,14 +607,14 @@ function buildSingleAccess(operands) {
  *      accessor -> %varName "[" _ (expr _):? ":" _ (expr _):? "]" 
  */
 function buildRangeAccess(operands) {
-  var receiverName = operands[0].text;
+  var receiver = operands[0];
   var low = operands[3] ? operands[3][0] : null;
   var high = operands[6] ? operands[6][0] : null;
 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new GetChildrenCommand(receiverName, low, high),
+    command: new GetChildrenCommand(receiver, low, high),
   };
 }
 
@@ -645,17 +653,17 @@ function buildList(operands) {
  *    a value to a list
  *
  *    pattern:
- *      assignment -> %varName "[" _ expr _ "]" _ "=" _ expr
+ *      assignment -> expr "[" _ expr _ "]" _ "=" _ expr      
  */
 function buildListAssignment(operands) {
-  var listName = operands[0].text;
+  var listNode = operands[0];
   var indexNode = operands[3];
   var rValueNode = operands[9];
 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new AssignListElementCommand(listName, indexNode, rValueNode),
+    command: new AssignListElementCommand(listNode, indexNode, rValueNode),
   };
 }
 
@@ -672,6 +680,23 @@ function buildChildPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetChildPropertyCommand(accessorNode, propName),
+  };
+}
+
+/** buildPropGet
+ *    create node that performs property access
+ *    on result of expression
+ *
+ *    pattern:
+ *      propGet -> expr "." %varName      
+ */
+function buildPropGet(operands) {
+  var receiverNode = operands[0];
+  var propName = operands[2].text;
+  return { 
+    isLiteral: false,
+    opNodes: [],
+    command: new GetPropertyCommand(receiverNode, propName),
   };
 }
 
@@ -695,37 +720,6 @@ function buildParentPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetParentPropertyCommand(spl[0], spl[1]),
-  };
-}
-
-/** buildDeepAccess
- *
- *  pattern:
- *  deepAccessor -> %varName "[" _ expr _ "]" ("[" _ expr _ "]"):+   
- *
- */
-function buildDeepAccess(operands) {
-  var varName = operands[0].text;
-  return {
-    isLiteral: true,
-    opNodes: [],
-    command: {
-      execute: function() {
-        var list = VariableEnvironment.getVar(varName);
-
-        var indices = [operands[3].command.execute()];
-        for (var idx in operands[6])
-          indices.push(operands[6][idx][2].command.execute());
-
-        indices.forEach(i => {
-          if (! (list instanceof Array)) throw "Deep access is only possible for lists";
-          if (i < 0 || i >= list.length) throw "Array index out of bounds";
-          list = list[i];
-        });
-        return list;
-      },
-      undo: function() {},
-    },
   };
 }
 
