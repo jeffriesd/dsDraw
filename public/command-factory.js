@@ -45,6 +45,7 @@ function createFunctionCommand(functionNode, args) {
     throw "Cannot invoke function on null";
 
   var functionClass = functionNode.command.execute();
+  console.log("functionClass = ", functionClass, functionNode.command.constructor.name);
   if (functionClass.methodClass !== undefined)
     return createMethodCommand(functionClass, args);
 
@@ -83,9 +84,9 @@ function createDrawCommand(cState) {
       case "SelectTool":
         return new SelectCommand(cState);
     }
-
     throw `Invalid drawing mode: '${cState.drawMode}'.`;
   }
+  if (! cState.activeCommandType) return;
   switch (cState.activeCommandType) {
     case "clickCreate":
       return new ClickCreateCommand(cState, cState.activeObj);
@@ -98,5 +99,5 @@ function createDrawCommand(cState) {
     case "clone":
       return new CloneCommand(cState, cState.activeParent());
   }
-  throw `Invalid draw command type: '${commandType}'.`;
+  throw `Invalid draw command type: '${cState.activeCommandType}'.`;
 }
