@@ -7,18 +7,23 @@ class BST extends LinearCanvasObject {
    *    minSep (horizontal spacing in 
    *    Reingold-Tilford algorithm) and 
    *    depthSep for vertical spacing
+   *
+   *    bsts identify nodes with unique ids 
+   *    (because node values may repeat)
    */
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
+    this.ids = new Map();
     this.root = new BSTNode(canvasState, this, null, 0);
-
+    this.root.index = this.newId();
+    this.ids.set(this.root.index, this.root);
+    
     this.cellSize = 20;
-
-    for (var i =0; i < 12; i++)
-      this.insert(Math.random() * 100 | 0);
 
     this.minSep = 6;
     this.depthSep = 30;
+
+    BST.defaultSize = 20;
 
     // not edges but extra arrows
     this.arrows = new Map();
@@ -29,6 +34,16 @@ class BST extends LinearCanvasObject {
       ...super.propNames(),
       "hs": "minSep",
       "vs": "depthSep",
+      "insert": BSTInsertCommand,
+      "remove": BSTRemoveCommand,
+      "find": BSTFindCommand,
+      "inorder": BSTInorderCommand,
+      "preorder": BSTPreorderCommand,
+      "postorder": BSTPostorderCommand,
+      "pred": BSTPredecessorCommand,
+      "succ": BSTSuccessorCommand,
+      "min": BSTMinCommand,
+      "max": BSTMaxCommand,
     };
   }
 
@@ -42,14 +57,14 @@ class BST extends LinearCanvasObject {
 
   /** BST.getChildren
    *    return nodes with values 
-   *    in the range
+   *    in the range [low, high)
    */
   getChildren(low, high) {
     if (low == null) low = this.root.getMin().value;
-    if (high == null) high = this.root.getMax().value;
+    if (high == null) high = this.root.getMax().value + 1;
     
     return this.inorder()
-      .filter(node => node.value >= low && node.value <= high);
+      .filter(node => node.value >= low && node.value < high);
   }
 
   /** BST.clone
@@ -73,11 +88,18 @@ class BST extends LinearCanvasObject {
   }
 
   inorder() {
+    if (this.root == null) return [];
     return Array.from(this.root.inorder());
   }
 
   preorder() {
+    if (this.root == null) return [];
     return Array.from(this.root.preorder());
+  }
+
+  postorder() {
+    if (this.root == null) return [];
+    return Array.from(this.root.postorder());
   }
   
   /** BST.nodes
@@ -101,18 +123,13 @@ class BST extends LinearCanvasObject {
    *    new node gets instantiated with
    *    references to CanvasState, this BST object,
    *    the parent node (null if root) and a bst key (number)
-   *
-   *    thisBST.inserted is a field used when
-   *    undoing inserts to directly remove the 
-   *    most recently inserted node (the remove
-   *    method may not restore the previous shape 
-   *    of the tree)
    */
   _insert(root, par,  value) {
     if (root == null) { 
-      // maintain reference to last inserted node
-      this.inserted = new BSTNode(this.cState, this, par, value);
-      return this.inserted;
+      var newNode = new BSTNode(this.cState, this, par, value);
+      newNode.index = this.newId();
+      this.ids.set(newNode.index, newNode);
+      return newNode;
     }
 
     if (value <= root.value) 
@@ -134,8 +151,8 @@ class BST extends LinearCanvasObject {
    *    BST recursive find in O(logn)
    */
   _find(node, value) {
+    if (node == null) return;
     if (node.value == value) return node;
-    if (node.isLeaf()) return null;
     if (value <= node.value) return this._find(node.leftChild(), value);
     return this._find(node.rightChild(), value);
   }
@@ -245,11 +262,13 @@ class BST extends LinearCanvasObject {
     this.hitCtx.beginPath();
     this.hitCtx.fillRect(this.x1, this.y1, this.x2 - this.x1, this.y2 - this.y1);
   }
+  
 }
 
 class BSTNode extends NodeObject {
   constructor(canvasState, parentBST, parNode, value) {
     super(canvasState, parentBST, value);
+
     this.parNode = parNode;
 
     this.left = null;
@@ -276,6 +295,7 @@ class BSTNode extends NodeObject {
       "bg": "fill",
       "background": "fill",
       "fill": "fill",
+      // "value": "value", -- value can't be accessed directly in BST
       "showVal": "showValues",
       "fg": "textColor",
       "ind": "showIndices",
@@ -315,6 +335,18 @@ class BSTNode extends NodeObject {
       for (var node of this.right.preorder())
         yield node;
     }
+  }
+
+  *postorder() {
+    if (this.left) {
+      for (var node of this.left.postorder())
+        yield node;
+    }
+    if (this.right) {
+      for (var node of this.right.postorder())
+        yield node;
+    }
+    yield this;
   }
 
   leftChild() {
@@ -450,11 +482,27 @@ class BSTNode extends NodeObject {
     if (this.showValues && this.getParent().showValues) 
       this.drawValue();
 
-    if (this.showIndices && this.getParent().showIndices)
-      this.drawIndex();
+    if (this.showIndices && this.getParent().showIndices) 
+      this.drawIndex(this.index);
 
     this.hitCtx.beginPath();
     this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     this.hitCtx.fill();
+  }
+
+  /** BSTNode.drawIndex
+   *    draw node index at top left 
+   */
+  drawIndex(idx) {
+    var r = this.radius;
+    var dx = -r;
+    var dy = r;
+    if (this.getParent().indexPlacement == "above") 
+      dy *= -1;
+    this.ctx.textBaseline = "alphabetic";
+    this.ctx.textAlign = "center";
+    this.ctx.fillStyle = "black";
+
+    this.ctx.fillText(idx, this.x + dx, this.y + dy);
   }
 }

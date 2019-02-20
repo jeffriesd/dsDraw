@@ -22,8 +22,6 @@ class LinkedList extends LinearCanvasObject {
     this.nodeStyle = "circle";
 
     this.head = this.addNode(null, 0);
-
-    LinkedList.randomSeed = 100;
   }
 
   /** LinkedList.nodes
@@ -46,6 +44,10 @@ class LinkedList extends LinearCanvasObject {
       ...super.propNames(),
       "display": "nodeStyle",
       "ds": "nodeStyle",
+      "insert": LinkedListInsertCommand,
+      "link": LinkedListLinkCommand,
+      "cut": LinkedListCutCommand,
+      "remove": LinkedListRemoveCommand,
     };
   }
 
@@ -93,13 +95,17 @@ class LinkedList extends LinearCanvasObject {
     return children;
   }
 
+  newId() {
+    return Array.from(this.list.keys()).reduce(
+      (acc, val) => Math.max(acc, val), -1) + 1;
+  }
+
   /** LinkedList.append
    *    add a new node from the current node with highest index
    */
   append(value) {
-    var maxIdx = Array.from(this.list.keys()).reduce(
-      (acc, curr) => Math.max(acc, parseInt(curr)), -1);
-    this.addNode(this.nodes[maxIdx], value);
+    var maxId = this.newId() - 1;
+    this.addNode(this.nodes[maxId], value);
   }
 
   /** LinkedList.addNode
@@ -112,14 +118,11 @@ class LinkedList extends LinearCanvasObject {
    *    'linear' i.e. no branches
    */
   addNode(fromNode=null, value=null) {
-    // assign new index
-    var maxIdx = Array.from(this.list.keys()).reduce(
-      (acc, curr) => Math.max(acc, parseInt(curr)), -1);
-
     // new node uses LinkedList x1, y1, others are placed
     // to right of newest node
     var x, y;
     if (this.list.size) {
+      var maxIdx = this.newId() - 1;
       x = this.list.get(maxIdx).x + this.cellSize * 4;
       y = this.list.get(maxIdx).y;
     }
@@ -128,8 +131,8 @@ class LinkedList extends LinearCanvasObject {
       y = this.y1;
     }
    
-    var newNode = new ListNode(this.cState, this, value, maxIdx+1, x, y);
-    this.list.set(maxIdx+1, newNode);
+    var newNode = new ListNode(this.cState, this, value, this.newId(), x, y);
+    this.list.set(newNode.index, newNode);
 
     // add edge/link
     if (fromNode)
@@ -198,10 +201,10 @@ class ListNode extends NodeObject {
 
     this.borderThickness = 2;
 
+    this.index = index;
     this.x = x;
     this.y = y;
 
-    this.index = index;
   }
 
   get radius() {
