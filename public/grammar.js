@@ -31,8 +31,6 @@ function id(x) { return x[0]; }
  *    expressions (most generic) are simply the union of bool expressions
  *    and dictionary terms. dictionary terms have no applicable
  *    operators, so they get their own classification
- *
- *    TODO: allow arbitrary number of list indices e.g. l[0][0][0]...
  */
 
   const lexer = moo.compile({
@@ -43,6 +41,7 @@ function id(x) { return x[0]; }
     "*": "*",
     "/": "/",
     "^": "^",
+    "DOT": ".",
     LESSEQ: "<=",
     GREATEQ: ">=",
     EQEQ: "==",
@@ -54,7 +53,6 @@ function id(x) { return x[0]; }
     ",": ",",
     "(": "(",
     ")": ")",
-    ".": ".",
     "=": "=",
     "{": "{",
     "}": "}",
@@ -65,7 +63,6 @@ function id(x) { return x[0]; }
     FOR: "for",
     WHILE: "while",
     number: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
-    methodName: /[a-zA-Z][a-zA-Z0-9]*\.[a-zA-Z]+/,
     varName: /[a-zA-Z][a-zA-Z0-9]*/,
     character: /[^\n"]/, 
   });
@@ -197,25 +194,25 @@ function buildNegate(operands) {
  *    isLiteral false by definition
  *
  *  pattern:
- *    function -> %varName "(" _ args _ ")" 
- *              | %varName "(" ")"      
+ *    function -> expr "(" _ args _ ")" 
+ *              | expr "(" ")"      
  *   
  */
 function buildFunctionCall(operands) {
-  var functionName = operands[0].text;
+  var functionNode = operands[0];
   var functionArgs = []; // default (no args function)
   if (operands.length == 6) 
     functionArgs = operands[3];
 
   // used to check if assignment should set label of 
   // constructed object
-  var constructed = functionName in constructors;
+  var constructed = functionNode.text in constructors;
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
     constructed: constructed,
-    command: createFunctionCommand(functionName, functionArgs),
+    command: createFunctionCommand(functionNode, functionArgs),
   };
 }
 
@@ -338,20 +335,20 @@ function buildAssignment(operands) {
  *    for configuring property of single canvas object
  *
  *    pattern:
- *      assignment -> %methodName _ "=" _ expr 
+ *      assignment -> %varName %DOT %varName _ "=" _ expr 
+ *                      |expr  %DOT %varName _ "=" _ expr     
  *
  *    e.g.
  *    arr.bg = "red"
  *
  */
 function buildPropertyAssignment(operands) {
-  var split = operands[0].text.split(".");
-  var canvasObjName = split[0];
-  var propName = split[1];
+  var canvasObjName = operands[0].text;
+  var propName = operands[2].text;
   return {
     isLiteral: false,
     opNodes: [],
-    command: new ConfigCommand(canvasObjName, propName, operands[4]),
+    command: new ConfigCommand(canvasObjName, propName, operands[6]),
   }
 }
 
@@ -359,16 +356,16 @@ function buildPropertyAssignment(operands) {
 /** buildRangePropertyAssignment
  *    create a RangeConfig node 
  *    pattern:
- *      assignment -> accessor "." [a-zA-Z]:+ _ "=" _ expr 
+ *      assignment -> expr %DOT %varName _ "=" _ expr        
  */
 function buildRangePropertyAssignment(operands) {
-  var accessorNode = operands[0];
-  var propName = operands[2][0].text;
+  var receiverNode = operands[0];
+  var propName = operands[2].text;
   var rValueNode = operands[6];
   return {
     isLiteral: false,
     opNodes: [],
-    command: new RangeConfigCommand(accessorNode, propName, rValueNode),
+    command: new RangeConfigCommand(receiverNode, propName, rValueNode),
   };
 }
 
@@ -479,16 +476,16 @@ function buildWhileLoop(operands) {
 
 /** buildSingleAccess
  *    create 
- *  accessor -> %varName "[" _ expr _ "]               
+ *  accessor -> expr "[" _ expr _ "]               
  *
  */
 function buildSingleAccess(operands) {
-  var receiverName = operands[0].text;
+  var receiver = operands[0];
   var keyNode = operands[3]; 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new GetChildCommand(receiverName, keyNode),
+    command: new GetChildCommand(receiver, keyNode),
   };
 }
 
@@ -506,14 +503,14 @@ function buildSingleAccess(operands) {
  *      accessor -> %varName "[" _ (expr _):? ":" _ (expr _):? "]" 
  */
 function buildRangeAccess(operands) {
-  var receiverName = operands[0].text;
+  var receiver = operands[0];
   var low = operands[3] ? operands[3][0] : null;
   var high = operands[6] ? operands[6][0] : null;
 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new GetChildrenCommand(receiverName, low, high),
+    command: new GetChildrenCommand(receiver, low, high),
   };
 }
 
@@ -552,17 +549,17 @@ function buildList(operands) {
  *    a value to a list
  *
  *    pattern:
- *      assignment -> %varName "[" _ expr _ "]" _ "=" _ expr
+ *      assignment -> expr "[" _ expr _ "]" _ "=" _ expr      
  */
 function buildListAssignment(operands) {
-  var listName = operands[0].text;
+  var listNode = operands[0];
   var indexNode = operands[3];
   var rValueNode = operands[9];
 
   return {
     isLiteral: false,
     opNodes: [],
-    command: new AssignListElementCommand(listName, indexNode, rValueNode),
+    command: new AssignListElementCommand(listNode, indexNode, rValueNode),
   };
 }
 
@@ -579,6 +576,23 @@ function buildChildPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetChildPropertyCommand(accessorNode, propName),
+  };
+}
+
+/** buildPropGet
+ *    create node that performs property access
+ *    on result of expression
+ *
+ *    pattern:
+ *      propGet -> expr "." %varName      
+ */
+function buildPropGet(operands) {
+  var receiverNode = operands[0];
+  var propName = operands[2].text;
+  return { 
+    isLiteral: false,
+    opNodes: [],
+    command: new GetPropertyCommand(receiverNode, propName),
   };
 }
 
@@ -602,37 +616,6 @@ function buildParentPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetParentPropertyCommand(spl[0], spl[1]),
-  };
-}
-
-/** buildDeepAccess
- *
- *  pattern:
- *  deepAccessor -> %varName "[" _ expr _ "]" ("[" _ expr _ "]"):+   
- *
- */
-function buildDeepAccess(operands) {
-  var varName = operands[0].text;
-  return {
-    isLiteral: true,
-    opNodes: [],
-    command: {
-      execute: function() {
-        var list = VariableEnvironment.getVar(varName);
-
-        var indices = [operands[3].command.execute()];
-        for (var idx in operands[6])
-          indices.push(operands[6][idx][2].command.execute());
-
-        indices.forEach(i => {
-          if (! (list instanceof Array)) throw "Deep access is only possible for lists";
-          if (i < 0 || i >= list.length) throw "Array index out of bounds";
-          list = list[i];
-        });
-        return list;
-      },
-      undo: function() {},
-    },
   };
 }
 
@@ -737,11 +720,8 @@ var grammar = {
     {"name": "statement", "symbols": ["assignment"], "postprocess": id},
     {"name": "statement", "symbols": ["expr"], "postprocess": id},
     {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildAssignment},
-    {"name": "assignment", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildPropertyAssignment},
-    {"name": "assignment$ebnf$1", "symbols": [/[a-zA-Z]/]},
-    {"name": "assignment$ebnf$1", "symbols": ["assignment$ebnf$1", /[a-zA-Z]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "assignment", "symbols": ["accessor", {"literal":"."}, "assignment$ebnf$1", "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
-    {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
+    {"name": "assignment", "symbols": ["expr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
+    {"name": "assignment", "symbols": ["expr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
     {"name": "expr", "symbols": ["bool"], "postprocess": id},
     {"name": "bool", "symbols": ["math"], "postprocess": id},
     {"name": "bool", "symbols": ["comp"], "postprocess": id},
@@ -777,6 +757,7 @@ var grammar = {
     {"name": "nonQuote", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},
     {"name": "nonQuote", "symbols": [(lexer.has("GREATEQ") ? {type: "GREATEQ"} : GREATEQ)]},
     {"name": "nonQuote", "symbols": [(lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ)]},
+    {"name": "nonQuote", "symbols": [(lexer.has("DOT") ? {type: "DOT"} : DOT)]},
     {"name": "nonQuote", "symbols": [(lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ)]},
     {"name": "nonQuote", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)]},
     {"name": "nonQuote", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)]},
@@ -785,7 +766,6 @@ var grammar = {
     {"name": "nonQuote", "symbols": [{"literal":","}]},
     {"name": "nonQuote", "symbols": [{"literal":"("}]},
     {"name": "nonQuote", "symbols": [{"literal":")"}]},
-    {"name": "nonQuote", "symbols": [{"literal":"."}]},
     {"name": "nonQuote", "symbols": [{"literal":"="}]},
     {"name": "nonQuote", "symbols": [{"literal":"{"}]},
     {"name": "nonQuote", "symbols": [{"literal":"}"}]},
@@ -805,33 +785,22 @@ var grammar = {
     {"name": "mathTerminal", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "mathTerminal$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
     {"name": "mathTerminal", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
     {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
-    {"name": "mathTerminal$ebnf$2", "symbols": [/[a-zA-Z]/]},
-    {"name": "mathTerminal$ebnf$2", "symbols": ["mathTerminal$ebnf$2", /[a-zA-Z]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "mathTerminal", "symbols": ["accessor", {"literal":"."}, "mathTerminal$ebnf$2"], "postprocess": buildChildPropGet},
-    {"name": "mathTerminal", "symbols": ["deepAccessor"], "postprocess": id},
-    {"name": "mathTerminal", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)], "postprocess": buildParentPropGet},
+    {"name": "mathTerminal", "symbols": ["propGet"], "postprocess": id},
     {"name": "number", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": wrapNumber},
     {"name": "list", "symbols": [{"literal":"["}, {"literal":"]"}], "postprocess": buildList},
     {"name": "list", "symbols": [{"literal":"["}, "_", "args", "_", {"literal":"]"}], "postprocess": buildList},
-    {"name": "accessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}], "postprocess": buildSingleAccess},
+    {"name": "accessor", "symbols": ["expr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}], "postprocess": buildSingleAccess},
     {"name": "accessor$ebnf$1$subexpression$1", "symbols": ["expr", "_"]},
     {"name": "accessor$ebnf$1", "symbols": ["accessor$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "accessor$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "accessor$ebnf$2$subexpression$1", "symbols": ["expr", "_"]},
     {"name": "accessor$ebnf$2", "symbols": ["accessor$ebnf$2$subexpression$1"], "postprocess": id},
     {"name": "accessor$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "accessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "accessor$ebnf$1", {"literal":":"}, "_", "accessor$ebnf$2", {"literal":"]"}], "postprocess": buildRangeAccess},
-    {"name": "deepAccessor$ebnf$1$subexpression$1", "symbols": [{"literal":"["}, "_", "expr", "_", {"literal":"]"}]},
-    {"name": "deepAccessor$ebnf$1", "symbols": ["deepAccessor$ebnf$1$subexpression$1"]},
-    {"name": "deepAccessor$ebnf$1$subexpression$2", "symbols": [{"literal":"["}, "_", "expr", "_", {"literal":"]"}]},
-    {"name": "deepAccessor$ebnf$1", "symbols": ["deepAccessor$ebnf$1", "deepAccessor$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "deepAccessor", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "deepAccessor$ebnf$1"], "postprocess": buildDeepAccess},
+    {"name": "accessor", "symbols": ["expr", {"literal":"["}, "_", "accessor$ebnf$1", {"literal":":"}, "_", "accessor$ebnf$2", {"literal":"]"}], "postprocess": buildRangeAccess},
+    {"name": "propGet", "symbols": ["expr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildPropGet},
     {"name": "callable", "symbols": ["function"], "postprocess": id},
-    {"name": "callable", "symbols": ["method"], "postprocess": id},
-    {"name": "method", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildMethodCall},
-    {"name": "method", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName), {"literal":"("}, {"literal":")"}], "postprocess": buildMethodCall},
-    {"name": "function", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildFunctionCall},
-    {"name": "function", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), {"literal":"("}, {"literal":")"}], "postprocess": buildFunctionCall},
+    {"name": "function", "symbols": ["expr", {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildFunctionCall},
+    {"name": "function", "symbols": ["expr", {"literal":"("}, {"literal":")"}], "postprocess": buildFunctionCall},
     {"name": "args$ebnf$1", "symbols": []},
     {"name": "args$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "funcarg"]},
     {"name": "args$ebnf$1", "symbols": ["args$ebnf$1", "args$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
