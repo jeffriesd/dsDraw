@@ -38,6 +38,7 @@ function updateExtremesBottomUp(node) {
 
 function renderBST(bst) {
   var root = bst.root;
+  if (root == null) return;
   updateChildDepths(root, 0);
   updateExtremesBottomUp(root);
 
