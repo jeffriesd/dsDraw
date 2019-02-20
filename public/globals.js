@@ -91,17 +91,6 @@ Object.defineProperty(Map.prototype, "deleteEquiv", {
   enumerable: false,
 });
 
-const mget = Map.prototype.get;
-// allow array key equivalence
-Map.prototype.get = function(key) {
-  if (mget.bind(this)(key)) return mget.bind(this)(key);
-  var match;
-  this.forEach((value, k) => {
-    if (equivalent(k, key)) match = value;
-  });
-  return match;
-}
-
 /** randomArray
  *    return array of random ints (0-max) with
  *    given length
