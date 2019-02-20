@@ -1,16 +1,3 @@
-const objectCommands = {
-  "Array1Dlength": Array1DLengthCommand,
-  "Array1Dresize": Array1DResizeCommand,
-  "Array1Dswap": Array1DSwapCommand,
-  "Array1Darc": Array1DArrowCommand,
-  "Array1Dcopy": Array1DCopyCommand,
-  "Array1Dsort": Array1DSortCommand,
-  "LinkedListinsert": LinkedListInsertCommand,
-  "LinkedListlink": LinkedListLinkCommand,
-  "LinkedListcut": LinkedListCutCommand,
-  "BSTinsert": BSTInsertCommand,
-};
-
 const mainCommands = {
   "delete": ConsoleDestroyCommand, // maybe turn into inherited method
   // "relabel": RelabelCommand,
@@ -45,69 +32,71 @@ const constructors = {
   "pbox":     CanvasObjectConstructor,
   "conn":     CanvasObjectConstructor,
   "arrow":    CanvasObjectConstructor,
-  "bst":      CanvasObjectConstructor,
+  "bst":      BSTConstructor,
 }
 
-const canvasClasses = {
-  "array":    Array1D,
-  "array1d":  Array1D,
-  "linked":     LinkedList,
-  "tb":       TextBox, 
-  "tbox":     TextBox,
-  "text":     TextBox,
-  "math":     MathBox,
-  "rectbox":  RectBox,
-  "rbox":     RectBox,
-  "roundbox": RoundBox,
-  "rdbox":    RoundBox,
-  "dbox":     DiamondBox,
-  "pbox":     ParallelogramBox,
-  "conn":     Connector,
-  "arrow":    CurvedArrow,
-  "bst":      BST,
-}
+/** createFunctionCommand 
+ *    check properties of provided opNode
+ *    object and create method or function
+ *    from result
+ */   
+function createFunctionCommand(functionNode, args) {
+  if (functionNode == null)
+    throw "Cannot invoke function on null";
 
-/** 
- *  soon to deprecate "main commands"
- *
- *  functions ("chars(args)") as
- *  opposed to methods ("chars.method(args)")
- *  will soon only be used for constructors
- *  and user defined functions
- *
- *  maybe some more built in ones will come
- *  for drag, move, clone, etc.
- */
-function createFunctionCommand(functionName, args) {
-  if (functionName in mainCommands)
-    return new mainCommands[functionName](CanvasState.getInstance(), ...args);
-  if (functionName in constructors) {
-    var className = canvasClasses[functionName];
-    return new constructors[functionName](CanvasState.getInstance(), className, ...args);
-  }
+  var functionClass = functionNode.command.execute();
+  if (functionClass.methodClass !== undefined)
+    return createMethodCommand(functionClass, args);
 
-  throw `Invalid command '${functionName}'.`;
+  if (Object.values(mainCommands).includes(functionClass)
+      || Object.values(constructors).includes(functionClass))
+    return new functionClass(CanvasState.getInstance(), ...args);
+
+  throw `Invalid function name: '${functionClass}'.`;
 }
 
 /** createMethodCommand
- *    convert method string and array of args to
+ *    convert methodBuilder node and array of args to
  *    CanvasObjectCommand 
+ *
+ *    computes receiver at instantiation time
+ *    so receiver state can be saved before 
+ *    commands are executed
+ *
  *    e.g.
- *    createMethodCommand("arr1", "swap()", ["0", "1"])
+ *    createMethodCommand({ receiver: myArr, methodClass: Array1D.swap }, ["0", "1"])
  */
-function createMethodCommand(methodName, args) {
-  var spl = methodName.split(".");
-  var receiverName = spl[0];
-  methodName = spl[1];
-  var receiverObj = VariableEnvironment.getCanvasObj(receiverName); 
+function createMethodCommand(methodBuilder, args) {
+  if (methodBuilder.receiver == undefined 
+      || methodBuilder.methodClass == undefined)
+    throw `Invalid method invocation '${methodBuilder.constructor.name}'.`;
 
-  // keys of command map are ClassnameMethodname
-  var cmdKey = receiverObj.constructor.name + methodName;
+  return new methodBuilder.methodClass(methodBuilder.receiver, ...args);
+}
 
-  var commandClass = objectCommands[cmdKey];
-  
-  if (commandClass == null)
-    throw `No command '${methodName}' for class '${receiverObj.constructor.name}'`;
+/** createDrawCommand
+ *    create command object from mouse input
+ */
+function createDrawCommand(cState) {
+  if (cState.activeObj == null) {
+    switch (cState.drawMode) {
+      case "SelectTool":
+        return new SelectCommand(cState);
+    }
 
-  return new commandClass(receiverObj, ...args);
+    throw `Invalid drawing mode: '${cState.drawMode}'.`;
+  }
+  switch (cState.activeCommandType) {
+    case "clickCreate":
+      return new ClickCreateCommand(cState, cState.activeObj);
+    case "move":
+      return new MoveCommand(cState, cState.activeObj);
+    case "drag":
+      return new DragCommand(cState, cState.activeObj);
+    case "shiftDrag":
+      return new ShiftDragCommand(cState, cState.activeObj);
+    case "clone":
+      return new CloneCommand(cState, cState.activeParent());
+  }
+  throw `Invalid draw command type: '${commandType}'.`;
 }
