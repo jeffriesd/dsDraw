@@ -248,8 +248,8 @@ class ListNode extends NodeObject {
 
       // fix angle to avoid oscillation
       if (inside(this, arrow.cp1)) {
-        arrow.cp1.x = this.x - 2 * offX;
-        arrow.cp1.y = this.y - 2 * offY;
+        arrow.cp1.x = this.x - 4 * offX;
+        arrow.cp1.y = this.y - 4 * offY;
       }
     }
     else {
@@ -259,8 +259,8 @@ class ListNode extends NodeObject {
       arrow.x2 = this.x - offX;
       arrow.y2 = this.y - offY;
       if (inside(this, arrow.cp2)) {
-        arrow.cp2.x = this.x - 2 * offX;
-        arrow.cp2.y = this.y - 2 * offY;
+        arrow.cp2.x = this.x - 4 * offX;
+        arrow.cp2.y = this.y - 4 * offY;
       }
     }
   }
