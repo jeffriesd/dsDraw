@@ -732,7 +732,7 @@ class RangeConfigCommand extends ConsoleCommand {
   }
 
   undo() {
-    this.configCommands.forEach(cmd => command.undo());
+    this.configCommands.forEach(cmd => cmd.undo());
   }
 }
 
