@@ -6,6 +6,8 @@ class LinearCanvasObject extends CanvasObject {
     super(canvasState, x1, y1, x2, y2);
     this.cellSize = 40;
 
+    this.ids = new Map();
+
     this.fontFamily = "Monospace";
     this.fontSize = 12;
     this.fontStyle = "";
@@ -16,6 +18,8 @@ class LinearCanvasObject extends CanvasObject {
     // configured at parent or cell level
     this.showIndices = false; 
     this.showValues = true;
+
+    LinearCanvasObject.randomSeed = 100;
   }
 
   propNames() {
@@ -90,6 +94,11 @@ class LinearCanvasObject extends CanvasObject {
     if (low == null) low = 0;
     if (high == null) high = this.nodes.length;
     return this.nodes.slice(low, high);
+  }
+
+  newId() {
+    return Array.from(this.ids.keys()).reduce(
+      (acc, val) => Math.max(acc, val), -1) + 1;
   }
 
   /** LinearCanvasObject.configureOptions
