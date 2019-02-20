@@ -341,7 +341,15 @@ class GetVariableCommand {
     this.variableName = variableName;
   }
 
+  /** GetVariableCommand.execute
+   *    return command class (for function calls)
+   *    or value of variable 
+   */
   execute() {
+    if (this.variableName in mainCommands)
+      return mainCommands[this.variableName];
+    if (this.variableName in constructors)
+      return constructors[this.variableName];
     return VariableEnvironment.getVar(this.variableName);
   }
 
@@ -451,28 +459,30 @@ const conversionValues = {
 };
 
 /** ConfigCommand 
- *    receiver param is either a string or a CanvasObject. This way
- *    RangeConfigCommand can create a bunch of ConfigCommand
- *    objects for the child objects (e.g. array cells),
- *    which won't have names themselves
+ *    configures propName property 
+ *    of receiver object
+ *
+ *    user can configure single object
+ *    or range of objects
+ *
+ *    e.g.
+ *    myArray.cs = 20
+ *    myBST.inorder()[0].bg = "red"
+ *    ^ receiverNode   ^
  */
 class ConfigCommand extends ConsoleCommand {
-  constructor(receiver, property, rValueNode) {
+  constructor(receiver, propName, rValueNode) {
     super(rValueNode);
+    this.receiver = receiver;
+    this.propName = propName;
 
-    // check here because receiver is not an opNode that needs evaluation
-    if (typeof receiver == "string")
-      this.receiver = VariableEnvironment.getCanvasObj(receiver);
-    else if (receiver instanceof CanvasObject || receiver instanceof CanvasChildObject)
-      this.receiver = receiver;
-    else
-      throw `Invalid assignment to '${receiver.constructor.name}'.`;
-
+    if (this.receiver == null) 
+      throw "Cannot configure null"; 
+    if (this.receiver.propNames == undefined)
+      throw `Cannot configure receiver '${this.receiver.constructor.name}'.`;
+      
     var propNames = this.receiver.propNames();
-    this.property = propNames[property];
-
-    if (this.property == null)
-      throw `${this.receiver.constructor.name} has no property '${property}'.`;
+    this.property = propNames[this.propName];
 
     // save original value for undo
     this.oldValue = this.receiver[this.property];
@@ -488,6 +498,11 @@ class ConfigCommand extends ConsoleCommand {
    */
   checkArguments() {
     this.value = this.parseValue(this.value);
+    if (! (this.receiver instanceof CanvasObject || 
+        this.receiver instanceof CanvasChildObject))
+      throw "Cannot configure non-canvas object";
+    if (this.property == undefined)
+      throw `${this.receiver.constructor.name} has no property '${this.property}'.`;
   }
 
   /** ConfigCommand.parseValue
@@ -601,14 +616,29 @@ class GetChildCommand extends ConsoleCommand {
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.key, this.key+1)[0];
     }
-    throw `Cannot perform access on '{this.receiver.constructor.name}'.`;
+    throw `Cannot perform access on '${this.receiver.constructor.name}'.`;
   }
 }
 
-class GetChildPropertyCommand extends ConsoleCommand {
-  constructor(accessorNode, property) {
-    super(accessorNode);
-    this.property = property;
+class GetPropertyCommand extends ConsoleCommand {
+  /** GetPropertyCommand
+   *    This command performs a property access on a
+   *    CanvasObject, a CanvasChildObject, or an Array 
+   *    ('list' in user terms)
+   *
+   *    property access also covers method calls
+   *    and returns an object for the 
+   *    method-building operand node to use
+   *
+   *    note this means that a user can enter
+   *    "myObj.method" and it is still a valid expression
+   *    however, other operands nodes (besides method-builder)
+   *    don't expect this return value and will handle 
+   *    the error accordingly
+   */
+  constructor(receiverNode, propName) {
+    super(receiverNode);
+    this.propName = propName;
   }
 
   executeChildren() {
@@ -616,45 +646,48 @@ class GetChildPropertyCommand extends ConsoleCommand {
     this.receiver = this.args[0];
   }
 
+  /** GetPropertyCommand.checkArguments
+   *    receiver object must be a CanvasObject,
+   *    CanvasChildObject, or an Array
+   *
+   *    if Canvas object, convert provided property
+   *    name to actual property e.g. "bg" => "fill"
+   *    or "cs" => "cellSize"
+   */
   checkArguments() {
-    if (! this.receiver instanceof CanvasChildObject)
-      throw "Cannot access property of " + this.receiver;
-    // get actual property name in case of alias
-    var propNames = this.receiver.propNames();
-    this.property = propNames[this.property];
-    if (this.receiver[this.property] == undefined)
-      throw `Undefined property '${this.property}' for ${this.receiver.constructor.name}.`;
-  }
-
-  executeSelf() {
-    return this.receiver[this.property]; 
-  }
-}
-
-class GetParentPropertyCommand extends ConsoleCommand {
-  constructor(varName, property) {
-    super();
-    this.propName = property;
-    this.receiver = VariableEnvironment.getVar(varName);
-    this.varName = varName;
-  }
-
-  checkArguments() {
-    if (this.receiver instanceof Array && this.propName == "length") { 
-      this.property = "length"; return;
+    if (this.receiver == null) throw "Cannot perform access on null";
+    if (this.receiver instanceof Array) {
+      if (! this.receiver.hasOwnProperty(this.propName))
+        throw `Undefined property '${this.propName}' for lists.`;
+      this.property = this.propName;
     }
-    if (! (this.receiver instanceof CanvasObject))
-      throw "Cannot access property of " + this.receiver;
-    if (this.receiver instanceof CanvasObject)
+    else if (this.receiver instanceof CanvasObject 
+        || this.receiver instanceof CanvasChildObject) {
       this.property = this.receiver.propNames()[this.propName];
-    else this.property = this.propName;
-    if (this.receiver[this.property] == undefined)
-      throw `'${this.propName}' is undefined for '${this.varName}'.`;
+      if (this.property == undefined)
+        throw `Undefined property '${this.propName}' for ${this.receiver.constructor.name}.`;
+    }
+    else
+      throw `Cannot perform access on '${this.receiver.constructor.name}'.`;
   }
 
+  /** GetPropertyCommand.executeSelf
+   *    if property value is not a method,
+   *    just return it
+   *
+   *    otherwise:
+   *    in order to build method command,
+   *    a reference to the receiver is needed
+   *    as well as the method class
+   */
   executeSelf() {
-    console.log("getting prop ", this.property, "from ", this.receiver.constructor.name);
-    return this.receiver[this.property];
+    if (typeof this.property == "string")
+      return this.receiver[this.property];
+
+    return {
+      receiver: this.receiver,
+      methodClass: this.property,
+    };
   }
 }
 
@@ -664,8 +697,8 @@ class GetParentPropertyCommand extends ConsoleCommand {
  *    e.g. arr[2:].bg = "red"
  */
 class RangeConfigCommand extends ConsoleCommand {
-  constructor(accessorNode, property, rValueNode) {
-    super(accessorNode, rValueNode);
+  constructor(receiverNode, property, rValueNode) {
+    super(receiverNode, rValueNode);
     this.configCommands = [];
     this.property = property;
     console.log("rValueNode = ", rValueNode);
@@ -678,7 +711,7 @@ class RangeConfigCommand extends ConsoleCommand {
       this.receivers = [this.receivers];
 
     // must be passed to ConfigCommand as an opNode
-    this.rValue = this.argNodes[1];
+    this.rValueNode = this.argNodes[1];
   }
 
   checkArguments() {
@@ -689,7 +722,7 @@ class RangeConfigCommand extends ConsoleCommand {
   executeSelf() {
     if (this.configCommands.length == 0) {
       this.receivers.forEach((receiver) => {
-        this.configCommands.push(new ConfigCommand(receiver, this.property, this.rValue));
+        this.configCommands.push(new ConfigCommand(receiver, this.property, this.rValueNode));
       });
     }
     this.configCommands.forEach(cmd => cmd.execute());
@@ -701,25 +734,20 @@ class RangeConfigCommand extends ConsoleCommand {
 }
 
 class AssignListElementCommand extends ConsoleCommand {
-  constructor(listName, indexNode, rValueNode) {
-    super(indexNode, rValueNode);
-    console.log("in assignlist");
-    console.log("listname = ", listName);
-    this.list = VariableEnvironment.getVar(listName);
-
-    if (! (this.list instanceof Array))
-      throw "Cannot assign value to non-list " + listName;
-  }
 
   executeChildren() {
     super.executeChildren();
-    this.index = this.args[0];
-    this.rValue = this.args[1];
+    this.list = this.args[0];
+    this.index = this.args[1];
+    this.rValue = this.args[2];
   }
 
   checkArguments() {
     if (this.index < 0 || this.index >= this.list.length) 
       throw "Array index out of bounds: " + this.index;
+
+    if (! (this.list instanceof Array))
+      throw "Cannot assign value to non-list " + listName;
   }
 
   executeSelf() {
@@ -747,10 +775,9 @@ class MacroCommand {
 }
 
 class CanvasObjectConstructor extends ConsoleCommand {
-  constructor(cState, canvasClass, ...argNodes) {
+  constructor(cState, ...argNodes) {
     super(...argNodes);
     this.cState = cState;
-    this.canvasClass = canvasClass;
   }
 
   /** CanvasObjectConstructor.createObject
@@ -822,7 +849,11 @@ class CanvasObjectMethod extends ConsoleCommand {
  *    default array length is 8
  */
 class Array1DConstructor extends CanvasObjectConstructor {
-
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    Array1DConstructor.canvasClass =  Array1D;
+  }
+  
   executeChildren() {
     super.executeChildren();
     this.initializer = this.args[0];
@@ -1159,6 +1190,10 @@ class Array1DSortCommand extends Array1DCommand {
  *    default array length is 8
  */
 class LinkedListConstructor extends CanvasObjectConstructor {
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    LinkedListConstructor.canvasClass =  LinkedList;
+  }
 
   executeChildren() {
     super.executeChildren();
@@ -1316,6 +1351,10 @@ class LinkedListRemoveCommand extends LinkedListCommand {
 }
 
 class BSTConstructor extends CanvasObjectConstructor {
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    BSTConstructor.canvasClass = BST;
+  }
 
   executeChildren() {
     super.executeChildren();
@@ -1477,4 +1516,58 @@ class BSTPostorderCommand extends BSTCommand {
   }
 
   undo() {}
+}
+
+class BSTPredecessorCommand extends BSTCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.node = this.args[0];
+  }
+  checkArguments() {
+    if (! (this.node instanceof BSTNode))
+      throw "BST predecessor argument must be BSTNode";
+    if (this.node.parentObject !== this.receiver)
+      throw "BST predecessor can only be called its own nodes";
+  }
+  executeSelf() {
+    return this.node.pred();
+  }
+}
+
+
+class BSTSuccessorCommand extends BSTCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.node = this.args[0];
+  }
+  checkArguments() {
+    if (! (this.node instanceof BSTNode))
+      throw "BST successor argument must be BSTNode";
+    if (this.node.parentObject !== this.receiver)
+      throw "BST successor can only be called its own nodes";
+  }
+  executeSelf() {
+    return this.node.succ();
+  }
+}
+
+class BSTMinCommand extends BSTCommand {
+  executeSelf() {
+    if (this.receiver.root == null) return null;
+    return this.receiver.root.getMin().value;
+  }
+}
+
+class BSTMaxCommand extends BSTCommand {
+  executeSelf() {
+    if (this.receiver.root == null) return null;
+    return this.receiver.root.getMax().value;
+  }
+}
+
+class BSTRootCommand extends BSTCommand {
+  executeSelf() {
+    if (this.receiver.root == null) return null;
+    return this.receiver.root;
+  }
 }
