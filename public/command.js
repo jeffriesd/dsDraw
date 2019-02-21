@@ -821,6 +821,63 @@ class CanvasObjectConstructor extends ConsoleCommand {
   }
 }
 
+
+class TextBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = TextBox;
+  }
+}
+
+class MathBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = MathBox;
+  }
+}
+
+class RectBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = RectBox;
+  }
+}
+
+class RoundBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = RoundBox;
+  }
+}
+
+class DiamondBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = DiamondBox;
+  }
+}
+
+class ParallelogramBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = ParallelogramBox;
+  }
+}
+
+class ConnectorConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = Connector;
+  }
+}
+
+class CurvedArrowConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = CurvedArrow;
+  }
+}
+
 class CanvasObjectMethod extends ConsoleCommand {
 
   constructor(receiver, ...argNodes) {
@@ -853,7 +910,7 @@ class CanvasObjectMethod extends ConsoleCommand {
 class Array1DConstructor extends CanvasObjectConstructor {
   constructor(cState, ...args) {
     super(cState, ...args);
-    Array1DConstructor.canvasClass =  Array1D;
+    this.canvasClass =  Array1D;
   }
   
   executeChildren() {
@@ -1194,7 +1251,7 @@ class Array1DSortCommand extends Array1DCommand {
 class LinkedListConstructor extends CanvasObjectConstructor {
   constructor(cState, ...args) {
     super(cState, ...args);
-    LinkedListConstructor.canvasClass =  LinkedList;
+    this.canvasClass =  LinkedList;
   }
 
   executeChildren() {
@@ -1355,7 +1412,7 @@ class LinkedListRemoveCommand extends LinkedListCommand {
 class BSTConstructor extends CanvasObjectConstructor {
   constructor(cState, ...args) {
     super(cState, ...args);
-    BSTConstructor.canvasClass = BST;
+    this.canvasClass = BST;
   }
 
   executeChildren() {
