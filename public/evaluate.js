@@ -88,6 +88,8 @@ class NegateNumberCommand extends UnaryMathCommand {
   executeSelf() { return -this.op1; }
 }
 
+/** Boolean commands
+ */
 class ConjunctionCommand extends MathCommand {
   executeSelf() { return Boolean(this.op1 && this.op2); }
 }
@@ -98,6 +100,15 @@ class DisjunctionCommand extends MathCommand {
 
 class LogicalNotCommand extends UnaryMathCommand {
   executeSelf() { return ! Boolean(this.op1); }
+}
+
+class LogicalEqualsCommand extends MathCommand {
+  checkArguments() {} 
+  executeSelf() { return this.op1 == this.op2; }
+}
+class LogicalNotEqualsCommand extends MathCommand {
+  checkArguments() {} 
+  executeSelf() { return this.op1 != this.op2; }
 }
 
 class LessThanCommand extends MathCommand {
