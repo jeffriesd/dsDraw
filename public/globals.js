@@ -93,13 +93,16 @@ Object.defineProperty(Map.prototype, "deleteEquiv", {
 
 /** randomArray
  *    return array of random ints (0-max) with
- *    given length
+ *    given length (distinct values)
  */
 function randomArray(length, max) {
   var arr = [];
   if (max == undefined) max = 100;
-  for (var i = 0; i < length; i++) 
-    arr.push(Math.random() * max | 0);
+  var x;
+  while (arr.length < length) {
+    x = Math.random() * max | 0;
+    if (! arr.includes(x)) arr.push(x);
+  }
   return arr;
 }
 
