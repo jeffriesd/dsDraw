@@ -14,16 +14,14 @@ class BST extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
     this.ids = new Map();
-    this.root = new BSTNode(canvasState, this, null, 0);
-    this.root.index = this.newId();
-    this.ids.set(this.root.index, this.root);
+    this.root = null;
     
     this.cellSize = 20;
 
     this.minSep = 6;
     this.depthSep = 30;
 
-    BST.defaultSize = 20;
+    BST.defaultSize = 15;
 
     // not edges but extra arrows
     this.arrows = new Map();
