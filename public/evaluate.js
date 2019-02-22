@@ -28,7 +28,7 @@ class MathCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (isNaN(this.op1) || isNaN(this.op2))
+    if (isNaN(Number(this.op1)) || isNaN(Number(this.op2)))
       throw `Invalid operands for operator '${this.constructor.name}': ${this.op1}, ${this.op2}`;
   }
 
@@ -92,17 +92,30 @@ class ExponentCommand extends MathCommand {
   executeSelf() { return this.op1 ** this.op2; };
 }
 
-class NegateNumberCommand extends MathCommand {
+class UnaryMathCommand extends MathCommand {
   executeChildren() {
     this.op1 = this.argNodes[0].command.execute();
   }
-
   checkArguments() {
-    if (isNaN(this.op1))
-      throw `Invalid operands for operator '${this.opName}': ${this.op1}, ${this.op2}`;
+    if (isNaN(Number(this.op1)))
+      throw `Invalid operands for operator '${this.opName}': ${this.op1}.`;
   }
+}
 
+class NegateNumberCommand extends UnaryMathCommand {
   executeSelf() { return -this.op1; }
+}
+
+class ConjunctionCommand extends MathCommand {
+  executeSelf() { return Boolean(this.op1 && this.op2); }
+}
+
+class DisjunctionCommand extends MathCommand {
+  executeSelf() { return Boolean(this.op1 || this.op2); }
+}
+
+class LogicalNotCommand extends UnaryMathCommand {
+  executeSelf() { return ! Boolean(this.op1); }
 }
 
 class LessThanCommand extends MathCommand {
