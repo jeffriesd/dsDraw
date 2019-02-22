@@ -3,6 +3,7 @@
 //
 // TODO
 // create range() function ala python
+// also rand() and randn()
 
 /*  Command classes encapsulate actions on the canvas
  *  through either mouse clicks or commands entered in the
@@ -1425,9 +1426,11 @@ class BSTConstructor extends CanvasObjectConstructor {
   }
 
   buildComplete(bst, arr, low, high) {
+    if (low > high) return;
     var mid = Math.floor((low + high) / 2);
-    var left = buildComplete(bst, arr, low, mid);
-    var right = buildComplete(bst, arr, mid, high);
+    bst.insert(arr[mid]);
+    this.buildComplete(bst, arr, low, mid - 1);
+    this.buildComplete(bst, arr, mid + 1, high);
   }
 
   createObject() {
@@ -1442,8 +1445,8 @@ class BSTConstructor extends CanvasObjectConstructor {
     if (this.initializer == "random")
       randomArray(len, BST.randomSeed).forEach(x => this.newObj.insert(x));
     else if (this.initializer == "complete") {
-      var vals = randomArray(2 ** 5 - 1, BST.randomSeed).sort();
-      buildComplete(this.newObj, vals, 0, len);
+      var vals = randomArray(len, BST.randomSeed).sort((a, b) => a > b);
+      this.buildComplete(this.newObj, vals, 0, len - 1);
     }
     else if (this.initializer instanceof Array)
       this.initializer.forEach(x => this.newObj.insert(x));
@@ -1455,7 +1458,6 @@ class BSTConstructor extends CanvasObjectConstructor {
     return "array(initializer, styleOptions)";
   }
 }
-
 
 class BSTCommand extends CanvasObjectMethod {
 }
@@ -1592,7 +1594,6 @@ class BSTPredecessorCommand extends BSTCommand {
     return this.node.pred();
   }
 }
-
 
 class BSTSuccessorCommand extends BSTCommand {
   executeChildren() {
