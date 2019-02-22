@@ -18,22 +18,19 @@ const mathCommands = {
 
 const constructors = {
   "array":    Array1DConstructor,
-  "array1d":  Array1DConstructor,
-  "linked":     LinkedListConstructor,
-  "tb":       CanvasObjectConstructor, // rest use default
-  "tbox":     CanvasObjectConstructor,
-  "text":     CanvasObjectConstructor,
-  "math":     CanvasObjectConstructor,
-  "rectbox":  CanvasObjectConstructor,
-  "rbox":     CanvasObjectConstructor,
-  "roundbox": CanvasObjectConstructor,
-  "rdbox":    CanvasObjectConstructor,
-  "dbox":     CanvasObjectConstructor,
-  "pbox":     CanvasObjectConstructor,
-  "conn":     CanvasObjectConstructor,
-  "arrow":    CanvasObjectConstructor,
+  "linked":   LinkedListConstructor,
+  "text":     TextBoxConstructor,
+  "math":     MathBoxConstructor,
+  "rectbox":  RectBoxConstructor,
+  "rbox":     RectBoxConstructor,
+  "roundbox": RoundBoxConstructor,
+  "rdbox":    RoundBoxConstructor,
+  "dbox":     DiamondBoxConstructor,
+  "pbox":     ParallelogramBoxConstructor,
+  "conn":     ConnectorConstructor,
+  "arrow":    CurvedArrowConstructor,
   "bst":      BSTConstructor,
-}
+};
 
 /** createFunctionCommand 
  *    check properties of provided opNode
@@ -84,7 +81,7 @@ function createDrawCommand(cState) {
       case "SelectTool":
         return new SelectCommand(cState);
     }
-    throw `Invalid drawing mode: '${cState.drawMode}'.`;
+    return;
   }
   if (! cState.activeCommandType) return;
   switch (cState.activeCommandType) {
