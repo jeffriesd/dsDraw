@@ -41,13 +41,16 @@ function id(x) { return x[0]; }
     "*": "*",
     "/": "/",
     "^": "^",
-    "DOT": ".",
+    DOT: ".",
     LESSEQ: "<=",
     GREATEQ: ">=",
     EQEQ: "==",
     NOTEQ: "!=",
     TRUE: "true",
     FALSE: "false",
+    OR: "||",
+    AND: "&&",
+    NOT: "!",
     ">": ">",
     "<": "<",
     ",": ",",
@@ -619,6 +622,48 @@ function buildParentPropGet(operands) {
   };
 }
 
+/** buildConjunction
+ *  pattern: 
+ *    bool -> bool _ %AND _ disj  
+ */
+function buildConjunction(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new ConjunctionCommand(opNode1, opNode2),
+  };
+}
+
+/** buildDisjunction
+ *  pattern:
+ *    disj -> disj _ %OR _ not   
+ */
+function buildDisjunction(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new DisjunctionCommand(opNode1, opNode2),
+  };
+}
+
+/** buildLogicalNot
+ *  pattern:
+ *    not -> %NOT _ boolTerminal 
+ */
+function buildLogicalNot(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalNotCommand(opNode1, opNode2),
+  };
+}
+
 var grammar = {
     Lexer: lexer,
     ParserRules: [
@@ -723,10 +768,16 @@ var grammar = {
     {"name": "assignment", "symbols": ["expr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
     {"name": "assignment", "symbols": ["expr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
     {"name": "expr", "symbols": ["bool"], "postprocess": id},
-    {"name": "bool", "symbols": ["math"], "postprocess": id},
-    {"name": "bool", "symbols": ["comp"], "postprocess": id},
-    {"name": "bool", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)], "postprocess": wrapBool},
-    {"name": "bool", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)], "postprocess": wrapBool},
+    {"name": "bool", "symbols": ["bool", "_", (lexer.has("AND") ? {type: "AND"} : AND), "_", "disj"], "postprocess": buildConjunction},
+    {"name": "bool", "symbols": ["disj"], "postprocess": id},
+    {"name": "disj", "symbols": ["disj", "_", (lexer.has("OR") ? {type: "OR"} : OR), "_", "not"], "postprocess": buildDisjunction},
+    {"name": "disj", "symbols": ["not"], "postprocess": id},
+    {"name": "not", "symbols": [(lexer.has("NOT") ? {type: "NOT"} : NOT), "_", "boolTerminal"], "postprocess": buildLogicalNot},
+    {"name": "not", "symbols": ["boolTerminal"], "postprocess": id},
+    {"name": "boolTerminal", "symbols": ["math"], "postprocess": id},
+    {"name": "boolTerminal", "symbols": ["comp"], "postprocess": id},
+    {"name": "boolTerminal", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)], "postprocess": wrapBool},
+    {"name": "boolTerminal", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)], "postprocess": wrapBool},
     {"name": "comparator$subexpression$1", "symbols": [{"literal":"<"}]},
     {"name": "comparator$subexpression$1", "symbols": [{"literal":">"}]},
     {"name": "comparator$subexpression$1", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},
@@ -800,7 +851,6 @@ var grammar = {
     {"name": "objExpr", "symbols": ["callable"], "postprocess": id},
     {"name": "objExpr", "symbols": ["accessor"], "postprocess": id},
     {"name": "objExpr", "symbols": ["list"], "postprocess": id},
-    {"name": "objExpr", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
     {"name": "objExpr", "symbols": ["propGet"], "postprocess": id},
     {"name": "objExpr", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
     {"name": "propGet", "symbols": ["objExpr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildPropGet},

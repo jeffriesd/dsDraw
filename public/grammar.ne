@@ -37,13 +37,16 @@
     "*": "*",
     "/": "/",
     "^": "^",
-    "DOT": ".",
+    DOT: ".",
     LESSEQ: "<=",
     GREATEQ: ">=",
     EQEQ: "==",
     NOTEQ: "!=",
     TRUE: "true",
     FALSE: "false",
+    OR: "||",
+    AND: "&&",
+    NOT: "!",
     ">": ">",
     "<": "<",
     ",": ",",
@@ -80,10 +83,19 @@ assignment -> %varName _ "=" _ expr                   {% buildAssignment %}
 
 expr -> bool {% id %}
 
-bool -> math    {% id %} 
-      | comp    {% id %}
-      | %TRUE   {% wrapBool %}
-      | %FALSE  {% wrapBool %}
+bool -> bool _ %AND _ disj  {% buildConjunction %}
+      | disj                {% id %}
+
+disj -> disj _ %OR _ not    {% buildDisjunction %}
+      | not                 {% id %}
+
+not -> %NOT _ boolTerminal  {% buildLogicalNot %}
+      | boolTerminal        {% id %}
+
+boolTerminal -> math    {% id %}
+      | comp            {% id %}
+      | %TRUE           {% wrapBool %}
+      | %FALSE          {% wrapBool %}
 
 comparator -> ("<" | ">" | %LESSEQ | %GREATEQ ) {% id %} 
 
@@ -720,6 +732,48 @@ function buildParentPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetParentPropertyCommand(spl[0], spl[1]),
+  };
+}
+
+/** buildConjunction
+ *  pattern: 
+ *    bool -> bool _ %AND _ disj  
+ */
+function buildConjunction(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new ConjunctionCommand(opNode1, opNode2),
+  };
+}
+
+/** buildDisjunction
+ *  pattern:
+ *    disj -> disj _ %OR _ not   
+ */
+function buildDisjunction(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new DisjunctionCommand(opNode1, opNode2),
+  };
+}
+
+/** buildLogicalNot
+ *  pattern:
+ *    not -> %NOT _ boolTerminal 
+ */
+function buildLogicalNot(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalNotCommand(opNode1, opNode2),
   };
 }
 
