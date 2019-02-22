@@ -362,7 +362,6 @@ class FlowchartBox extends CanvasObject {
 }
 
 class RectBox extends FlowchartBox {
-
   /** RectBox.draw
    *    renders rectangular box on main canvas
    *    and hitCanvas and draws wrapped words
