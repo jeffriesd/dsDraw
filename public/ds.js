@@ -45,13 +45,13 @@ class Graph extends CanvasObject {
     this.sigInst.refresh();
   }
 
-  configureOptions(active) {
+  configureOptions() {
     this.ctx.fillStyle = this.fill; 
     this.hitCtx.fillStyle = this.hashColor;
   }
 
-  draw(active) {
-    this.configureOptions(active);
+  draw() {
+    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.fillRect(this.x1, this.y1, this.width, this.height);
