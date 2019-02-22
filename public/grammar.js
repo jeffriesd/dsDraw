@@ -664,6 +664,34 @@ function buildLogicalNot(operands) {
   };
 }
 
+/**
+ *  pattern:
+ *    eqcomp -> eqcomp _ %EQEQ _ noteqcomp 
+ */
+function buildEquals(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalEqualsCommand(opNode1, opNode2),
+  };
+}
+
+/** buildNotEquals
+ *  pattern:
+ *    noteqcomp -> noteqcomp _ %NOTEQ _ lcomp 
+ */
+function buildNotEquals(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalNotEqualsCommand(opNode1, opNode2),
+  };
+}
+
 var grammar = {
     Lexer: lexer,
     ParserRules: [
@@ -771,11 +799,22 @@ var grammar = {
     {"name": "bool", "symbols": ["bool", "_", (lexer.has("AND") ? {type: "AND"} : AND), "_", "disj"], "postprocess": buildConjunction},
     {"name": "bool", "symbols": ["disj"], "postprocess": id},
     {"name": "disj", "symbols": ["disj", "_", (lexer.has("OR") ? {type: "OR"} : OR), "_", "not"], "postprocess": buildDisjunction},
-    {"name": "disj", "symbols": ["not"], "postprocess": id},
+    {"name": "disj", "symbols": ["eqcomp"], "postprocess": id},
+    {"name": "eqcomp", "symbols": ["eqcomp", "_", (lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ), "_", "noteqcomp"], "postprocess": buildEquals},
+    {"name": "eqcomp", "symbols": ["noteqcomp"], "postprocess": id},
+    {"name": "noteqcomp", "symbols": ["noteqcomp", "_", (lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ), "_", "lcomp"], "postprocess": buildNotEquals},
+    {"name": "noteqcomp", "symbols": ["lcomp"], "postprocess": id},
+    {"name": "lcomp", "symbols": ["lcomp", "_", {"literal":"<"}, "_", "gcomp"], "postprocess": buildComparison},
+    {"name": "lcomp", "symbols": ["gcomp"], "postprocess": id},
+    {"name": "gcomp", "symbols": ["gcomp", "_", {"literal":">"}, "_", "lecomp"], "postprocess": buildComparison},
+    {"name": "gcomp", "symbols": ["lecomp"], "postprocess": id},
+    {"name": "lecomp", "symbols": ["lecomp", "_", (lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ), "_", "gecomp"], "postprocess": buildComparison},
+    {"name": "lecomp", "symbols": ["gecomp"], "postprocess": id},
+    {"name": "gecomp", "symbols": ["gecomp", "_", (lexer.has("GREATEQ") ? {type: "GREATEQ"} : GREATEQ), "_", "not"], "postprocess": buildComparison},
+    {"name": "gecomp", "symbols": ["not"], "postprocess": id},
     {"name": "not", "symbols": [(lexer.has("NOT") ? {type: "NOT"} : NOT), "_", "boolTerminal"], "postprocess": buildLogicalNot},
     {"name": "not", "symbols": ["boolTerminal"], "postprocess": id},
     {"name": "boolTerminal", "symbols": ["math"], "postprocess": id},
-    {"name": "boolTerminal", "symbols": ["comp"], "postprocess": id},
     {"name": "boolTerminal", "symbols": [(lexer.has("TRUE") ? {type: "TRUE"} : TRUE)], "postprocess": wrapBool},
     {"name": "boolTerminal", "symbols": [(lexer.has("FALSE") ? {type: "FALSE"} : FALSE)], "postprocess": wrapBool},
     {"name": "comparator$subexpression$1", "symbols": [{"literal":"<"}]},

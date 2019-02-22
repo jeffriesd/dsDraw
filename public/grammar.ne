@@ -87,13 +87,31 @@ bool -> bool _ %AND _ disj  {% buildConjunction %}
       | disj                {% id %}
 
 disj -> disj _ %OR _ not    {% buildDisjunction %}
-      | not                 {% id %}
+      | eqcomp              {% id %}
+
+eqcomp -> eqcomp _ %EQEQ _ noteqcomp {% buildEquals %} 
+        | noteqcomp                  {% id %} 
+
+noteqcomp -> noteqcomp _ %NOTEQ _ lcomp {% buildNotEquals %} 
+           | lcomp                      {% id %} 
+
+lcomp -> lcomp _ "<" _ gcomp  {% buildComparison %}
+       | gcomp            {% id %} 
+ 
+gcomp -> gcomp _ ">" _ lecomp {% buildComparison %} 
+       | lecomp           {% id %}
+
+lecomp -> lecomp _ %LESSEQ _ gecomp {% buildComparison %}
+        | gecomp                    {% id %} 
+
+gecomp -> gecomp _ %GREATEQ _ not {% buildComparison %} 
+        | not                     {% id %} 
 
 not -> %NOT _ boolTerminal  {% buildLogicalNot %}
       | boolTerminal        {% id %}
 
 boolTerminal -> math    {% id %}
-      | comp            {% id %}
+      # | comp            {% id %}
       | %TRUE           {% wrapBool %}
       | %FALSE          {% wrapBool %}
 
@@ -774,6 +792,34 @@ function buildLogicalNot(operands) {
     isLiteral: opNode1.isLiteral && opNode2.isLiteral,
     opNodes: [opNode1, opNode2],
     command: new LogicalNotCommand(opNode1, opNode2),
+  };
+}
+
+/**
+ *  pattern:
+ *    eqcomp -> eqcomp _ %EQEQ _ noteqcomp 
+ */
+function buildEquals(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalEqualsCommand(opNode1, opNode2),
+  };
+}
+
+/** buildNotEquals
+ *  pattern:
+ *    noteqcomp -> noteqcomp _ %NOTEQ _ lcomp 
+ */
+function buildNotEquals(operands) {
+  var opNode1 = operands[0];
+  var opNode2 = operands[4];
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new LogicalNotEqualsCommand(opNode1, opNode2),
   };
 }
 
