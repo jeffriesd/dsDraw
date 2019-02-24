@@ -76,7 +76,7 @@ class Array1D extends LinearCanvasObject {
     // copy config of array cells
     var copyArr = this.array.map(node => node.clone());
     copyArr.forEach(node => node.parentObject = copy);
-    copy.array = copyArr.slice();
+    copy.array = copyArr;
 
     // default array size is 8, so truncate copy if needed
     copy.array = copy.array.slice(0, this.length);
