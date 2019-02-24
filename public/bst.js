@@ -27,6 +27,12 @@ class BST extends LinearCanvasObject {
     this.arrows = new Map();
   }
 
+  toString() {
+    if (this.root == null)
+      return "BST(empty)";
+    return `BST(${this.root.size()})`;
+  }
+
   propNames() {
     return {
       ...super.propNames(),
@@ -38,10 +44,9 @@ class BST extends LinearCanvasObject {
       "inorder": BSTInorderCommand,
       "preorder": BSTPreorderCommand,
       "postorder": BSTPostorderCommand,
-      "pred": BSTPredecessorCommand,
-      "succ": BSTSuccessorCommand,
       "min": BSTMinCommand,
       "max": BSTMaxCommand,
+      "root": BSTRootCommand,
     };
   }
 
@@ -277,8 +282,6 @@ class BSTNode extends NodeObject {
     this.xleft = this;
     this.xright = this;
 
-    this.size = -1;
-
     this.depth = -1;
     this.relX = -1;
     this.relY = -1;
@@ -290,6 +293,10 @@ class BSTNode extends NodeObject {
     this.hasThread = false;
   }
 
+  toString() {
+    return `BSTNode(${this.value})`;
+  }
+
   propNames() {
     return {
       "bg": "fill",
@@ -299,6 +306,9 @@ class BSTNode extends NodeObject {
       "showVal": "showValues",
       "fg": "textColor",
       "ind": "showIndices",
+      "pred": BSTNodePredecessorCommand,
+      "succ": BSTNodeSuccessorCommand,
+      "value": BSTNodeValueComand,
     };
 
   }
@@ -357,6 +367,14 @@ class BSTNode extends NodeObject {
     return this.right;
   }
 
+  size() {
+    if (this.isLeaf()) return 1;
+    var size = 1;
+    if (this.left) size += this.left.size();
+    if (this.right) size += this.right.size();
+    return size;
+  }
+
   /** BSTNode.getMax
    *    return rightmost (maximum key)
    *    node in this subtree
@@ -389,7 +407,7 @@ class BSTNode extends NodeObject {
       curNode = parNode;
       parNode = curNode.parNode;
     }
-    return curNode;
+    return parNode;
   }
 
   /** BSTNode.succ
@@ -398,13 +416,13 @@ class BSTNode extends NodeObject {
   succ() {
     if (this.rightChild())
       return this.rightChild().getMin();
-    var curNode = this; 
-    var parNode = this.parNode;
-    while (parNode && (curNode !== parNode.leftChild())) {
+    var curNode = this;
+    var parNode = curNode.parNode;
+    while (parNode && curNode && (curNode !== parNode.leftChild())) {
       curNode = parNode;
       parNode = curNode.parNode;
     }
-    return curNode;
+    return parNode;
   }
 
   isLeaf() {
