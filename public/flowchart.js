@@ -711,6 +711,8 @@ class MathBox extends TextBox {
   /** MathBox.setMath
    *    gets called once client receives
    *    rendered svg from server
+   *
+   *    TODO fix case of \require{}
    */
   setMath(mathSVG) {
     this.svg = new Image();
@@ -723,10 +725,16 @@ class MathBox extends TextBox {
     this.textEntered();
     if (! this.editor.hidden)
       return super.drawText();
-
     if (this.editor.value == "") return;
-    if (this.svg && this.x1 && this.y1 && this.width && this.height && this.editor.hidden)
-      this.ctx.drawImage(this.svg, this.x1, this.y1, this.width, this.height);
+    if (this.svg && this.x1 && this.y1 && this.width && this.height && this.editor.hidden) {
+      // mathjax rendering may fail
+      try {
+          this.ctx.drawImage(this.svg, this.x1, this.y1, this.width, this.height);
+      }
+      catch (err) {
+        console.warn("Error rendering latex");
+      }
+    }
   }
 }
 
