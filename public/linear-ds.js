@@ -64,6 +64,20 @@ class LinearCanvasObject extends CanvasObject {
     return copy;
   }
 
+  /** LinearCanvasObject.swapNodes
+   *    swap nodes a and b by swapping
+   *    configurations -- much easier than
+   *    updating all the references
+   */
+  swapNodes(a, b) {
+    if (a === b) return;
+    if (a == null || b == null) throw "Cannot swap null nodes"
+    var tempNode = a.config();
+    Object.assign(a, b.config());
+    Object.assign(b, tempNode);
+  }
+
+
   /** LinearCanvasObject.restore
    *    restore this object and its arrows
    */

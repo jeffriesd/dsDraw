@@ -199,25 +199,6 @@ class BST extends LinearCanvasObject {
     return node;
   }
 
-  /** BST.swapNodes
-   *    swap nodes a and b by swapping
-   *    configurations -- much easier than
-   *    updating all the references
-   */
-  swapNodes(a, b) {
-    if (a === b) return;
-    if (a == null || b == null) throw "Cannot swap null nodes"
-
-    console.log("before swap!");
-    console.log("par of ", a.value, " = ", a.parNode ? a.parNode.value : null);
-    console.log("par of ", b.value, " = ", b.parNode ? b.parNode.value : null);
-    var tempNode = a.config();
-    Object.assign(a, b.config());
-    Object.assign(b, tempNode);
-    console.log("par of ", a.value, " = ", a.parNode ? a.parNode.value : null);
-    console.log("par of ", b.value, " = ", b.parNode ? b.parNode.value : null);
-  }
-
   configureOptions() {
     this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
     this.ctx.lineWidth = this.borderThickness;
