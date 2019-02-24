@@ -1,3 +1,22 @@
+class HistoryLine {
+  /**
+   *  Light wrapper class for entered commands
+   *  and results. Type may be result or command.
+   */
+  constructor(string, type) {
+    this.string = string;
+    this.type = type;
+  }
+
+  isCommand() {
+    return this.type == "command";
+  }
+
+  toString() {
+    return this.string;
+  }
+}
+
 class CommandConsole {
   constructor(canvasState) {
     if (CommandConsole.instance != null) return CommandConsole.instance;
@@ -174,14 +193,13 @@ class CommandConsole {
     var newIdx = this.cycleIndex + direction;
     this.cycleIndex = newIdx <= this.historyStack.length &&
                     newIdx >= 0 ? newIdx : this.cycleIndex;
-    console.log("cycle idx = ", this.cycleIndex);
 
     var fromEnd = this.historyStack.length - this.cycleIndex;
     
     if (this.cycleIndex > 0) {
       var cycledCmd = this.historyStack[fromEnd];
-      // skip over errors
-      if (cycledCmd.includes("ERROR")) //TODO Error objects
+      // skip over errors and printed results
+      if (! cycledCmd.isCommand()) 
         this.cycleCommands(direction);
       else
         this.commandLine.value = cycledCmd;
@@ -262,33 +280,23 @@ class CommandConsole {
         cmdObj = parseFunc(rawCommand);
       }
       catch (error) {
-        console.log("ERROR: " + error.stack);
         parseErr = "[PARSE ERROR]: " + error.toString();
       }
     }
 
     // add entered line to command history 
     if (line && line.trim()) 
-      this.historyStack.push(line);
+      this.historyStack.push(new HistoryLine(line, "command"));
 
     if (parseErr)
-      this.historyStack.push(parseErr);
+      this.historyStack.push(new HistoryLine(parseErr, "error"));
     else if (cmdObj)
       commandRet = this.executeCommand(cmdObj);
 
-    console.log("command returned:", commandRet);
     // print error or literal result
-    if (commandRet != undefined) {
-      if (String(commandRet).includes("ERROR")
-        || (typeof commandRet == "string" || typeof commandRet == "number"
-              || commandRet instanceof Array)) {
-
-        if (commandRet instanceof Array)
-          commandRet = "[" + String(commandRet) + "]";
-
-        this.historyStack.push(String(commandRet));
-      }
-    }
+    // TODO check for unexpected types like methods 
+    if (commandRet !== undefined)  
+      this.historyStack.push(new HistoryLine(this.stringify(commandRet), "result"));
 
     // redraw command history
     this.showHistory();
@@ -297,6 +305,15 @@ class CommandConsole {
     this.history.scrollTop = this.history.scrollHeight; 
   }
 
+  /** CommandConsole.stringify
+   *    helper method because Array.toString strips brackets
+   *    and JSON.stringify will expose objects
+   */
+  stringify(object) {
+    if (object instanceof Array) 
+      return "[" + object.map(x => this.stringify(x)) + "]";
+    return String(object);
+  }
 
   /** CommandConsole.showHistory
    *    display contents of history to command console,
