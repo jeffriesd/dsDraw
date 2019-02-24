@@ -344,7 +344,7 @@ class GetVariableCommand {
 
   /** GetVariableCommand.execute
    *    return command class (for function calls)
-   *    or value of variable 
+   *    or value of variable (usual case)
    */
   execute() {
     if (this.variableName in mainCommands)
@@ -368,7 +368,6 @@ class ConsoleCommand {
    *  //TODO push nodes to stack for reverse postorder (recursive undo)
    */
   executeChildren() {
-    console.log("executing children for ", this.constructor.name);
     this.args = 
       this.argNodes
       .filter(node => node != undefined)
@@ -1465,7 +1464,10 @@ class BSTCommand extends CanvasObjectMethod {
 class BSTInsertCommand extends BSTCommand {
   constructor(receiver, valueNode) {
     super(receiver, valueNode);
-    this.oldTree = this.receiver.root.deepCopy();
+    if (this.receiver.root == null)
+      this.oldTree = null
+    else
+      this.oldTree = this.receiver.root.deepCopy();
   }
 
   executeChildren() {
@@ -1491,7 +1493,10 @@ class BSTInsertCommand extends BSTCommand {
    *    remove inserted node
    */
   undo() {
-    this.receiver.root = this.oldTree.deepCopy();
+    if (this.oldTree == null)
+      this.receiver.root = null;
+    else
+      this.receiver.root = this.oldTree.deepCopy();
     this.receiver.claimChildren(this.receiver.root);
   }
 }
@@ -1522,9 +1527,6 @@ class BSTRemoveCommand extends BSTCommand {
     this.receiver.claimChildren(this.receiver.root);
   }
 
-  /** BSTInsertCommand.undo
-   *    remove inserted node
-   */
   undo() {
     this.receiver.root = this.oldTree.deepCopy();
     this.receiver.claimChildren(this.receiver.root);
@@ -1553,81 +1555,142 @@ class BSTFindCommand extends BSTCommand {
 
 }
 
+/**
+ * returns list of BSTNodes
+ */
 class BSTInorderCommand extends BSTCommand {
   executeSelf() {
-    return this.receiver.inorder().map(node => node.value);
+    return this.receiver.inorder();
   }
 
   undo() {}
 }
 
-
+/**
+ * returns list of BSTNodes
+ */
 class BSTPreorderCommand extends BSTCommand {
   executeSelf() {
-    return this.receiver.preorder().map(node => node.value);
+    return this.receiver.preorder();
   }
 
   undo() {}
 }
 
 
+/**
+ * returns list of BSTNodes
+ */
 class BSTPostorderCommand extends BSTCommand {
   executeSelf() {
-    return this.receiver.postorder().map(node => node.value);
+    return this.receiver.postorder();
   }
 
   undo() {}
 }
 
-class BSTPredecessorCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.node = this.args[0];
-  }
-  checkArguments() {
-    if (! (this.node instanceof BSTNode))
-      throw "BST predecessor argument must be BSTNode";
-    if (this.node.parentObject !== this.receiver)
-      throw "BST predecessor can only be called its own nodes";
-  }
-  executeSelf() {
-    return this.node.pred();
-  }
-}
-
-class BSTSuccessorCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.node = this.args[0];
-  }
-  checkArguments() {
-    if (! (this.node instanceof BSTNode))
-      throw "BST successor argument must be BSTNode";
-    if (this.node.parentObject !== this.receiver)
-      throw "BST successor can only be called its own nodes";
-  }
-  executeSelf() {
-    return this.node.succ();
-  }
-}
-
+/** BSTMinCommand
+ *    returns reference to min value node
+ */
 class BSTMinCommand extends BSTCommand {
   executeSelf() {
     if (this.receiver.root == null) return null;
-    return this.receiver.root.getMin().value;
+    return this.receiver.root.getMin();
   }
 }
 
+/** BSTMaxCommand
+ *    returns reference to max value node
+ */
 class BSTMaxCommand extends BSTCommand {
   executeSelf() {
     if (this.receiver.root == null) return null;
-    return this.receiver.root.getMax().value;
+    return this.receiver.root.getMax();
   }
 }
 
+
+/** BSTRootCommand
+ *    returns reference to root node
+ */
 class BSTRootCommand extends BSTCommand {
   executeSelf() {
     if (this.receiver.root == null) return null;
     return this.receiver.root;
+  }
+}
+
+class RandomFloatCommand extends ConsoleCommand {
+  constructor() {
+    super();
+    console.log("new rand");
+    this.value = null;
+  }
+  executeChildren() {}
+  executeSelf() {
+    if (this.value == null) 
+      this.value = Math.random();
+    return this.value;
+  }
+}
+
+/**
+ * BSTNode methods
+ */
+class BSTNodeCommand extends CanvasObjectMethod {
+  checkArguments() {
+    if (! (this.receiver instanceof BSTNode))
+      throw "BST predecessor argument must be BSTNode";
+  }
+}
+
+class BSTNodePredecessorCommand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.pred();
+  }
+}
+
+class BSTNodeSuccessorCommand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.succ();
+  }
+}
+
+class BSTNodeValueComand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.value;
+  }
+}
+
+
+class RandomIntCommand extends ConsoleCommand {
+  constructor(cState, min, max) {
+    super(min, max);
+    this.value = null;
+  }
+  executeChildren() {
+    super.executeChildren();
+    this.min = this.args[0];
+    this.max = this.args[1];
+    if (this.min == undefined) { 
+      this.min = 0; this.max = 100; 
+    }
+    else if (this.max == undefined) {
+      this.max = this.min;
+      this.min = 0;
+    }
+  }
+
+  checkArguments() {
+    if (! (typeof this.min == "number" && typeof this.max == "number"))
+      throw "randn arguments must be integers";
+    if (this.max <= this.min)
+      throw "randn arguments must be provided in increasing order";
+  }
+
+  executeSelf() {
+    if (this.value == null)
+      this.value = (Math.random() * (this.max - this.min )) | 0 + this.min;
+    return this.value;
   }
 }
