@@ -26,6 +26,10 @@ class CanvasObject {
     this.label = this.constructor.name.substring(0,1).toLowerCase(); // + "_" + hashCode;
   }
 
+  toString() {
+    return this.constructor.name;
+  }
+
   clone() {
     if (this.config === null)
       throw `No configurable options for ${this.constructor.name}`;
