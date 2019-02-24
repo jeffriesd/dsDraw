@@ -35,6 +35,10 @@ class Array1D extends LinearCanvasObject {
     Array1D.randomSeed = 100;
   }
 
+  toString() {
+    return `Array1D(${this.array.length})`;
+  }
+
   /** Array1D.nodes
    *    getter method for super class
    */
@@ -172,6 +176,10 @@ class Array1D extends LinearCanvasObject {
  *      - value
  */
 class ArrayNode extends NodeObject {
+
+  toString() {
+    return `ArrayNode(${this.value})`;
+  }
 
   /** ArrayNode.set value
    *    checks for correct type
