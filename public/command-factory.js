@@ -5,6 +5,8 @@ const mainCommands = {
   "sleep": SleepCommand,
   "truncate": TruncateVideoCommand,
   "export": ExportVideoCommand,
+  "rand": RandomFloatCommand,
+  "randn": RandomIntCommand,
 };
 
 const mathCommands = {
@@ -42,7 +44,6 @@ function createFunctionCommand(functionNode, args) {
     throw "Cannot invoke function on null";
 
   var functionClass = functionNode.command.execute();
-  console.log("functionClass = ", functionClass, functionNode.command.constructor.name);
   if (functionClass.methodClass !== undefined)
     return createMethodCommand(functionClass, args);
 
