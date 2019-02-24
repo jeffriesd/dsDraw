@@ -24,6 +24,10 @@ class LinkedList extends LinearCanvasObject {
     this.head = this.addNode(null, 0);
   }
 
+  toString() {
+    return `LinkedList(${this.list.length})`;
+  }
+
   /** LinkedList.nodes
    *    getter method for super class methods
    */
@@ -204,7 +208,10 @@ class ListNode extends NodeObject {
     this.index = index;
     this.x = x;
     this.y = y;
+  }
 
+  toString() {
+    return `ListNode(${this.value})`;
   }
 
   get radius() {
