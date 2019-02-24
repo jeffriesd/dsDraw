@@ -82,7 +82,6 @@ class ForLoopCommand {
     this.condition = condition;
     this.incrStatements = incrStatements;
     this.loopStatements = loopStatements;
-    console.log("loop statements = ", this.loopStatements);
     this.steps = 0;
   }
 
@@ -90,8 +89,7 @@ class ForLoopCommand {
     this.initStatements.forEach(s => s.command.execute());
     while (this.condition == null || this.condition.command.execute()) {
       this.loopStatements.forEach(s => { 
-        s.command.execute();
-        console.log("executing:", s.constructor.name);
+        s.clone().command.execute();
       });
       this.incrStatements.forEach(s => s.command.execute());
       if (this.steps++ > LOOP_MAX) {
