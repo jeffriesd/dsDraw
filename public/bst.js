@@ -112,6 +112,8 @@ class BST extends LinearCanvasObject {
    *    recursive insert helper method
    */
   insert(value) {
+    if (typeof value !== "number")
+      throw "BST only supports numeric values.";
     this.root = this._insert(this.root, null, value);
   }
 
