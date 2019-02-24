@@ -51,10 +51,13 @@ class MultCommand extends MathCommand {
     throw `Invalid operands for '*': '${this.op1}', '${this.op2}'.`;
   }
   executeSelf() { 
+    // evaluate expression again for each list element
     if (this.op1 instanceof Array) {
+      var argNode = this.argNodes[0];
       var extended = this.op1.slice();
-      for (var i = 1; i < this.op2; i++)
-        extended = extended.concat(this.op1.slice());
+      for (var i = 1; i < this.op2; i++) {
+        extended = extended.concat(argNode.clone().command.execute().slice());
+      }
       return extended;
     }
     return this.op1 * this.op2;
