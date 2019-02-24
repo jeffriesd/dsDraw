@@ -75,6 +75,12 @@ class WhileLoopCommand {
  *    (expr2)
  *    `command2`
  *  }
+ * 
+ *  opNodes get cloned on each successive loop so 
+ *  a unique command object gets created (unique state)
+ * 
+ *  TODO
+ *    add to array for undo
  */
 class ForLoopCommand {
   constructor(initStatements, condition, incrStatements, loopStatements) {
