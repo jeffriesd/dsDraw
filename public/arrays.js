@@ -74,15 +74,12 @@ class Array1D extends LinearCanvasObject {
     var copy = super.clone();
 
     // copy config of array cells
-    var idx = 0;
-    this.array.forEach((arrNode) => {
-      copy.array[idx] = new ArrayNode(this.cState, copy, 0);
-      Object.assign(copy.array[idx], arrNode.config());
-      idx++;
-    });
+    var copyArr = this.array.map(node => node.clone());
+    copyArr.forEach(node => node.parentObject = copy);
+    copy.array = copyArr.slice();
 
     // default array size is 8, so truncate copy if needed
-    copy.array = copy.array.slice(0, idx);
+    copy.array = copy.array.slice(0, this.length);
 
     // copy arrows
     this.arrows.forEach((arr, index) => {
@@ -179,23 +176,6 @@ class ArrayNode extends NodeObject {
 
   toString() {
     return `ArrayNode(${this.value})`;
-  }
-
-  /** ArrayNode.set value
-   *    checks for correct type
-   *    and sets _value = newVal
-   */
-  set value(newVal) {
-    if (this.getParent().cellType === "number") 
-        newVal = Number(newVal);
-
-    if (typeof newVal !== this.getParent().cellType || isNaN(newVal))
-      throw `Invalid type: ${this.getParent().cellType} expected.`;
-    this._value = newVal;
-  }
-
-  get value() {
-    return this._value;
   }
 
   getStartCoordinates() {
