@@ -55,15 +55,6 @@ class LinearCanvasObject extends CanvasObject {
     };
   }
 
-  /** LinearCanvasObject.clone
-   *    clone and add parent object references
-   */
-  clone() {
-    var copy = super.clone();
-    copy.nodes.forEach(node => node.parentObject = copy);
-    return copy;
-  }
-
   /** LinearCanvasObject.swapNodes
    *    swap nodes a and b by swapping
    *    configurations -- much easier than
