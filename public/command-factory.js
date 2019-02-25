@@ -32,6 +32,7 @@ const constructors = {
   "conn":     ConnectorConstructor,
   "arrow":    CurvedArrowConstructor,
   "bst":      BSTConstructor,
+  "bheap":    BinaryHeapConstructor,
 };
 
 /** createFunctionCommand 
