@@ -267,8 +267,6 @@ class BSTNode extends NodeObject {
     this.relX = -1;
     this.relY = -1;
 
-    this.shift = 0;
-
     this.parOffset = 0;
     this.rootOffset = 0;
     this.hasThread = false;
@@ -289,7 +287,7 @@ class BSTNode extends NodeObject {
       "ind": "showIndices",
       "pred": BSTNodePredecessorCommand,
       "succ": BSTNodeSuccessorCommand,
-      "value": BSTNodeValueComand,
+      "value": BSTNodeValueCommand,
     };
 
   }
