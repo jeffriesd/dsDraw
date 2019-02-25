@@ -1257,9 +1257,6 @@ class LinkedListConstructor extends CanvasObjectConstructor {
   executeChildren() {
     super.executeChildren();
     this.initializer = this.args[0];
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
     this.styleOptions = this.args[1];
   }
 
@@ -1418,9 +1415,6 @@ class BSTConstructor extends CanvasObjectConstructor {
   executeChildren() {
     super.executeChildren();
     this.initializer = this.args[0];
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
     this.styleOptions = this.args[1];
   }
 
@@ -1454,7 +1448,7 @@ class BSTConstructor extends CanvasObjectConstructor {
   }
 
   usage() {
-    return "array(initializer, styleOptions)";
+    return "bst(initializer, styleOptions)";
   }
 }
 
@@ -1620,28 +1614,10 @@ class BSTRootCommand extends BSTCommand {
   }
 }
 
-class RandomFloatCommand extends ConsoleCommand {
-  constructor() {
-    super();
-    console.log("new rand");
-    this.value = null;
-  }
-  executeChildren() {}
-  executeSelf() {
-    if (this.value == null) 
-      this.value = Math.random();
-    return this.value;
-  }
-}
-
 /**
  * BSTNode methods
  */
 class BSTNodeCommand extends CanvasObjectMethod {
-  checkArguments() {
-    if (! (this.receiver instanceof BSTNode))
-      throw "BST predecessor argument must be BSTNode";
-  }
 }
 
 class BSTNodePredecessorCommand extends BSTNodeCommand {
@@ -1656,12 +1632,123 @@ class BSTNodeSuccessorCommand extends BSTNodeCommand {
   }
 }
 
-class BSTNodeValueComand extends BSTNodeCommand {
+class BSTNodeValueCommand extends BSTNodeCommand {
   executeSelf() {
     return this.receiver.value;
   }
 }
 
+/**
+ * Heap methods
+ */
+class BinaryHeapConstructor extends CanvasObjectConstructor {
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    this.canvasClass = BinaryHeap;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.initializer = this.args[0];
+    this.styleOptions = this.args[1];
+  }
+
+  createObject() {
+    this.coords = BinaryHeap.defaultCoordinates(this.cState);
+    this.newObj = new BinaryHeap(
+      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
+
+    // default parameters
+    if (this.initializer == undefined) this.initializer = "random";
+
+    var len = BinaryHeap.defaultSize;
+    if (this.initializer == "random")
+      randomArray(len, BinaryHeap.randomSeed).forEach(x => this.newObj.insert(x));
+    else if (this.initializer instanceof Array)
+      this.initializer.forEach(x => this.newObj.insert(x));
+    else 
+      this.parseError("Invalid initializer");
+  }
+
+  usage() {
+    return "bheap(initializer, styleOptions)";
+  }
+}
+
+class BinaryHeapMethod extends CanvasObjectMethod {
+}
+
+class BinaryHeapInsertCommand extends BinaryHeapMethod {
+  constructor(receiver, valueNode) {
+    super(receiver, valueNode);
+    this.oldHeap = this.receiver.heapArray.slice();
+    this.oldHeap = this.oldHeap.map(node => {
+      node = node.clone();
+      node.parentObject = this.receiver;
+      return node;
+    });
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.value !== "number")
+      throw "BinaryHeap only support numeric values";
+  }
+
+  executeSelf() {
+    if (this.newHeap == undefined) {
+      this.receiver.insert(this.value);
+      this.newHeap = this.receiver.heapArray.slice();
+    }
+    this.receiver.heapArray = this.newHeap.slice();
+  }
+
+  undo() {
+    this.receiver.heapArray = this.oldHeap.slice();
+  }
+}
+
+class BinaryHeapPopCommand extends BinaryHeapMethod {
+  constructor(receiver) {
+    super(receiver);
+    this.oldHeap = this.receiver.heapArray.slice();
+    this.oldHeap = this.oldHeap.map(node => {
+      node = node.clone();
+      node.parentObject = this.receiver;
+      return node;
+    });
+  }
+
+  executeSelf() {
+    if (this.newHeap == undefined) {
+      this.popped = this.receiver.removeRoot();
+      this.newHeap = this.receiver.heapArray.slice();
+    }
+    this.receiver.heapArray = this.newHeap.slice();
+    return this.popped;
+  }
+
+  undo() {
+    this.receiver.heapArray = this.oldHeap.slice();
+  }
+}
+
+class BinaryHeapNodeMethod extends CanvasObjectMethod {
+}
+
+class BinaryHeapNodeValueCommand extends BinaryHeapNodeMethod {
+  executeSelf() {
+    return this.receiver.value;
+  }
+}
+
+/**
+ * Built-in math (rand, randn)
+ */
 
 class RandomIntCommand extends ConsoleCommand {
   constructor(cState, min, max) {
@@ -1691,6 +1778,20 @@ class RandomIntCommand extends ConsoleCommand {
   executeSelf() {
     if (this.value == null)
       this.value = (Math.random() * (this.max - this.min )) | 0 + this.min;
+    return this.value;
+  }
+}
+
+class RandomFloatCommand extends ConsoleCommand {
+  constructor() {
+    super();
+    console.log("new rand");
+    this.value = null;
+  }
+  executeChildren() {}
+  executeSelf() {
+    if (this.value == null) 
+      this.value = Math.random();
     return this.value;
   }
 }
