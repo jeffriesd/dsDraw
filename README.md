@@ -34,25 +34,14 @@ __Escape:__ Hide console
 ## Data Structures
 
 ### Arrays
-
-Arrays are created with the __array__ keyword. They are displayed as a series of rectangular cells of equal height or in 'tower' mode, where the height of each cell
-is determined by its value. Configurable options for arrays include font family, font size, cell
-size, index placement (above/below), and individual cell options include background, foreground (text color), value, showValues (toggle), showIndex (toggle), and displayStyle.
-
-##### Commands
-* resize
-* swap  
-* arc  
-* copy
+###### Methods: resize, swap, arc, copy, sort, length
 
 ### Linked Lists
+###### Methods: insert, remove, link, cut
 
-Linked lists are created one node at a time and share mary properties with arrays. Nodes can be display as circles or squares
-and arcs can be configured individually. Configureable options for linked lists include font family, font size, cell size,
-index placement (above/below), and individual cell optinos include backgroundm, foreground, value, showValues, showIndex, and displayStyle.
+### BST
+###### Methods: insert, remove, find, inorder, preorder, postorder, min, max, root, range
 
-##### Commands
-* insert
-* link
-* cut
+### Binary Heap
+###### Methods: insert, pop, find, decr, root
 
