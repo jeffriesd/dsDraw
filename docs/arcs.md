@@ -4,6 +4,9 @@ because we need to be able to interface with them through the parent object. For
 should no longer show arcs going to a node if that node is deleted. Therefore in these cases the parent object
 will call draw() on each CurvedArrow object in its 'arrows' map. 
 
+Indices are used to store arcs in map and check for duplicates. It is also used for lookup for methods like
+linked lists cut.
+
 ## Overhead
 #### CurvedArrow
 Maintain reference to parent object in 'locked', 'lockedFrom', 'lockedTo' properties  
@@ -20,3 +23,9 @@ draw: must also draw arrows
 move: must also move arrows
 new method: deleteArrow remove arrow object from map but adds keyRestore property to CurvedArrow object
 new method: restoreArrow uses keyRestore to put arrow object back in  map
+
+
+Issues:
+Bst commands do deep clone to rewind state so new nodes are created in the process (locked references aren't getting updated).
+solution: CurvedArrow will maintain reference to parent object e.g. BST but not from/to nodes e.g. BSTNodes. BST will call
+lockArrow method when drawing them
