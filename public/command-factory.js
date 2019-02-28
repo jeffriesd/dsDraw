@@ -44,7 +44,11 @@ function createFunctionCommand(functionNode, args) {
   if (functionNode == null)
     throw "Cannot invoke function on null";
 
-  var functionClass = functionNode.command.execute();
+  var functionClass = functionNode.clone().command.execute();
+
+  // also clone args
+  args = args.map(arg => arg.clone());
+
   if (functionClass.methodClass !== undefined)
     return createMethodCommand(functionClass, args);
 
