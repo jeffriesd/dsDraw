@@ -434,7 +434,7 @@ function wrapNumber(operands) {
       undo: function() {},
     },
     clone: function() {
-      return Number(operands[0]);
+      return wrapNumber(operands);
     }
   }
 }
@@ -455,7 +455,7 @@ function wrapString(operands) {
       undo: function() {},
     },
     clone: function() {
-      return operands[1].join("");
+      return wrapString(operands);
     }
   };
 }
@@ -473,7 +473,7 @@ function wrapBool(operands) {
       undo: function() {},
     },
     clone: function() {
-      return operands[0] == "true";
+      return wrapBool(operands);
     }
   };
 }
@@ -785,6 +785,9 @@ function buildPropGet(operands) {
     isLiteral: false,
     opNodes: [],
     command: new GetPropertyCommand(receiverNode, propName),
+    clone: function() {
+      return buildPropGet(cloneOperands(operands));
+    },
   };
 }
 
@@ -853,12 +856,11 @@ function buildDisjunction(operands) {
  *    not -> %NOT _ boolTerminal 
  */
 function buildLogicalNot(operands) {
-  var opNode1 = operands[0];
-  var opNode2 = operands[4];
+  var opNode1 = operands[2];
   return {
-    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
-    opNodes: [opNode1, opNode2],
-    command: new LogicalNotCommand(opNode1, opNode2),
+    isLiteral: opNode1.isLiteral,
+    opNodes: [opNode1],
+    command: new LogicalNotCommand(opNode1),
     clone: function() {
       return buildLogicalNot(cloneOperands(operands));
     }
