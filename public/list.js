@@ -25,7 +25,7 @@ class LinkedList extends LinearCanvasObject {
   }
 
   toString() {
-    return `LinkedList(${this.list.length})`;
+    return `LinkedList(${this.list.size})`;
   }
 
   /** LinkedList.nodes
@@ -99,7 +99,10 @@ class LinkedList extends LinearCanvasObject {
     return children;
   }
 
-  newId() {
+  /** LinekdList.newIndex
+   *    create a unique index by taking max of current indices + 1
+   */
+  newIndex() {
     return Array.from(this.list.keys()).reduce(
       (acc, val) => Math.max(acc, val), -1) + 1;
   }
@@ -108,7 +111,7 @@ class LinkedList extends LinearCanvasObject {
    *    add a new node from the current node with highest index
    */
   append(value) {
-    var maxId = this.newId() - 1;
+    var maxId = this.newIndex() - 1;
     this.addNode(this.nodes[maxId], value);
   }
 
@@ -126,7 +129,7 @@ class LinkedList extends LinearCanvasObject {
     // to right of newest node
     var x, y;
     if (this.list.size) {
-      var maxIdx = this.newId() - 1;
+      var maxIdx = this.newIndex() - 1;
       x = this.list.get(maxIdx).x + this.cellSize * 4;
       y = this.list.get(maxIdx).y;
     }
@@ -135,7 +138,7 @@ class LinkedList extends LinearCanvasObject {
       y = this.y1;
     }
    
-    var newNode = new ListNode(this.cState, this, value, this.newId(), x, y);
+    var newNode = new ListNode(this.cState, this, value, this.newIndex(), x, y);
     this.list.set(newNode.index, newNode);
 
     // add edge/link
@@ -146,17 +149,16 @@ class LinkedList extends LinearCanvasObject {
   }
 
   /** LinkedList.removeNode
-   *    remove node from map and delete 
-   *    and return (for undo) any links
+   *    remove node from map
    */
   removeNode(node) {
-    this.arrows.forEach((arr, index) => {
-      var from = this.list.get(index[0]);
-      var to = this.list.get(index[1]);
+    // this.arrows.forEach((arr, index) => {
+    //   var from = this.list.get(index[0]);
+    //   var to = this.list.get(index[1]);
 
-      if (from === node || to === node)
-        this.removeEdge(from, to);
-    });
+    //   if (from === node || to === node)
+    //     this.removeEdge(from, to);
+    // });
     this.list.delete(node.index);
   }
 
@@ -214,62 +216,9 @@ class ListNode extends NodeObject {
     return `ListNode(${this.value})`;
   }
 
-  get radius() {
-    return Math.floor(this.getParent().cellSize / 2);
-  }
-
   configureOptions() {
     super.configureOptions();
     this.nodeStyle = this.getParent().nodeStyle;
-  }
-
-  /** ListNode.lockArrow
-   *    put tip of arrow on outer edge of node and use
-   *    angle to determine placement on circumference 
-   *
-   *    move control point as well to avoid oscillation
-   *    between two different angles 
-   *    (visual glitch that occurs when control point is inside node)
-   */
-  lockArrow(arrow, dir) {
-    var endAngle = arrow.endingAngle();
-    var startAngle = arrow.startingAngle();
-
-    // determine offsets from 
-    // node center 
-    var offX, offY;
-
-    let inside = (n, cp) => 
-      (Math.abs(n.x - cp.x) <= n.radius 
-        && Math.abs(n.y - cp.y) <= n.radius);
-
-    // center is this.x, this.y
-    if (dir == "from") {
-      offX = this.radius * Math.cos(startAngle);
-      offY = this.radius * Math.sin(startAngle);
-
-      arrow.x1 = this.x - offX;
-      arrow.y1 = this.y - offY;
-      arrow.startPoint.x = arrow.x1;
-      arrow.startPoint.y = arrow.y1;
-
-      // fix angle to avoid oscillation
-      if (inside(this, arrow.cp1)) {
-        arrow.cp1.x = this.x - 4 * offX;
-        arrow.cp1.y = this.y - 4 * offY;
-      }
-    }
-    else {
-      offX = this.radius * Math.cos(endAngle);
-      offY = this.radius * Math.sin(endAngle);
-
-      arrow.x2 = this.x - offX;
-      arrow.y2 = this.y - offY;
-      if (inside(this, arrow.cp2)) {
-        arrow.cp2.x = this.x - 4 * offX;
-        arrow.cp2.y = this.y - 4 * offY;
-      }
-    }
   }
 
   /** ListNode.draw
