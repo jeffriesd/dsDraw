@@ -103,6 +103,13 @@ body {
   overflow-y: auto;
 }
 
+::-webkit-resizer {
+  border: 2px solid black;
+  background: red;
+  box-shadow: 0 0 5px 5px blue;
+  outline: 2px solid yellow;
+}
+
 #commandLine {
   position: absolute;
   bottom: 0px;
