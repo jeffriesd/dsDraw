@@ -94,11 +94,21 @@ class NegateNumberCommand extends UnaryMathCommand {
 /** Boolean commands
  */
 class ConjunctionCommand extends MathCommand {
-  executeSelf() { return Boolean(this.op1 && this.op2); }
+  executeChildren() {}
+  checkArguments() {}
+  executeSelf() { 
+    // do short circuiting
+    return this.argNodes[0].command.execute() && this.argNodes[1].command.execute();
+  }
 }
 
 class DisjunctionCommand extends MathCommand {
-  executeSelf() { return Boolean(this.op1 || this.op2); }
+  executeChildren() {}
+  checkArguments() {}
+  executeSelf() { 
+    // do short circuiting
+    return this.argNodes[0].command.execute() || this.argNodes[1].command.execute();
+  }
 }
 
 class LogicalNotCommand extends UnaryMathCommand {
