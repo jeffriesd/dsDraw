@@ -36,15 +36,10 @@ class CommandConsole {
     this.historyStack = [];
     this.numLines = 15;
 
-    /*  used for multi line commands, e.g.
-     *  create array {
-     *     label: arr123,
-     *     length: 8,
-     *     values: rand,
-     *   }
-     */ 
-    this.multiCommand = [];
-    this.multiLine = false;
+    // amount of space between text and edge of console
+    // when overflowing horizontally
+    this.textBuffer = 100;
+
 
     // start off hidden
     this.cmdConsole.hidden = true;
@@ -182,7 +177,20 @@ class CommandConsole {
         this.historyStack = [];
         this.showHistory();
       }
+
+      // automatically expand console
+      this.expandConsole();
     }
+  }
+
+  expandConsole() {
+    this.testCanvas = this.testCanvas || (this.testCanvas = document.createElement("canvas"));
+    var ctx = this.testCanvas.getContext("2d");
+    ctx.font = this.commandLine.style.font;
+    var consWidth = this.cmdConsole.clientWidth;
+    var textWidth = ctx.measureText(this.commandLine.value).width;
+    var buf = this.textBuffer + textWidth;
+    this.cmdConsole.style.width = Math.max(buf, consWidth) + "px";
   }
 
   /** CommandConsole.cycleCommands
@@ -257,19 +265,9 @@ class CommandConsole {
     //   this.multiCommand.push(stripped);
     // }
     //else 
-      if (line.trim()) {
-      // if in the middle of a multiline command,
-      // simply append the following lines to history
-      if (this.multiLine) {
-        this.multiCommand.push(line);
-
-        // indent in console
-        line = "  " + line;
-      }
-      else {
-        parseFunc = this.parser.parseLine.bind(this.parser);
-        rawCommand = line;
-      }
+    if (line.trim()) {
+      parseFunc = this.parser.parseLine.bind(this.parser);
+      rawCommand = line;
     }
 
     var parseErr, execErr, commandRet;
@@ -312,6 +310,8 @@ class CommandConsole {
   stringify(object) {
     if (object instanceof Array) 
       return "[" + object.map(x => this.stringify(x)) + "]";
+    if (object instanceof Function)
+      return "function";
     return String(object);
   }
 
