@@ -1128,7 +1128,7 @@ class Array1DArrowCommand extends Array1DCommand {
   }
 
   usage() {
-    return "array.arc [fromIndex] [toIndex]";
+    return "array.arc(fromIndex, toIndex)";
   }
 }
 
@@ -1455,6 +1455,62 @@ class BSTConstructor extends CanvasObjectConstructor {
 class BSTCommand extends CanvasObjectMethod {
 }
 
+class BSTArrowCommand extends BSTCommand {
+  constructor(receiver, index1, index2) {
+    super(receiver, index1, index2);
+    this.arrow = null;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.i1 = this.args[0];
+    this.i2 = this.args[1];
+  }
+
+  checkArguments() {
+    if (this.receiver.getChild(this.i1) == null)
+      throw "Invalid index: " + this.i1;
+    if (this.receiver.getChild(this.i2) == null)
+      throw "Invalid index: " + this.i2;
+  }
+
+  /** BSTArrowCommand.execute
+   *    add an arc from node with index i1 to 
+   *    node with index i2
+   */
+  executeSelf() {
+    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) return;
+    var fromAnchor = this.receiver.getChild(this.i1);
+    var toAnchor = this.receiver.getChild(this.i2);
+
+    if (this.arrow == null) {
+      // create new locked arrow
+      var anchors = {from: fromAnchor, to: toAnchor};
+      this.arrow = 
+        new CurvedArrow(this.receiver.cState, 
+          fromAnchor.x, fromAnchor.y, toAnchor.x, toAnchor.y, anchors);
+      this.arrow.keyRestore = [this.i1, this.i2];
+    } 
+    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
+    this.arrow.restore();
+  }
+
+  /** Array1DArrowCommand.undo
+   *    remove arrow if it exists 
+   */
+  undo() {
+    if (this.arrow != null) {
+      this.arrow.destroy();
+      this.receiver.arrows.deleteEquiv([this.i1, this.i2]);
+    }
+  }
+
+  usage() {
+    return "array.arc(fromIndex, toIndex)";
+  }
+}
+
+
 class BSTInsertCommand extends BSTCommand {
   constructor(receiver, valueNode) {
     super(receiver, valueNode);
@@ -1546,7 +1602,26 @@ class BSTFindCommand extends BSTCommand {
 
   undo() {
   }
+}
 
+class BSTRangeCommand extends BSTCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.low = this.args[0];
+    this.high = this.args[1];
+    if (this.low == undefined) this.low = this.receiver.root.getMin().value;
+    if (this.high == undefined) this.low = this.receiver.root.getMax().value + 1;
+  }
+  checkArguments() {
+    if (typeof this.low !== "number")
+      throw "Invalid lower bound: " + this.low;
+    if (typeof this.high !== "number")
+      throw "Invalid upper bound: " + this.high;
+  }
+  executeSelf() {
+    return this.receiver.inorder()
+      .filter(node => node.value >= this.low && node.value < this.high);
+  }
 }
 
 /**
@@ -1675,10 +1750,10 @@ class BinaryHeapConstructor extends CanvasObjectConstructor {
   }
 }
 
-class BinaryHeapMethod extends CanvasObjectMethod {
+class BinaryHeapCommand extends CanvasObjectMethod {
 }
 
-class BinaryHeapInsertCommand extends BinaryHeapMethod {
+class BinaryHeapInsertCommand extends BinaryHeapCommand {
   constructor(receiver, valueNode) {
     super(receiver, valueNode);
     this.oldHeap = this.receiver.heapArray.slice();
@@ -1712,7 +1787,7 @@ class BinaryHeapInsertCommand extends BinaryHeapMethod {
   }
 }
 
-class BinaryHeapPopCommand extends BinaryHeapMethod {
+class BinaryHeapPopCommand extends BinaryHeapCommand {
   constructor(receiver) {
     super(receiver);
     this.oldHeap = this.receiver.heapArray.slice();
@@ -1737,10 +1812,84 @@ class BinaryHeapPopCommand extends BinaryHeapMethod {
   }
 }
 
-class BinaryHeapNodeMethod extends CanvasObjectMethod {
+class BinaryHeapFindCommand extends BinaryHeapCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.value = this.args[0];
+  }
+  executeSelf() {
+    return this.receiver.find(this.value);
+  }
 }
 
-class BinaryHeapNodeValueCommand extends BinaryHeapNodeMethod {
+class BinaryHeapRootCommand extends BinaryHeapCommand {
+  executeSelf() {
+    return this.receiver.root;
+  }
+}
+
+class BinaryHeapRangeCommand extends BinaryHeapCommand {
+  executeChildren() {
+    super.executeChildren();
+    this.low = this.args[0];
+    this.high = this.args[1];
+    if (this.low == undefined) this.low = this.receiver.getMin();
+    if (this.high == undefined) this.low = this.receiver.getMax() + 1;
+  }
+  checkArguments() {
+    if (typeof this.low !== "number")
+      throw "Invalid lower bound: " + this.low;
+    if (typeof this.high !== "number")
+      throw "Invalid upper bound: " + this.high;
+  }
+  executeSelf() {
+    return this.receiver.heapArray
+      .filter(node => node.value >= this.low && node.value < this.high);
+  }
+}
+
+
+class BinaryHeapDecreaseKeyCommand extends BinaryHeapCommand {
+  constructor(receiver, heapNodeOpNode, newKeyNode) {
+    super(receiver, heapNodeOpNode, newKeyNode);
+    this.oldHeap = this.receiver.heapArray.slice();
+    this.oldHeap = this.oldHeap.map(node => {
+      node = node.clone();
+      node.parentObject = this.receiver;
+      return node;
+    });
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiverNode = this.args[0];
+    this.newKey = this.args[1];
+  }
+
+  checkArguments() {
+    if (! (this.receiverNode instanceof BinaryHeapNode))
+      throw "Cannot decrease key of non BinaryHeapNode";
+    if (this.receiverNode.parentObject !== this.receiver)
+      throw "BinaryHeap can only decrease keys of its own nodes";
+  }
+
+  executeSelf() {
+    if (this.newHeap == undefined) {
+      this.receiver.decreaseKey(this.receiverNode, this.newKey);
+      this.newHeap = this.receiver.heapArray.slice();
+    }
+    this.receiver.heapArray = this.newHeap.slice();
+  }
+
+  undo () {
+    this.receiver.heapArray = this.oldHeap.slice();
+  }
+}
+
+class BinaryHeapNodeCommand extends CanvasObjectMethod {
+}
+
+class BinaryHeapNodeValueCommand extends BinaryHeapNodeCommand {
   executeSelf() {
     return this.receiver.value;
   }
