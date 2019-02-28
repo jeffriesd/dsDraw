@@ -850,8 +850,8 @@ class Arrow extends CanvasObject {
 
     // arrow may be 'locked' into place by parents
     if (locked) {
-      this.lockedFrom = locked.from;
-      this.lockedTo = locked.to;
+      // this.lockedFrom = locked.from;
+      // this.lockedTo = locked.to;
       this.locked = locked.from.getParent();
     }
 
@@ -974,10 +974,10 @@ class CurvedArrow extends Arrow {
 
     // allow parent objects to position arrow endpoints
     // when locked
-    if (this.locked) {
-      this.lockedFrom.lockArrow(this, "from");
-      this.lockedTo.lockArrow(this, "to");
-    }
+    // if (this.locked) {
+    //   this.lockedFrom.lockArrow(this, "from");
+    //   this.lockedTo.lockArrow(this, "to");
+    // }
   }
 
 
