@@ -535,6 +535,8 @@ class PauseState extends MediaState {
       // }, context.framerate * 2);
 
     }
+    else if (! context.clips.get(context.activeClipId).recorded) 
+      context.waiting = false;
     else
       alert("waiting...");
   }
