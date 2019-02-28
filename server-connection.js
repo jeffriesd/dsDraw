@@ -45,7 +45,7 @@ function processClientMessage(ws, req, message) {
       });
       break;
     case "deleteClip":
-      req.session.vm.removeClips(msgObj.body.clipIds);
+      req.session.vm.deleteClipFiles(msgObj.body.clipIds);
       break;
   }
 }
