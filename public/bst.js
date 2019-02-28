@@ -16,9 +16,9 @@ class BST extends LinearCanvasObject {
     this.ids = new Map();
     this.root = null;
     
-    this.cellSize = 20;
+    this.cellSize = 40;
 
-    this.minSep = 6;
+    this.minSep = 2;
     this.depthSep = 30;
 
     BST.defaultSize = 15;
@@ -47,6 +47,8 @@ class BST extends LinearCanvasObject {
       "min": BSTMinCommand,
       "max": BSTMaxCommand,
       "root": BSTRootCommand,
+      "range": BSTRangeCommand,
+      "arc": BSTArrowCommand,
     };
   }
 
@@ -59,15 +61,15 @@ class BST extends LinearCanvasObject {
   }
 
   /** BST.getChildren
-   *    return nodes with values 
-   *    in the range [low, high)
+   *    return nodes with indices 
+   *    in the [low, high)
    */
   getChildren(low, high) {
-    if (low == null) low = this.root.getMin().value;
-    if (high == null) high = this.root.getMax().value + 1;
-    
+    if (low == undefined) low = 0;
+    if (high == undefined) high = this.newIndex();
+
     return this.inorder()
-      .filter(node => node.value >= low && node.value < high);
+      .filter(node => node.index >= low && node.index < high);
   }
 
   /** BST.clone
@@ -132,7 +134,7 @@ class BST extends LinearCanvasObject {
   _insert(root, par,  value) {
     if (root == null) { 
       var newNode = new BSTNode(this.cState, this, par, value);
-      newNode.index = this.newId();
+      newNode.index = this.newIndex();
       this.ids.set(newNode.index, newNode);
       return newNode;
     }
@@ -217,21 +219,27 @@ class BST extends LinearCanvasObject {
   }
 
   draw() {
-    super.draw();
+    if (this.active()) this.drawLabel();
     this.configureOptions();
 
     // TODO only render when needed
+    // TODO move ancestor collapsed to render
     renderBST(this);
 
     this.preorder().forEach(node => {
+      if (node.ancestorHas("collapsed")) return;
+
       // determine absolute coordinates
       // of node center
       var x = this.x1 + node.relX * this.cellSize;
       var y = this.y1 + node.relY * (this.cellSize + this.depthSep);
       node.x = x;
       node.y = y;
+
+      if (node.collapsed) return node.drawTriangle();
       
-      // draw edges 
+      // draw edges with stroke = 1
+      this.ctx.lineWidth = 1;
       this.ctx.beginPath();
       this.ctx.moveTo(x, y);
 
@@ -247,8 +255,10 @@ class BST extends LinearCanvasObject {
 
     this.hitCtx.beginPath();
     this.hitCtx.fillRect(this.x1, this.y1, this.x2 - this.x1, this.y2 - this.y1);
+
+    // draw arrows last
+    this.drawArrows();
   }
-  
 }
 
 class BSTNode extends NodeObject {
@@ -262,6 +272,8 @@ class BSTNode extends NodeObject {
 
     this.xleft = this;
     this.xright = this;
+
+    this.collapsed = false;
 
     this.depth = -1;
     this.relX = -1;
@@ -285,20 +297,17 @@ class BSTNode extends NodeObject {
       "showVal": "showValues",
       "fg": "textColor",
       "ind": "showIndices",
+      "collapsed": "collapsed",
       "pred": BSTNodePredecessorCommand,
       "succ": BSTNodeSuccessorCommand,
       "value": BSTNodeValueCommand,
     };
-
   }
 
   config() {
     return {
-      value: this.value,
-      fill: this.fill,
-      textColor: this.textColor,
-      showIndices: this.showIndices,
-      showValues: this.showValues,
+      ...super.config(),
+      collapsed: this.collapsed,
     };
   }
 
@@ -352,6 +361,11 @@ class BSTNode extends NodeObject {
     if (this.left) size += this.left.size();
     if (this.right) size += this.right.size();
     return size;
+  }
+
+  ancestorHas(prop) {
+    if (this.parNode == null) return this[prop];
+    return this.parNode[prop] || this.parNode.ancestorHas(prop);
   }
 
   /** BSTNode.getMax
@@ -439,14 +453,6 @@ class BSTNode extends NodeObject {
     return [this.xleft, this.xright];
   }
 
-  /** BSTNode.configureOptions
-   *    determine absolute coordinate from relative
-   */
-  configureOptions() {
-    super.configureOptions();
-    this.radius = this.getParent().cellSize;
-  }
-
   /** ListNode.drawValue
    */
   drawValue() {
@@ -473,6 +479,27 @@ class BSTNode extends NodeObject {
     this.configureOptions();
     this.ctx.beginPath();  
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.fill();
+
+    if (this.showValues && this.getParent().showValues) 
+      this.drawValue();
+
+    if (this.showIndices && this.getParent().showIndices) 
+      this.drawIndex(this.index);
+
+    this.hitCtx.beginPath();
+    this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    this.hitCtx.fill();
+  }
+
+  drawTriangle() {
+    this.configureOptions();
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.x - this.radius, this.y + this.radius);
+    this.ctx.lineTo(this.x, this.y - this.cellSize);
+    this.ctx.lineTo(this.x + this.radius, this.y + this.radius);
+    this.ctx.lineTo(this.x - this.radius, this.y + this.radius);
     this.ctx.stroke();
     this.ctx.fill();
 
