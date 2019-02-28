@@ -12,6 +12,14 @@ function initDOM() {
     var delCmd = new DeleteClipCommand(CanvasState.getInstance(), clipIds);
     delCmd.execute();
   });
+
+  $("#exportClipButton").click((event) => {
+    var clipIds = $(".activeClip")
+      .toArray().map(x => parseInt(x.id.replace("thumbnail", "")))
+      .sort();
+    var exportCmd = new ExportVideoCommand(CanvasState.getInstance(), clipIds);
+    exportCmd.execute();
+  });
 }
 
 
