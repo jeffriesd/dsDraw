@@ -117,10 +117,16 @@ class Array1D extends LinearCanvasObject {
     };
   }
 
-  initCells() {
-    for (var x = this.x1; x < this.x2; x += this.cellSize) {
-      this.append();
-    }
+  /** Array1D.getChildren
+   *    return subarray from [low, high) 
+   *
+   *    if either bound is null, replace it with
+   *    0 or nodes.length
+   */
+  getChildren(low, high) {
+    if (low == null) low = 0;
+    if (high == null) high = this.nodes.length;
+    return this.nodes.slice(low, high);
   }
  
   /** Array1D.append
