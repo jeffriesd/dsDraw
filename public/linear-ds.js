@@ -68,16 +68,15 @@ class LinearCanvasObject extends CanvasObject {
     Object.assign(b, tempNode);
   }
 
-
   /** LinearCanvasObject.restore
    *    restore this object and its arrows
    */
-  restore() {
-    super.restore();
-    this.arrows.forEach(arr => {
-      arr.restore()
-    });
-  }
+  // restore() {
+  //   super.restore();
+  //   this.arrows.forEach(arr => {
+  //     arr.restore()
+  //   });
+  // }
 
   static defaultCoordinates(cState) {
     var center = cState.getCenter();
@@ -88,20 +87,12 @@ class LinearCanvasObject extends CanvasObject {
       y2: center.y,
     };
   }
- 
-  /** LinearCanvasObject.getChildren
-   *    return subarray from [low, high) 
-   *
-   *    if either bound is null, replace it with
-   *    0 or nodes.length
-   */
-  getChildren(low, high) {
-    if (low == null) low = 0;
-    if (high == null) high = this.nodes.length;
-    return this.nodes.slice(low, high);
-  }
 
-  newId() {
+  getChild(idx) {
+    return this.getChildren(idx, idx+1).pop();
+  }
+ 
+  newIndex() {
     return Array.from(this.ids.keys()).reduce(
       (acc, val) => Math.max(acc, val), -1) + 1;
   }
@@ -136,7 +127,20 @@ class LinearCanvasObject extends CanvasObject {
       idx++;
     });
 
-    this.arrows.forEach(arr => arr.draw());
+    this.drawArrows();
+  }
+  
+  drawArrows() {
+    this.arrows.forEach((arrow, idx) => { 
+      var fromIdx = idx[0];
+      var toIdx = idx[1];
+      var from = this.getChild(idx[0]);
+      var to = this.getChild(idx[1]);
+      if (from == null || to == null) return;
+      from.lockArrow(arrow, "from");
+      to.lockArrow(arrow, "to");
+      arrow.draw();
+    });
   }
 
   /** LinearCanvasObject.move
@@ -166,6 +170,7 @@ class LinearCanvasObject extends CanvasObject {
     if (! this.arrows.hasValue(arrObj))
       this.arrows.set(arrObj.keyRestore, arrObj);
   }
+
 }
 
 class NodeObject extends CanvasChildObject {
@@ -213,9 +218,9 @@ class NodeObject extends CanvasChildObject {
       borderThickness: this.borderThickness,
       showIndices: this.showIndices,
       showValues: this.showValues,
+      index: this.index,
     };
   }
-
 
   configureOptions() {
     this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : "#000";
@@ -280,6 +285,59 @@ class NodeObject extends CanvasChildObject {
    *    bring up editor
    */
   click(event) {
+  }
+
+  get radius() {
+    return Math.floor(this.getParent().cellSize / 2);
+  }
+
+  /** NodeObject.lockArrow
+   *    put tip of arrow on outer edge of node and use
+   *    angle to determine placement on circumference 
+   *
+   *    move control point as well to avoid oscillation
+   *    between two different angles 
+   *    (visual glitch that occurs when control point is inside node)
+   */
+  lockArrow(arrow, dir) {
+    var endAngle = arrow.endingAngle();
+    var startAngle = arrow.startingAngle();
+
+    // determine offsets from 
+    // node center 
+    var offX, offY;
+
+    let inside = (n, cp) => 
+      (Math.abs(n.x - cp.x) <= n.radius 
+        && Math.abs(n.y - cp.y) <= n.radius);
+
+    // center is this.x, this.y
+    if (dir == "from") {
+      offX = this.radius * Math.cos(startAngle);
+      offY = this.radius * Math.sin(startAngle);
+
+      arrow.x1 = this.x - offX;
+      arrow.y1 = this.y - offY;
+      arrow.startPoint.x = arrow.x1;
+      arrow.startPoint.y = arrow.y1;
+
+      // fix angle to avoid oscillation
+      if (inside(this, arrow.cp1)) {
+        arrow.cp1.x = this.x - 4 * offX;
+        arrow.cp1.y = this.y - 4 * offY;
+      }
+    }
+    else {
+      offX = this.radius * Math.cos(endAngle);
+      offY = this.radius * Math.sin(endAngle);
+
+      arrow.x2 = this.x - offX;
+      arrow.y2 = this.y - offY;
+      if (inside(this, arrow.cp2)) {
+        arrow.cp2.x = this.x - 4 * offX;
+        arrow.cp2.y = this.y - 4 * offY;
+      }
+    }
   }
 }
 
