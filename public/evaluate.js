@@ -53,7 +53,7 @@ class MultCommand extends MathCommand {
   executeSelf() { 
     // evaluate expression again for each list element
     if (this.op1 instanceof Array) {
-      var argNode = this.argNodes[0];
+      var argNode = this.argNodes[0]; // use buildList node
       var extended = this.op1.slice();
       for (var i = 1; i < this.op2; i++) {
         extended = extended.concat(argNode.clone().command.execute().slice());
