@@ -96,6 +96,7 @@ function cloneOperands(operands) {
   return operands.map(x => {
     if (x == null) return null;
     if (x.clone) return x.clone();
+    if (x instanceof Array) return cloneOperands(x);
     return x;
   });
 }
@@ -123,7 +124,8 @@ function buildAdd(opNode1, opNode2) {
     command: new AddCommand(opNode1, opNode2),
     clone: function() {
       return buildAdd(opNode1.clone(), opNode2.clone());
-    }
+    },
+    toString: () => "buildAdd",
   };
 }
 
@@ -134,7 +136,8 @@ function buildSub(opNode1, opNode2) {
     command: new SubCommand(opNode1, opNode2),
     clone: function() {
       return buildSub(opNode1.clone(), opNode2.clone());
-    }
+    },
+    toString: () => "buildSub",
   };
 }
 
@@ -163,7 +166,8 @@ function buildMult(opNode1, opNode2) {
     command: new MultCommand(opNode1, opNode2),
     clone: function() {
       return buildMult(opNode1.clone(), opNode2.clone());
-    }
+    },
+    toString: () => "buildMult",
   };
 }
 
@@ -177,7 +181,8 @@ function buildDiv(opNode1, opNode2) {
     command: new DivCommand(opNode1, opNode2),
     clone: function() {
       return buildDiv(opNode1.clone(), opNode2.clone());
-    }
+    },
+    toString: () => "buildDiv",
   };
 }
 
@@ -196,7 +201,8 @@ function buildExp(operands) {
     command: new ExponentCommand(opNode1, opNode2),
     clone: function() {
       return buildExp(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildExp",
   };
 }
 
@@ -214,7 +220,8 @@ function buildNegate(operands) {
     command: new NegateNumberCommand(opNode),
     clone: function() {
       return buildExp(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildNegate",
   };
 }
 
@@ -248,7 +255,8 @@ function buildFunctionCall(operands) {
     command: createFunctionCommand(functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildFunctionCall",
   };
 }
 
@@ -290,7 +298,8 @@ function buildMethodCall(operands) {
     command: createMethodCommand(methodName, methodArgs),
     clone: function() {
       return buildMethodCall(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildMethodCall",
   };
 }
 
@@ -304,7 +313,8 @@ function wrapNumber(operands) {
     },
     clone: function() {
       return wrapNumber(operands);
-    }
+    },
+    toString: () => "wrapNumber",
   }
 }
 
@@ -325,7 +335,8 @@ function wrapString(operands) {
     },
     clone: function() {
       return wrapString(operands);
-    }
+    },
+    toString: () => "wrapString",
   };
 }
 
@@ -343,7 +354,8 @@ function wrapBool(operands) {
     },
     clone: function() {
       return wrapBool(operands);
-    }
+    },
+    toString: () => "wrapBool",
   };
 }
 
@@ -361,7 +373,8 @@ function buildVariable(operands) {
     command: new GetVariableCommand(varName),
     clone: function() {
       return buildVariable(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildVariable",
   }
 }
 
@@ -380,7 +393,8 @@ function buildAssignment(operands) {
     command: new AssignVariableCommand(lValue, rValue),
     clone: function() {
       return buildAssignment(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildAssignment",
   };
 }
 
@@ -399,7 +413,8 @@ function buildRangePropertyAssignment(operands) {
     command: new RangeConfigCommand(receiverNode, propName, rValueNode),
     clone: function() {
       return buildRangePropertyAssignment(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildRangePropertyAssignment",
   };
 }
 
@@ -430,7 +445,8 @@ function buildComparison(operands) {
     command: new compCommand(opNode1, opNode2),
     clone: function() {
       return buildComparison(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildComparison",
   }
 }
 
@@ -489,7 +505,8 @@ function buildForLoop(operands) {
           incrStatements, loopStatements),
     clone: function() {
       return buildForLoop(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildForLoop",
   };
 }
 
@@ -513,7 +530,8 @@ function buildWhileLoop(operands) {
     command: new WhileLoopCommand(condition, loopStatements),
     clone: function() {
       return buildWhileLoop(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildWhileLoop",
   };
 }
 
@@ -531,7 +549,8 @@ function buildSingleAccess(operands) {
     command: new GetChildCommand(receiver, keyNode),
     clone: function() {
       return buildSingleAccess(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildSingleAccess",
   };
 }
 
@@ -559,7 +578,8 @@ function buildRangeAccess(operands) {
     command: new GetChildrenCommand(receiver, low, high),
     clone: function() {
       return buildRangeAccess(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildRangeAccess",
   };
 }
 
@@ -589,15 +609,14 @@ function buildList(operands) {
     opNodes: elements,
     command: {
       execute: function() {
-        if (this.ret == undefined)
-          this.ret = elements.map(opNode => opNode.clone().command.execute());
-        return this.ret;
+        return elements.map(opNode => opNode.command.execute());
       },
       undo: function() {},
     },
     clone: function() {
       return buildList(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildList",
   };
 }
 
@@ -619,7 +638,8 @@ function buildListAssignment(operands) {
     command: new AssignListElementCommand(listNode, indexNode, rValueNode),
     clone: function() {
       return buildListAssignment(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildListAssignment",
   };
 }
 
@@ -638,7 +658,8 @@ function buildChildPropGet(operands) {
     command: new GetChildPropertyCommand(accessorNode, propName),
     clone: function() {
       return buildChildPropGet(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildChildPropGet",
   };
 }
 
@@ -659,6 +680,7 @@ function buildPropGet(operands) {
     clone: function() {
       return buildPropGet(cloneOperands(operands));
     },
+    toString: () => "buildPropGet",
   };
 }
 
@@ -684,7 +706,8 @@ function buildParentPropGet(operands) {
     command: new GetParentPropertyCommand(spl[0], spl[1]),
     clone: function() {
       return buildParentPropGet(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildParentPropGet",
   };
 }
 
@@ -701,7 +724,8 @@ function buildConjunction(operands) {
     command: new ConjunctionCommand(opNode1, opNode2),
     clone: function() {
       return buildConjunction(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildConjunction",
   };
 }
 
@@ -718,7 +742,8 @@ function buildDisjunction(operands) {
     command: new DisjunctionCommand(opNode1, opNode2),
     clone: function() {
       return buildDisjunction(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildDisjunction",
   };
 }
 
@@ -734,7 +759,8 @@ function buildLogicalNot(operands) {
     command: new LogicalNotCommand(opNode1),
     clone: function() {
       return buildLogicalNot(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildLogicalNot",
   };
 }
 
@@ -751,7 +777,8 @@ function buildEquals(operands) {
     command: new LogicalEqualsCommand(opNode1, opNode2),
     clone: function() {
       return buildEquals(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildEquals",
   };
 }
 
@@ -768,7 +795,8 @@ function buildNotEquals(operands) {
     command: new LogicalNotEqualsCommand(opNode1, opNode2),
     clone: function() {
       return buildNotEquals(cloneOperands(operands));
-    }
+    },
+    toString: () => "buildNotEquals",
   };
 }
 
