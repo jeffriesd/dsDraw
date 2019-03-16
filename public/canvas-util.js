@@ -527,6 +527,8 @@ class CanvasEventHandler {
   mouseUp(event) {
     this.cState.mouseUp = {x: event.clientX, y: event.clientY};
 
+    if (this.cState.mouseDown == null) return;
+
     // only create new canvas object if actually dragged to new location
     if (this.cState.mouseUp.x !== this.cState.mouseDown.x
         || this.cState.mouseDown.y !== this.cState.mouseUp.y) {
