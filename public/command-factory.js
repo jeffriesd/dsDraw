@@ -57,7 +57,7 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
     throw "Cannot invoke function on null";
 
   // call wrapper 'execute' method if just calling
-  // a built-in function
+  // a built-in function 
   if (functionNode.isLiteral || runtimeOverride) {
     var functionClass = functionNode.command.execute(); 
 
@@ -75,9 +75,9 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
     // otherwise construct this AST node at runtime
     return {
       execute: function() {
-        if (this.opNode == undefined)
-          this.opNode = createFunctionCommand(functionNode, args, true);
-        return this.opNode.execute();
+        if (this.command == undefined)
+          this.command = createFunctionCommand(functionNode, args, true);
+        return this.command.execute();
       }
     }  
   }
