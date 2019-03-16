@@ -284,6 +284,9 @@ class CanvasChildObject {
   drag(deltaX, deltaY) {
   }
 
+  shiftDrag() {
+  }
+
   /** Event when click begins
    */
   mouseDown() {
