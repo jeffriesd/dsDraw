@@ -39,22 +39,48 @@ const constructors = {
  *    check properties of provided opNode
  *    object and create method or function
  *    from result
+ * 
+ *    runtimeOverride param is used to indicate the function node
+ *    is being created at runtime 
+ * 
+ *    if functionNode is a literal, go ahead and construct
+ *    this AST node, otherwise it must be constructed dynamically
+ *    
+ *    examples:
+ *      1: randn() -- fine because 'randn' is built-in
+ *      2: x.method() -- cannot construct method node yet 
+ *                       because 'x' is defined at runtime
+ *      3: func1().method1() -- same reasoning as example 2
  */   
-function createFunctionCommand(functionNode, args) {
+function createFunctionCommand(functionNode, args, runtimeOverride) {
   if (functionNode == null)
     throw "Cannot invoke function on null";
 
-  var functionClass = functionNode.clone().command.execute();
+  // call wrapper 'execute' method if just calling
+  // a built-in function
+  if (functionNode.isLiteral || runtimeOverride) {
+    var functionClass = functionNode.command.execute(); 
 
-  // also clone args
-  args = args.map(arg => arg.clone());
+    // also clone args
+    args = args.map(arg => arg.clone());
 
-  if (functionClass.methodClass !== undefined)
-    return createMethodCommand(functionClass, args);
+    if (functionClass.methodClass !== undefined)
+      return createMethodCommand(functionClass, args);
 
-  if (Object.values(mainCommands).includes(functionClass)
-      || Object.values(constructors).includes(functionClass))
-    return new functionClass(CanvasState.getInstance(), ...args);
+    if (Object.values(mainCommands).includes(functionClass)
+        || Object.values(constructors).includes(functionClass))
+      return new functionClass(CanvasState.getInstance(), ...args);
+  }
+  else {
+    // otherwise construct this AST node at runtime
+    return {
+      execute: function() {
+        if (this.opNode == undefined)
+          this.opNode = createFunctionCommand(functionNode, args, true);
+        return this.opNode.execute();
+      }
+    }  
+  }
 
   throw `Invalid function name: '${functionClass}'.`;
 }
