@@ -51,13 +51,13 @@ class MultCommand extends MathCommand {
     throw `Invalid operands for '*': '${this.op1}', '${this.op2}'.`;
   }
   executeSelf() { 
-    // evaluate expression again for each list element
+    // evaluate expression (opNode) again for each list element
+    // so [f()] * x causes f to be evaluated/executed x times
     if (this.op1 instanceof Array) {
-      var argNode = this.argNodes[0]; // use buildList node
+      var argNode = this.argNodes[0]; 
       var extended = this.op1.slice();
-      for (var i = 1; i < this.op2; i++) {
+      for (var i = 1; i < this.op2; i++) 
         extended = extended.concat(argNode.clone().command.execute().slice());
-      }
       return extended;
     }
     return this.op1 * this.op2;
@@ -71,6 +71,11 @@ class DivCommand extends MathCommand {
       throw "Divide by zero error";
   }
   executeSelf() { return this.op1 / this.op2; };
+}
+
+// extend div for zero check
+class ModCommand extends DivCommand {
+  executeSelf() { return this.op1 % this.op2; };
 }
 
 class ExponentCommand extends MathCommand {
