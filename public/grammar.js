@@ -41,6 +41,7 @@ function id(x) { return x[0]; }
     "*": "*",
     "/": "/",
     "^": "^",
+    MOD: "%",
     DOT: ".",
     LESSEQ: "<=",
     GREATEQ: ">=",
@@ -152,7 +153,10 @@ function buildMultDiv(operands) {
   var operator = operands[2];
   if (operator == "*")
     return buildMult(operands[0], operands[4]);
-  return buildDiv(operands[0], operands[4]);
+  else if (operator == "/")
+    return buildDiv(operands[0], operands[4]);
+  else 
+    return buildMod(operands[0], operands[4]);
 }
 
 
@@ -184,6 +188,18 @@ function buildDiv(opNode1, opNode2) {
     },
     toString: () => "buildDiv",
   };
+}
+
+function buildMod(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new ModCommand(opNode1, opNode2),
+    clone: function() {
+      return buildMod(opNode1.clone(), opNode2.clone());
+    },
+    toString: () => "buildMod",
+  }
 }
 
 /** buildExp
@@ -234,8 +250,8 @@ function buildNegate(operands) {
  *    isLiteral false by definition
  *
  *  pattern:
- *    function -> expr "(" _ args _ ")" 
- *              | expr "(" ")"      
+ *    function -> objExpr "(" _ args _ ")" 
+ *              | objExpr "(" ")"      
  *   
  */
 function buildFunctionCall(operands) {
@@ -939,6 +955,7 @@ var grammar = {
     {"name": "math", "symbols": ["product"], "postprocess": id},
     {"name": "product$subexpression$1", "symbols": [{"literal":"*"}]},
     {"name": "product$subexpression$1", "symbols": [{"literal":"/"}]},
+    {"name": "product$subexpression$1", "symbols": [(lexer.has("MOD") ? {type: "MOD"} : MOD)]},
     {"name": "product", "symbols": ["product", "_", "product$subexpression$1", "_", "exp"], "postprocess": buildMultDiv},
     {"name": "product", "symbols": ["exp"], "postprocess": id},
     {"name": "exp", "symbols": ["unaryNeg", "_", {"literal":"^"}, "_", "exp"], "postprocess": buildExp},
