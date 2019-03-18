@@ -292,8 +292,8 @@ class CommandConsole {
       commandRet = this.executeCommand(cmdObj);
 
     // print error or literal result
-    // TODO check for unexpected types like methods 
-    if (commandRet !== undefined)  
+    // TODO check for unexpected types like method objects
+    if (commandRet !== undefined)
       this.historyStack.push(new HistoryLine(this.stringify(commandRet), "result"));
 
     // redraw command history
@@ -308,10 +308,13 @@ class CommandConsole {
    *    and JSON.stringify will expose objects
    */
   stringify(object) {
+    if (object == null) return "null";
     if (object instanceof Array) 
       return "[" + object.map(x => this.stringify(x)) + "]";
     if (object instanceof Function)
       return "function";
+    if (object.constructor == Object) // dict object
+      return `{${Object.entries(object).map(([k, v]) => k + ": "  + v).join(", ")}}`;
     return String(object);
   }
 
@@ -424,6 +427,9 @@ class CommandInterpreter {
     if (parseTree.results.length > 1)
       throw "Ambiguous grammar";
     this.nearleyParser.finish();
+
+    if (parseTree.results.length == 0)
+      throw "Incomplete parse error";
 
     return parseTree.results[0].command;
     // if (! cmdStr.match(expressionChars))
