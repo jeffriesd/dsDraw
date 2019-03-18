@@ -130,6 +130,16 @@ class LinearCanvasObject extends CanvasObject {
     this.drawArrows();
   }
   
+  /** LinearCanvasObject.drawArrows
+   *    for each arrow in map, extract start
+   *    end ending indices (which nodes are
+   *    each arc anchored to?) and use
+   *    getChild to get node objects. If either
+   *    index is missing, don't draw anything.
+   *    
+   *    otherwise lock its endpoints and call
+   *    arrow.draw()
+   */
   drawArrows() {
     this.arrows.forEach((arrow, idx) => { 
       var fromIdx = idx[0];
@@ -167,6 +177,8 @@ class LinearCanvasObject extends CanvasObject {
   }
 
   restoreArrow(arrObj) {
+    if (arrObj.keyRestore == undefined)
+      throw "Failed to restore arrow; key is undefined";
     if (! this.arrows.hasValue(arrObj))
       this.arrows.set(arrObj.keyRestore, arrObj);
   }
