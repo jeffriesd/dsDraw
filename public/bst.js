@@ -301,6 +301,10 @@ class BSTNode extends NodeObject {
       "pred": BSTNodePredecessorCommand,
       "succ": BSTNodeSuccessorCommand,
       "value": BSTNodeValueCommand,
+      "left": BSTNodeLeftCommand,
+      "right": BSTNodeRightCommand,
+      "parent": BSTNodeParentCommand,
+      "rotate": BSTNodeRotateCommand,
     };
   }
 
@@ -388,6 +392,79 @@ class BSTNode extends NodeObject {
     return this;
   }
 
+  /** BSTNode.rotateRight
+   *    helper method when this node is left child
+   *  
+   *        A                       B
+   *      /  \                     / \
+   *     B    t3      becomes     t1  A  
+   *    / \                          / \
+   *   t1  t2                       t2  t3
+   * 
+   */
+  rotateRight() {
+    if (this.parNode == null) return;
+    var nodeA = this.parNode;
+
+    // attach t2 as left child of nodeA
+    var t2 = this.rightChild();
+    nodeA.left = t2;
+    if (t2)
+      t2.parNode = nodeA;
+
+    this.right = nodeA;
+
+    if (nodeA === this.getParent().root)
+      this.getParent().root = this;
+    else {
+      if (nodeA.isLeftChild())
+        nodeA.parNode.left = this;
+      else 
+        nodeA.parNode.right = this;
+    }
+
+    this.parNode = nodeA.parNode;
+    nodeA.parNode = this;
+  }
+
+  /** BSTNode.rotateLeft
+   *    helper method when this node is right child
+   *  
+   *        A                       B
+   *      /  \                     / \
+   *     t1   B     becomes       A  t3
+   *         / \                 / \
+   *        t2  t3              t1  t2
+   *
+   */
+  rotateLeft() {
+    if (this.parNode == null) return;
+    var nodeA = this.parNode;
+
+    // attach t2 to nodeA
+    var t2 = this.leftChild();
+    nodeA.right = t2;
+    if (t2)
+      t2.parNode = nodeA;
+    this.left = null;
+
+    // attach nodeA as left child of (this) nodeB
+    this.left = nodeA;
+
+    // special case if nodeA is root
+    if (nodeA === this.getParent().root)
+      this.getParent().root = this;
+    else {
+      if (nodeA.isLeftChild())
+        nodeA.parNode.left = this;
+      else
+        nodeA.parNode.right = this;
+    }
+
+    this.parNode = nodeA.parNode;
+    nodeA.parNode = this;
+  }
+
   /** BSTNode.pred
    *    return inorder predecessor
    */
@@ -420,6 +497,14 @@ class BSTNode extends NodeObject {
 
   isLeaf() {
     return this.left == null && this.right == null;
+  }
+
+  isLeftChild() {
+    return this.parNode && this.parNode.leftChild() === this;
+  }
+
+  isRightChild() {
+    return this.parNode && this.parNode.rightChild() === this;
   }
 
   /** BSTNode.deepCopy
