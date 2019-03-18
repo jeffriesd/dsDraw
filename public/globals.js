@@ -106,6 +106,21 @@ function randomArray(length, max) {
   return arr;
 }
 
+// extend JSON.stringify slightly for better array representation
+function stringify(object) {
+  if (object == null) return "null";
+  if (object instanceof Array) 
+    return "[" + object.map(stringify) + "]";
+  if (object instanceof Function)
+    return "function";
+  if (object.constructor == Object) // dict object
+    return `{${Object.entries(object).map(([k, v]) => k + ": "  + v).join(", ")}}`;
+  return String(object);
+}
+
+// allow dict objects to be printed as such
+Object.prototype.toString = function() { return stringify(this); }
+
 const SHIFT = 16;
 const CTRL = 17;
 const ALT = 18;
