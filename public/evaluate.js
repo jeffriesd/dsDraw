@@ -21,8 +21,9 @@ class AddCommand extends MathCommand {
   checkArguments() {
     if (typeof this.op1 == "number" && typeof this.op2 == "number")
       return super.checkArguments();
+    if (typeof this.op1 == "string" && typeof this.op2 == "string") return;
     if (this.op1 instanceof Array && this.op2 instanceof Array) return;
-    throw "Operands for '+' must be two lists or two numbers";
+    throw "Operands for '+' must be two lists, two strings, or two numbers";
   }
 
   /** AddCommand.executeSelf
