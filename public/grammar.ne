@@ -58,6 +58,7 @@
     "}": "}",
     "[": "[",
     "]": "]",
+    ":": ":",
     ";": ";",
     QUOTE: "\"",
     FOR: "for",
@@ -144,6 +145,7 @@ mathTerminal -> number            {% id %}
        | callable                 {% id %}
        | accessor                 {% id %}  # list access
        | list                     {% id %}
+       | dict                     {% id %}
        | %QUOTE nonQuote:* %QUOTE {% wrapString %}
        | %varName                 {% buildVariable %}
        | "(" _ bool _ ")"         {% d => d[2] %}     # drop parens
@@ -152,7 +154,7 @@ mathTerminal -> number            {% id %}
 number -> %number {% wrapNumber %}
 
 # list is just an array of expressions
-list -> "[" "]"           {% buildList %}
+list -> "[" _ "]"         {% buildList %}
 list -> "[" _ args _ "]"  {% buildList %}
 
 # accessor returns an element, a sublist, or a list of 
@@ -170,6 +172,7 @@ accessor -> objExpr "[" _ (expr _):? ":" _ (expr _):? "]" {% buildRangeAccess %}
 # 'i < a.length()' because it will think
 # 'i < a.length' is a function name
 objExpr -> callable {% id %}
+         | dict     {% id %}
          | accessor {% id %}
          | list     {% id %}
          | propGet  {% id %}
@@ -187,7 +190,11 @@ function -> objExpr "(" _ args _ ")" {% buildFunctionCall %}
 args -> funcarg (_ "," _ funcarg):* {% buildFunctionArguments %}
 funcarg -> expr {% id %}
 
+dictArgs -> dictPair (_ "," _ dictPair):* {% buildDictArgs %}
+dictPair -> expr _ ":" _ expr             {% d => [d[0], d[4]] %}
 
+dict -> "{" "}"            {% buildDict %}
+      | "{" _ dictArgs _ "}" {% buildDict %}
 # # Control Flow
 
 # note no spaces before or after bookend statements
@@ -740,7 +747,7 @@ function buildRangeAccess(operands) {
  *    x = 4
  *
  *    pattern:
- *      list -> "[" "]" 
+ *      list -> "[" _ "]" 
  *      list -> "[" _ args _ "]" 
  *    
  *    buildList clones opnodes so function calls get re-evaluated
@@ -748,7 +755,7 @@ function buildRangeAccess(operands) {
  */
 function buildList(operands) {
   var elements = [];
-  if (operands.length > 2)
+  if (operands.length > 3)
     elements = operands[2];
 
   return {
@@ -944,6 +951,65 @@ function buildNotEquals(operands) {
       return buildNotEquals(cloneOperands(operands));
     },
     toString: () => "buildNotEquals",
+  };
+}
+
+
+/** buildDictArgs
+ *    return array of [key, value] pair (arrays)
+ *    
+ *    dictArgs -> dictPair (_ "," _ dictPair):* 
+ */
+function buildDictArgs(operands) {
+  var dictArgs = [operands[0]];
+  for (var idx in operands[1])
+    dictArgs.push(operands[1][idx][3]);
+  return dictArgs;
+}
+
+/** buildDict
+ *    build dictionary AST node
+ *    
+ *    for now, dictionary keys must be literals or
+ *    variables, which are evaluated once and 
+ *    those literals values are used. 
+ *    For instance:
+ *    i = 3
+ *    d = { i : "asdf" } 
+ *    i = 5
+ *    d[3] still == "asdf" (not  d[5])
+ *
+ */
+function buildDict(operands, loc, rej, originalPairs) {
+  var pairs = [];
+  if (operands.length > 3) 
+    pairs = operands[2];
+
+  // evaluate keys only once (not again on clones)
+  pairs = originalPairs || 
+    pairs.map(([k, v]) => {
+      var kval = null;
+      if (k.isLiteral || k.command instanceof GetVariableCommand)
+        kval = k.command.execute();
+      if (kval == null || kval instanceof Object) 
+        throw "Dictionary keys must be string or number";
+
+      return [k.command.execute(), v.command.execute()];
+    });
+  return {
+    isLiteral: pairs.every(x => x[1].isLiteral),
+    opNodes: pairs,
+    command: {
+      execute: function() {
+        return Object.assign({}, 
+        ...pairs.map(([k, v]) => ({[k]: v})));
+      },
+      undo: function() {}
+    },
+    clone: function() {
+      return buildDict(cloneOperands(operands), null, null, pairs);
+    },
+    toString: () => "buildDict",
   };
 }
 

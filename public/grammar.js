@@ -62,6 +62,7 @@ function id(x) { return x[0]; }
     "}": "}",
     "[": "[",
     "]": "]",
+    ":": ":",
     ";": ";",
     QUOTE: "\"",
     FOR: "for",
@@ -609,7 +610,7 @@ function buildRangeAccess(operands) {
  *    x = 4
  *
  *    pattern:
- *      list -> "[" "]" 
+ *      list -> "[" _ "]" 
  *      list -> "[" _ args _ "]" 
  *    
  *    buildList clones opnodes so function calls get re-evaluated
@@ -617,7 +618,7 @@ function buildRangeAccess(operands) {
  */
 function buildList(operands) {
   var elements = [];
-  if (operands.length > 2)
+  if (operands.length > 3)
     elements = operands[2];
 
   return {
@@ -816,6 +817,65 @@ function buildNotEquals(operands) {
   };
 }
 
+
+/** buildDictArgs
+ *    return array of [key, value] pair (arrays)
+ *    
+ *    dictArgs -> dictPair (_ "," _ dictPair):* 
+ */
+function buildDictArgs(operands) {
+  var dictArgs = [operands[0]];
+  for (var idx in operands[1])
+    dictArgs.push(operands[1][idx][3]);
+  return dictArgs;
+}
+
+/** buildDict
+ *    build dictionary AST node
+ *    
+ *    for now, dictionary keys must be literals or
+ *    variables, which are evaluated once and 
+ *    those literals values are used. 
+ *    For instance:
+ *    i = 3
+ *    d = { i : "asdf" } 
+ *    i = 5
+ *    d[3] still == "asdf" (not  d[5])
+ *
+ */
+function buildDict(operands, loc, rej, originalPairs) {
+  var pairs = [];
+  if (operands.length > 3) 
+    pairs = operands[2];
+
+  // evaluate keys only once (not again on clones)
+  pairs = originalPairs || 
+    pairs.map(([k, v]) => {
+      var kval = null;
+      if (k.isLiteral || k.command instanceof GetVariableCommand)
+        kval = k.command.execute();
+      if (kval == null || kval instanceof Object) 
+        throw "Dictionary keys must be string or number";
+
+      return [k.command.execute(), v.command.execute()];
+    });
+  return {
+    isLiteral: pairs.every(x => x[1].isLiteral),
+    opNodes: pairs,
+    command: {
+      execute: function() {
+        return Object.assign({}, 
+        ...pairs.map(([k, v]) => ({[k]: v})));
+      },
+      undo: function() {}
+    },
+    clone: function() {
+      return buildDict(cloneOperands(operands), null, null, pairs);
+    },
+    toString: () => "buildDict",
+  };
+}
+
 var grammar = {
     Lexer: lexer,
     ParserRules: [
@@ -995,6 +1055,7 @@ var grammar = {
     {"name": "mathTerminal", "symbols": ["callable"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["accessor"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["list"], "postprocess": id},
+    {"name": "mathTerminal", "symbols": ["dict"], "postprocess": id},
     {"name": "mathTerminal$ebnf$1", "symbols": []},
     {"name": "mathTerminal$ebnf$1", "symbols": ["mathTerminal$ebnf$1", "nonQuote"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "mathTerminal", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "mathTerminal$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
@@ -1002,7 +1063,7 @@ var grammar = {
     {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
     {"name": "mathTerminal", "symbols": ["propGet"], "postprocess": id},
     {"name": "number", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": wrapNumber},
-    {"name": "list", "symbols": [{"literal":"["}, {"literal":"]"}], "postprocess": buildList},
+    {"name": "list", "symbols": [{"literal":"["}, "_", {"literal":"]"}], "postprocess": buildList},
     {"name": "list", "symbols": [{"literal":"["}, "_", "args", "_", {"literal":"]"}], "postprocess": buildList},
     {"name": "accessor", "symbols": ["objExpr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}], "postprocess": buildSingleAccess},
     {"name": "accessor$ebnf$1$subexpression$1", "symbols": ["expr", "_"]},
@@ -1013,6 +1074,7 @@ var grammar = {
     {"name": "accessor$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "accessor", "symbols": ["objExpr", {"literal":"["}, "_", "accessor$ebnf$1", {"literal":":"}, "_", "accessor$ebnf$2", {"literal":"]"}], "postprocess": buildRangeAccess},
     {"name": "objExpr", "symbols": ["callable"], "postprocess": id},
+    {"name": "objExpr", "symbols": ["dict"], "postprocess": id},
     {"name": "objExpr", "symbols": ["accessor"], "postprocess": id},
     {"name": "objExpr", "symbols": ["list"], "postprocess": id},
     {"name": "objExpr", "symbols": ["propGet"], "postprocess": id},
@@ -1026,6 +1088,13 @@ var grammar = {
     {"name": "args$ebnf$1", "symbols": ["args$ebnf$1", "args$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "args", "symbols": ["funcarg", "args$ebnf$1"], "postprocess": buildFunctionArguments},
     {"name": "funcarg", "symbols": ["expr"], "postprocess": id},
+    {"name": "dictArgs$ebnf$1", "symbols": []},
+    {"name": "dictArgs$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "dictPair"]},
+    {"name": "dictArgs$ebnf$1", "symbols": ["dictArgs$ebnf$1", "dictArgs$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "dictArgs", "symbols": ["dictPair", "dictArgs$ebnf$1"], "postprocess": buildDictArgs},
+    {"name": "dictPair", "symbols": ["expr", "_", {"literal":":"}, "_", "expr"], "postprocess": d => [d[0], d[4]]},
+    {"name": "dict", "symbols": [{"literal":"{"}, {"literal":"}"}], "postprocess": buildDict},
+    {"name": "dict", "symbols": [{"literal":"{"}, "_", "dictArgs", "_", {"literal":"}"}], "postprocess": buildDict},
     {"name": "commaSepStatements$ebnf$1", "symbols": []},
     {"name": "commaSepStatements$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "statement"]},
     {"name": "commaSepStatements$ebnf$1", "symbols": ["commaSepStatements$ebnf$1", "commaSepStatements$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
