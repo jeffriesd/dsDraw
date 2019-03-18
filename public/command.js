@@ -583,9 +583,8 @@ class GetChildrenCommand extends ConsoleCommand {
 /** GetChildCommand
  *    this command acts as an overloaded operator. 
  *    it returns a single element, either from the elements of a user
- 1    defined 'list' or the elements of a data structure
- *
- *    now works with arbitrary expression (e.g. varname[] or function()[])
+ *    defined 'list', a user defined 'dict' or the 
+ *    elements of a data structure
  */
 class GetChildCommand extends ConsoleCommand {
   constructor(receiver, key) {
@@ -599,8 +598,6 @@ class GetChildCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (typeof this.key != "number")
-      throw "Accessor key is not a number: " + this.low;
     if (this.receiver instanceof Array)
       if (this.key < 0 || this.key >= this.receiver.length)
         throw "Array index out of bounds: " + this.key;
@@ -619,6 +616,10 @@ class GetChildCommand extends ConsoleCommand {
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.key, this.key+1)[0];
     }
+
+    if (this.receiver.constructor == Object) 
+      return this.receiver[this.key];
+
     throw `Cannot perform access on '${this.receiver.constructor.name}'.`;
   }
 }
@@ -791,8 +792,19 @@ class CanvasObjectConstructor extends ConsoleCommand {
     var y2 = coords.y + this.canvasClass.defaultHeight();
     this.newObj = new this.canvasClass(this.cState, 
       coords.x, coords.y, x2, y2);
+  }
 
-    // TODO apply style options
+  applyStyle() {
+    if (this.styleOptions == undefined) return; 
+    var validOptions = this.newObj.propNames();
+    console.log(validOptions);
+    if (Object.keys(this.styleOptions)
+      .every(x => validOptions.hasOwnProperty(x))) {
+        Object.entries(this.styleOptions)
+          .forEach(([k, v]) => this.newObj[validOptions[k]] = v);
+    }
+    else
+      throw "Invalid style options";
   }
 
   /** CanvasObjectConstructor.executeSelf
@@ -805,7 +817,10 @@ class CanvasObjectConstructor extends ConsoleCommand {
    *    'y = x'
    */
   executeSelf() {
-    if (this.newObj == undefined) this.createObject();
+    if (this.newObj == undefined) {
+      this.createObject();
+      this.applyStyle();
+    }
     this.newObj.restore();
     return this.newObj;
   }
@@ -1693,6 +1708,50 @@ class BSTRootCommand extends BSTCommand {
  * BSTNode methods
  */
 class BSTNodeCommand extends CanvasObjectMethod {
+}
+
+class BSTNodeRotateCommand extends BSTNodeCommand {
+  // rotate self with parent
+  executeSelf() {
+    if (this.receiver.parNode == null) {
+      this.undoDir = "none";
+    }
+
+    if (this.receiver.isLeftChild()) {
+      this.undoDir = "left";
+      this.receiver.rotateRight();
+    }
+
+    else {
+      this.undoDir = "right";
+      this.receiver.rotateLeft();
+    }
+  }
+
+  undo() {
+    if (this.undoDir == "left" && this.receiver.rightChild())
+      this.receiver.rightChild().rotateLeft();
+    else if (this.undoDir == "right" && this.receiver.leftChild())
+      this.receiver.leftChild().rotateRight();
+  }
+}
+
+class BSTNodeLeftCommand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.leftChild();
+  }
+}
+
+class BSTNodeRightCommand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.rightChild();
+  }
+}
+
+class BSTNodeParentCommand extends BSTNodeCommand {
+  executeSelf() {
+    return this.receiver.parNode;
+  }
 }
 
 class BSTNodePredecessorCommand extends BSTNodeCommand {
