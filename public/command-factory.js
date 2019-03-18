@@ -56,13 +56,11 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
   if (functionNode == null)
     throw "Cannot invoke function on null";
 
-  // call wrapper 'execute' method if just calling
-  // a built-in function 
-  if (functionNode.isLiteral || runtimeOverride) {
+  // call wrapper 'execute' method to get class object
+  // if just calling a built-in function 
+  if (functionNode.command instanceof GetVariableCommand 
+      || runtimeOverride) {
     var functionClass = functionNode.command.execute(); 
-
-    // also clone args
-    args = args.map(arg => arg.clone());
 
     if (functionClass.methodClass !== undefined)
       return createMethodCommand(functionClass, args);
@@ -78,6 +76,9 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
         if (this.command == undefined)
           this.command = createFunctionCommand(functionNode, args, true);
         return this.command.execute();
+      },
+      undo: function() {
+        return this.command.undo();
       }
     }  
   }
