@@ -719,7 +719,7 @@ class CommandRecorder {
   fullRewind() {
     this.seekTo(-1);
 
-    this.initCmds.reverse().forEach(ct => { 
+    this.initCmds.slice().reverse().forEach(ct => { 
       if (ct.type == "execute") 
         ct.command.undo();
       else ct.command.execute();
@@ -744,7 +744,7 @@ class CommandRecorder {
 
   init() {
     return new Promise((resolve, reject) => {
-      this.initCmds.reverse().forEach(ct => {
+      this.initCmds.slice().reverse().forEach(ct => {
         console.log("INIT CMD: ", ct.command.constructor.name);
         if (ct.type == "execute") ct.command.execute();
         else ct.command.undo();
