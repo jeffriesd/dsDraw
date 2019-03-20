@@ -2090,17 +2090,24 @@ class UserFunctionCommand extends ConsoleCommand {
     console.log("pushing");
     try {
       for (var i = 0; i < this.statements.length; i++) {
-        ret = this.execPush(this.statements[i].command);
-        if (this.statements[i].command instanceof ReturnCommand) break;
+        this.execPush(this.statements[i].command);
+        // if (this.statements[i].command instanceof ReturnCommand) break;
+        // if (ret instanceof ReturnValue) break;
       }
       VariableEnvironment.popNamespace(this.namespace);
     }
     catch (e) {
       VariableEnvironment.popNamespace(this.namespace);
-      throw e;
+      // quick easy way to return value from any nested call
+      if (e instanceof FunctionReturn)
+        ret = e.value; 
+      else // some other error
+        throw e;
     }
 
-    // if returning 
+    // indicate that further calls to execute
+    // should no longer update stack
+    this.storedStack = true;
     return ret;
   }
 
@@ -2119,6 +2126,14 @@ class UserFunctionCommand extends ConsoleCommand {
 
 class ReturnCommand extends ConsoleCommand {
   executeSelf() {
-    return this.args[0];
+    throw new FunctionReturn("Return called outside function", this.args[0]);
+  }
+}
+
+class FunctionReturn extends Error {
+  constructor(message, retValue) {
+    super(message);
+    this.value = retValue;
+    this.name = "";
   }
 }
