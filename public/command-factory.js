@@ -7,6 +7,7 @@ const mainCommands = {
   "export": ExportVideoCommand,
   "rand": RandomFloatCommand,
   "randn": RandomIntCommand,
+  "range": RangeCommand,
 };
 
 const mathCommands = {
@@ -58,8 +59,9 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
 
   // call wrapper 'execute' method to get class object
   // if just calling a built-in function 
-  if (functionNode.command instanceof GetVariableCommand 
+  if (false // functionNode.command instanceof GetVariableCommand 
       || runtimeOverride) {
+    // get mapped value from variable name
     var functionClass = functionNode.command.execute(); 
 
     if (functionClass.methodClass !== undefined)
@@ -68,9 +70,14 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
     if (Object.values(mainCommands).includes(functionClass)
         || Object.values(constructors).includes(functionClass))
       return new functionClass(CanvasState.getInstance(), ...args);
+        
+    if (functionClass instanceof FunctionDefinition) {
+      return new UserFunctionCommand(functionClass, ...args);
+    }
   }
   else {
     // otherwise construct this AST node at runtime
+    // TODO always do this
     return {
       execute: function() {
         if (this.command == undefined)
@@ -130,4 +137,31 @@ function createDrawCommand(cState) {
       return new CloneCommand(cState, cState.activeParent());
   }
   throw `Invalid draw command type: '${cState.activeCommandType}'.`;
+}
+
+/** createFunctionDefinition
+ *    factory method for creating a new user-defined function.
+ *    creates new UserFunctionFactory object and binds it to the
+ *    provided name
+ * 
+ *    @param funcName - name of function
+ *    @param argNames - array of argument names
+ *    @param funcStatements - array of opNodes 
+ */
+function createFunctionDefinition(funcName, argNames, funcStatements) {
+  VariableEnvironment.defineFunction(funcName, 
+    new FunctionDefinition(funcName, argNames, funcStatements));
+}
+
+/** FunctionDefinition
+ *    special type of variable used to store
+ *    the argument names and array of lines to execute
+ *    for a function
+ */
+class FunctionDefinition {
+  constructor(funcName, argNames, statementNodes) {
+    this.funcName = funcName;
+    this.argNames = argNames;
+    this.statements = statementNodes;
+  }
 }
