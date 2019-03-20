@@ -63,6 +63,8 @@
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
+    DEF: "define",
+    RET: "return",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     varName: /[a-zA-Z][a-zA-Z0-9]*/,
     character: /[^\n"]/, 
@@ -76,6 +78,7 @@
 
 line -> statement {% id %} 
       | forLoop   {% id %}
+      | funcdef   {% id %}
 
 statement -> assignment {% id %} | expr {% id %}
 
@@ -207,7 +210,15 @@ forLoop ->
   %FOR _  forPars _ "{" _ (statement _ ";" _ ):* "}" {% buildForLoop %}
   
 whileLoop ->
-  %WHILE _ "(" _ bool _ ")" _ "{" _ (statement ";"):* _ "}" {% buildWhileLoop %}
+  %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" {% buildWhileLoop %}
+
+
+# function definition
+funcdefargs -> %varName (_ "," _ %varName):*                                          {% buildCommaSepStatements %}
+funcdef -> %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" {% buildFunctionDefinition %}
+funcdef -> %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 {% buildFunctionDefinition %}
+funcline -> line {% id %} | return {% id %} 
+return -> %RET " " expr {% buildReturn %}
 
 @{%
 
@@ -234,6 +245,7 @@ whileLoop ->
 function cloneOperands(operands) {
   return operands.map(x => {
     if (x == null) return null;
+    if (x.isLiteral) return x;
     if (x.clone) return x.clone();
     if (x instanceof Array) return cloneOperands(x);
     return x;
@@ -669,7 +681,7 @@ function buildForLoop(operands) {
  *
  *    pattern:
  *      whileLoop ->
- *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement ";"):* _ "}" 
+ *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" 
  */
 function buildWhileLoop(operands) {
   var condition = operands[4];
@@ -1013,4 +1025,62 @@ function buildDict(operands, loc, rej, originalPairs) {
   };
 }
 
+/** buildFunctionDefinition
+ *    build AST node for function definition
+ *    when executed it binds the name to 
+ *    a new UserFunctionCommand object
+ *    
+ *    pattern:
+ *      funcdef -> 
+ *    %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" 
+ *    %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 
+ */
+function buildFunctionDefinition(operands) {
+  var argNames = [];
+  var flIdx;
+  if (operands.length > 11) {
+    argNames = operands[6].map(x => x.text);
+    flIdx = 12;
+  }
+  else 
+    flIdx = 9;
+
+  var funcName = operands[2].text;
+  var funcStatements = [];
+  for (var idx in operands[flIdx])
+    funcStatements.push(operands[flIdx][idx][0]);
+  
+  return {
+    isLiteral: false,
+    opNodes: funcStatements,
+    command: { 
+      execute: function() {
+        createFunctionDefinition(funcName, argNames, funcStatements);
+      },
+      undo: function() {}
+    },
+    clone: function() {
+      return buildDict(cloneOperands(operands));
+    },
+    toString: () => "buildFunctionDefinition",
+  };
+}
+
+/** buildReturn
+ *    build AST node for return statement
+ *    pattern:
+ *      return -> %RET " " expr
+ */
+function buildReturn(operands) {
+  var exprNode = operands[2];
+  return {
+    isLiteral: false,
+    opNodes: [exprNode],
+    command: new ReturnCommand(exprNode),
+    clone: function() {
+      return buildReturn(cloneOperands(operands));
+    },
+    toString: () => "buildReturn",
+  };
+}
 %}

@@ -67,6 +67,8 @@ function id(x) { return x[0]; }
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
+    DEF: "define",
+    RET: "return",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     varName: /[a-zA-Z][a-zA-Z0-9]*/,
     character: /[^\n"]/, 
@@ -97,6 +99,7 @@ function id(x) { return x[0]; }
 function cloneOperands(operands) {
   return operands.map(x => {
     if (x == null) return null;
+    if (x.isLiteral) return x;
     if (x.clone) return x.clone();
     if (x instanceof Array) return cloneOperands(x);
     return x;
@@ -532,7 +535,7 @@ function buildForLoop(operands) {
  *
  *    pattern:
  *      whileLoop ->
- *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement ";"):* _ "}" 
+ *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" 
  */
 function buildWhileLoop(operands) {
   var condition = operands[4];
@@ -876,6 +879,64 @@ function buildDict(operands, loc, rej, originalPairs) {
   };
 }
 
+/** buildFunctionDefinition
+ *    build AST node for function definition
+ *    when executed it binds the name to 
+ *    a new UserFunctionCommand object
+ *    
+ *    pattern:
+ *      funcdef -> 
+ *    %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" 
+ *    %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 
+ */
+function buildFunctionDefinition(operands) {
+  var argNames = [];
+  var flIdx;
+  if (operands.length > 11) {
+    argNames = operands[6].map(x => x.text);
+    flIdx = 12;
+  }
+  else 
+    flIdx = 9;
+
+  var funcName = operands[2].text;
+  var funcStatements = [];
+  for (var idx in operands[flIdx])
+    funcStatements.push(operands[flIdx][idx][0]);
+  
+  return {
+    isLiteral: false,
+    opNodes: funcStatements,
+    command: { 
+      execute: function() {
+        createFunctionDefinition(funcName, argNames, funcStatements);
+      },
+      undo: function() {}
+    },
+    clone: function() {
+      return buildDict(cloneOperands(operands));
+    },
+    toString: () => "buildFunctionDefinition",
+  };
+}
+
+/** buildReturn
+ *    build AST node for return statement
+ *    pattern:
+ *      return -> %RET " " expr
+ */
+function buildReturn(operands) {
+  var exprNode = operands[2];
+  return {
+    isLiteral: false,
+    opNodes: [exprNode],
+    command: new ReturnCommand(exprNode),
+    clone: function() {
+      return buildReturn(cloneOperands(operands));
+    },
+    toString: () => "buildReturn",
+  };
+}
 var grammar = {
     Lexer: lexer,
     ParserRules: [
@@ -974,6 +1035,7 @@ var grammar = {
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
     {"name": "line", "symbols": ["statement"], "postprocess": id},
     {"name": "line", "symbols": ["forLoop"], "postprocess": id},
+    {"name": "line", "symbols": ["funcdef"], "postprocess": id},
     {"name": "statement", "symbols": ["assignment"], "postprocess": id},
     {"name": "statement", "symbols": ["expr"], "postprocess": id},
     {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildAssignment},
@@ -1114,9 +1176,24 @@ var grammar = {
     {"name": "forLoop$ebnf$1", "symbols": ["forLoop$ebnf$1", "forLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "forLoop", "symbols": [(lexer.has("FOR") ? {type: "FOR"} : FOR), "_", "forPars", "_", {"literal":"{"}, "_", "forLoop$ebnf$1", {"literal":"}"}], "postprocess": buildForLoop},
     {"name": "whileLoop$ebnf$1", "symbols": []},
-    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["statement", {"literal":";"}]},
+    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["statement", "_", {"literal":";"}, "_"]},
     {"name": "whileLoop$ebnf$1", "symbols": ["whileLoop$ebnf$1", "whileLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "whileLoop$ebnf$1", "_", {"literal":"}"}], "postprocess": buildWhileLoop}
+    {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "whileLoop$ebnf$1", {"literal":"}"}], "postprocess": buildWhileLoop},
+    {"name": "funcdefargs$ebnf$1", "symbols": []},
+    {"name": "funcdefargs$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", (lexer.has("varName") ? {type: "varName"} : varName)]},
+    {"name": "funcdefargs$ebnf$1", "symbols": ["funcdefargs$ebnf$1", "funcdefargs$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "funcdefargs", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "funcdefargs$ebnf$1"], "postprocess": buildCommaSepStatements},
+    {"name": "funcdef$ebnf$1", "symbols": []},
+    {"name": "funcdef$ebnf$1$subexpression$1", "symbols": ["funcline", "_", {"literal":";"}, "_"]},
+    {"name": "funcdef$ebnf$1", "symbols": ["funcdef$ebnf$1", "funcdef$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, "_", "funcdefargs", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$1", {"literal":"}"}], "postprocess": buildFunctionDefinition},
+    {"name": "funcdef$ebnf$2", "symbols": []},
+    {"name": "funcdef$ebnf$2$subexpression$1", "symbols": ["funcline", "_", {"literal":";"}, "_"]},
+    {"name": "funcdef$ebnf$2", "symbols": ["funcdef$ebnf$2", "funcdef$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$2", {"literal":"}"}], "postprocess": buildFunctionDefinition},
+    {"name": "funcline", "symbols": ["line"], "postprocess": id},
+    {"name": "funcline", "symbols": ["return"], "postprocess": id},
+    {"name": "return", "symbols": [(lexer.has("RET") ? {type: "RET"} : RET), {"literal":" "}, "expr"], "postprocess": buildReturn}
 ]
   , ParserStart: "line"
 }
