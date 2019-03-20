@@ -89,20 +89,33 @@ class ForLoopCommand {
     this.incrStatements = incrStatements;
     this.loopStatements = loopStatements;
     this.steps = 0;
+    this.executed = [];
+    // flag to ensure command stack is only created once
+    this.storedStack = false; 
+  }
+
+  execPush(command) {
+    if (! this.storedStack) this.executed.push(command);
+    return command.execute();
   }
 
   execute() {
-    this.initStatements.forEach(s => s.command.execute());
-    while (this.condition == null || this.condition.command.execute()) {
+    this.initStatements.forEach(s => this.execPush(s.command));
+    while (this.condition == null || this.execPush(this.condition.command)) {
       this.loopStatements.forEach(s => { 
-        s.clone().command.execute();
+        this.execPush(s.clone().command);
       });
-      this.incrStatements.forEach(s => s.command.execute());
+      this.incrStatements.forEach(s => this.execPush(s.command));
       if (this.steps++ > LOOP_MAX) {
         alert("Loop is taking too long");
         break;
       }
     }
+    this.storedStack = true;
+  }
+
+  undo() {
+    this.executed.slice().reverse().forEach(cmd => cmd.undo());
   }
 
 }
