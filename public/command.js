@@ -1,9 +1,5 @@
 // TODO
 // organize command classes into separate files
-//
-// TODO
-// create range() function ala python
-// also rand() and randn()
 
 /*  Command classes encapsulate actions on the canvas
  *  through either mouse clicks or commands entered in the
@@ -431,6 +427,7 @@ class AssignVariableCommand extends ConsoleCommand {
     super.executeChildren();
     this.value = this.args[0];
     this.constructed = this.argNodes[0].constructed;
+    this.funcReturn = this.argNodes[0].command instanceof UserFunctionCommand;
   }
 
   /** AssignVariableCommand.execute
@@ -439,7 +436,7 @@ class AssignVariableCommand extends ConsoleCommand {
    *    VarEnv.setVar
    */
   executeSelf() {
-    if (this.constructed)
+    if (this.constructed || this.funcReturn)
       this.value.label = this.variableName;
     else
       VariableEnvironment.setVar(this.variableName, this.value); 
@@ -1955,7 +1952,7 @@ class BinaryHeapNodeValueCommand extends BinaryHeapNodeCommand {
 }
 
 /**
- * Built-in math (rand, randn)
+ * Built-in math (rand, randn), util (range)
  */
 
 class RandomIntCommand extends ConsoleCommand {
@@ -1993,7 +1990,6 @@ class RandomIntCommand extends ConsoleCommand {
 class RandomFloatCommand extends ConsoleCommand {
   constructor() {
     super();
-    console.log("new rand");
     this.value = null;
   }
   executeChildren() {}
@@ -2001,5 +1997,128 @@ class RandomFloatCommand extends ConsoleCommand {
     if (this.value == null) 
       this.value = Math.random();
     return this.value;
+  }
+}
+
+class RangeCommand extends ConsoleCommand {
+  constructor(cState, low, high, step) {
+    super(low, high, step);
+    this.value = null;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.low = this.args[0];
+    this.high = this.args[1];
+    this.step = this.args[2] || 1;
+  }
+
+  checkArguments() {
+    if (this.step == 0) 
+      throw "Invalid range step: 0";
+    if (this.high == undefined 
+      || Math.sign(this.high - this.low) != Math.sign(this.step))
+      throw `Invalid range arguments: ${this.low}, ${this.high}, ${this.step}.`;
+  }
+
+  executeSelf() {
+    if (this.value == null) {
+      this.value = [];
+      for (var i = this.low; i != this.high; i += this.step)
+        this.value.push(i);
+    }
+    return this.value;
+  }
+}
+
+/**
+ *  User defined functions are created
+ *  using the 'define' keyword. Example:
+ *    
+ *  define printArr(arr) {
+ *    for (i = 0; i < arr.length; i = i + 1) {
+ *      print(arr[i].value);   
+ *    } 
+ *  }   
+ * 
+ *  User functions maintain their own namespace
+ *  (map of variable names) and force child
+ *  statements to use the same namespace by pushing
+ *  it onto a stack used by the VariableEnvironment class.
+ *  When a variable value is requested, the top of the stack
+ *  is looked at first. The local namespace gets popped off 
+ *  when execution ends.
+ * 
+ *  Statement nodes are cloned so each call runs
+ *  with fresh command objects.
+ */
+class UserFunctionCommand extends ConsoleCommand {
+  constructor(funcDef, ...args) {
+    super(...args);
+    this.funcName = funcDef.funcName;
+    this.statements = funcDef.statements.map(x => x.clone());
+    this.argNames = funcDef.argNames;
+    this.namespace = this.setArguments();
+    // flag to ensure command stack is only created once
+    this.storedStack = false; 
+    this.executed = [];
+  }
+
+  execPush(command) {
+    if (! this.storedStack) this.executed.push(command);
+    return command.execute();
+  }
+
+  /** UserFunctionCommand.setArguments
+   *    evaluate arguments and map to local names
+   */
+  setArguments() {
+    if (this.argNames.length != this.argNodes.length)  {
+      console.log(this.argNames, this.argNodes);
+      throw `${this.funcName} requires ${this.argNames.length} arguments.`;
+    }
+    var namespace = new Map();
+    this.argNames.forEach((argname, i) => {
+      namespace.set(argname, this.argNodes[i].command.execute());
+    });
+    return namespace;
+  }
+
+  execute() {
+    var ret = null;
+    VariableEnvironment.pushNamespace(this.namespace);
+    console.log("pushing");
+    try {
+      for (var i = 0; i < this.statements.length; i++) {
+        ret = this.execPush(this.statements[i].command);
+        if (this.statements[i].command instanceof ReturnCommand) break;
+      }
+      VariableEnvironment.popNamespace(this.namespace);
+    }
+    catch (e) {
+      VariableEnvironment.popNamespace(this.namespace);
+      throw e;
+    }
+
+    // if returning 
+    return ret;
+  }
+
+  undo() {
+    VariableEnvironment.pushNamespace(this.namespace);
+    try {
+      this.executed.slice().reverse().forEach(cmd => cmd.undo());
+      VariableEnvironment.popNamespace(this.namespace);
+    }
+    catch (e) {
+      VariableEnvironment.popNamespace(this.namespace);
+      throw e;
+    }
+  }
+}
+
+class ReturnCommand extends ConsoleCommand {
+  executeSelf() {
+    return this.args[0];
   }
 }
