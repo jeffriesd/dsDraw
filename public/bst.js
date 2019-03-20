@@ -295,6 +295,7 @@ class BSTNode extends NodeObject {
       "fill": "fill",
       // "value": "value", -- value can't be accessed directly in BST
       "showVal": "showValues",
+      "border": "borderThickness",
       "fg": "textColor",
       "ind": "showIndices",
       "collapsed": "collapsed",
