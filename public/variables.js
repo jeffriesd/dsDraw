@@ -30,20 +30,52 @@ const keywords = {
 };
 
 const MAX_CAPACITY = 1000;
+const STACK_MAX = 1000;
 
 class VariableEnvironment {
   constructor() {
     if (VariableEnvironment.instance) return VariableEnvironment.instance;
 
-    this.variables = new Map();
+    this.functions = new Map();
+    this.mainVariables = new Map();
+    this.stack = [];
 
     VariableEnvironment.instance = this;
+  }
+
+  /** VariableEnvironment.variables getter
+   *    returns local (function call) namespace on
+   *    top of stack or global (main) namespace
+   */
+  get variables() {
+    if (this.stack.length) return this.stack.peek();
+    return this.mainVariables;
   }
 
   static getInstance() {
     if (VariableEnvironment.instance == null)
       throw "Eager instantiation failed for VariableEnvironment";
     return VariableEnvironment.instance;
+  }
+
+  /** VariableEnvironment.pushNamespace
+   *     push function call's local namespace onto stack
+   */
+  static pushNamespace(namespace) {
+    var stack = VariableEnvironment.getInstance().stack;
+    if (stack.length > STACK_MAX) 
+      throw "Stack overflow";
+    stack.push(namespace);
+  }
+
+  /** VariableEnvironment.popNamespace
+   *     pop function call's local namespace 
+   */
+  static popNamespace(namespace) {
+    var stack = VariableEnvironment.getInstance().stack;
+    if (namespace !== stack.peek()) 
+      throw "Call stack error -- cannot pop local namespace";
+    stack.pop();
   }
 
   static setVar(varName, value) {
@@ -61,6 +93,9 @@ class VariableEnvironment {
 
     if (this.variables.size > MAX_CAPACITY)
       throw "Cannot create any new variables, already at capacity";
+
+    if (this.hasVar(varName) && this.getVar(varName) instanceof FunctionDefinition)
+      throw "Cannot reassign function name";
   
     this.variables.set(varName, value);
   }
@@ -69,9 +104,24 @@ class VariableEnvironment {
     return VariableEnvironment.getInstance().getVar(varName);
   }
 
+  /** VariableEnvironment.getVar
+   *    Always check for function first because they 
+   *    have global scope 
+   */
   getVar(varName) {
+    if (this.functions.has(varName)) return this.functions.get(varName); 
     if (! this.hasVar(varName)) throw `Undefined variable: '${varName}'.`;
     return this.variables.get(varName);
+  }
+
+  static defineFunction(funcName, funcDef) {
+    VariableEnvironment.getInstance().defineFunction(funcName, funcDef);
+  }
+
+  defineFunction(funcName, funcDef) {
+    if (this.functions.has(funcName) || this.variables.has(funcName))
+      throw `Function definition error: ${funcName} already in use.`;
+    this.functions.set(funcName, funcDef);
   }
 
   static getCanvasObj(objLabel) {
