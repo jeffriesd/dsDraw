@@ -886,8 +886,8 @@ function buildDict(operands, loc, rej, originalPairs) {
  *    
  *    pattern:
  *      funcdef -> 
- *    %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" 
- *    %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 
+ *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" 
+ *        %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 
  */
 function buildFunctionDefinition(operands) {
   var argNames = [];
@@ -1033,11 +1033,14 @@ var grammar = {
     {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
-    {"name": "line", "symbols": ["statement"], "postprocess": id},
+    {"name": "exprLine", "symbols": ["line"], "postprocess": id},
+    {"name": "exprLine", "symbols": ["statement"], "postprocess": id},
+    {"name": "exprLine", "symbols": ["funcdef"], "postprocess": id},
+    {"name": "line", "symbols": ["statement", "_", {"literal":";"}], "postprocess": id},
     {"name": "line", "symbols": ["forLoop"], "postprocess": id},
-    {"name": "line", "symbols": ["funcdef"], "postprocess": id},
     {"name": "statement", "symbols": ["assignment"], "postprocess": id},
     {"name": "statement", "symbols": ["expr"], "postprocess": id},
+    {"name": "statement", "symbols": ["return"], "postprocess": id},
     {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildAssignment},
     {"name": "assignment", "symbols": ["expr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
     {"name": "assignment", "symbols": ["expr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
@@ -1172,11 +1175,11 @@ var grammar = {
     {"name": "forPars$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "forPars", "symbols": [{"literal":"("}, "_", "forPars$ebnf$1", {"literal":";"}, "_", "forPars$ebnf$2", {"literal":";"}, "_", "forPars$ebnf$3", {"literal":")"}], "postprocess": buildForPars},
     {"name": "forLoop$ebnf$1", "symbols": []},
-    {"name": "forLoop$ebnf$1$subexpression$1", "symbols": ["statement", "_", {"literal":";"}, "_"]},
+    {"name": "forLoop$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
     {"name": "forLoop$ebnf$1", "symbols": ["forLoop$ebnf$1", "forLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "forLoop", "symbols": [(lexer.has("FOR") ? {type: "FOR"} : FOR), "_", "forPars", "_", {"literal":"{"}, "_", "forLoop$ebnf$1", {"literal":"}"}], "postprocess": buildForLoop},
     {"name": "whileLoop$ebnf$1", "symbols": []},
-    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["statement", "_", {"literal":";"}, "_"]},
+    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
     {"name": "whileLoop$ebnf$1", "symbols": ["whileLoop$ebnf$1", "whileLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "whileLoop$ebnf$1", {"literal":"}"}], "postprocess": buildWhileLoop},
     {"name": "funcdefargs$ebnf$1", "symbols": []},
@@ -1184,18 +1187,16 @@ var grammar = {
     {"name": "funcdefargs$ebnf$1", "symbols": ["funcdefargs$ebnf$1", "funcdefargs$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "funcdefargs", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "funcdefargs$ebnf$1"], "postprocess": buildCommaSepStatements},
     {"name": "funcdef$ebnf$1", "symbols": []},
-    {"name": "funcdef$ebnf$1$subexpression$1", "symbols": ["funcline", "_", {"literal":";"}, "_"]},
+    {"name": "funcdef$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
     {"name": "funcdef$ebnf$1", "symbols": ["funcdef$ebnf$1", "funcdef$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, "_", "funcdefargs", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$1", {"literal":"}"}], "postprocess": buildFunctionDefinition},
     {"name": "funcdef$ebnf$2", "symbols": []},
-    {"name": "funcdef$ebnf$2$subexpression$1", "symbols": ["funcline", "_", {"literal":";"}, "_"]},
+    {"name": "funcdef$ebnf$2$subexpression$1", "symbols": ["line", "_"]},
     {"name": "funcdef$ebnf$2", "symbols": ["funcdef$ebnf$2", "funcdef$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$2", {"literal":"}"}], "postprocess": buildFunctionDefinition},
-    {"name": "funcline", "symbols": ["line"], "postprocess": id},
-    {"name": "funcline", "symbols": ["return"], "postprocess": id},
     {"name": "return", "symbols": [(lexer.has("RET") ? {type: "RET"} : RET), {"literal":" "}, "expr"], "postprocess": buildReturn}
 ]
-  , ParserStart: "line"
+  , ParserStart: "exprLine"
 }
 if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
    module.exports = grammar;

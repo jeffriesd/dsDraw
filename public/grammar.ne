@@ -76,11 +76,16 @@
 @builtin "number.ne"
 @builtin "whitespace.ne"
 
-line -> statement {% id %} 
-      | forLoop   {% id %}
+exprLine -> line {% id %} 
+      | statement {% id %}
       | funcdef   {% id %}
 
-statement -> assignment {% id %} | expr {% id %}
+line -> statement _ ";" {% id %} 
+      | forLoop   {% id %}
+
+statement -> assignment {% id %} 
+           | expr {% id %} 
+           | return {% id %}
 
 assignment -> %varName _ "=" _ expr                   {% buildAssignment %}
             | expr  %DOT %varName _ "=" _ expr        {% buildRangePropertyAssignment %}
@@ -207,18 +212,17 @@ forPars
 -> "(" _ (commaSepStatements _ ):? ";" _ (bool _):? ";" _ (commaSepStatements _):?  ")" {% buildForPars %}
 
 forLoop -> 
-  %FOR _  forPars _ "{" _ (statement _ ";" _ ):* "}" {% buildForLoop %}
+  %FOR _  forPars _ "{" _ (line _ ):* "}" {% buildForLoop %}
   
 whileLoop ->
-  %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" {% buildWhileLoop %}
+  %WHILE _ "(" _ bool _ ")" _ "{" _ (line _ ):* "}" {% buildWhileLoop %}
 
 
 # function definition
 funcdefargs -> %varName (_ "," _ %varName):*                                          {% buildCommaSepStatements %}
-funcdef -> %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" {% buildFunctionDefinition %}
-funcdef -> %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 {% buildFunctionDefinition %}
-funcline -> line {% id %} | return {% id %} 
-return -> %RET " " expr {% buildReturn %}
+funcdef -> %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" {% buildFunctionDefinition %}
+funcdef -> %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 {% buildFunctionDefinition %}
+return -> %RET " " expr {% buildReturn %} 
 
 @{%
 
@@ -1032,8 +1036,8 @@ function buildDict(operands, loc, rej, originalPairs) {
  *    
  *    pattern:
  *      funcdef -> 
- *    %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (funcline _ ";" _ ):* "}" 
- *    %DEF " " %varName _ "(" ")" _ "{" _ (funcline _ ";" _ ):* "}"                 
+ *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" 
+ *        %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 
  */
 function buildFunctionDefinition(operands) {
   var argNames = [];
