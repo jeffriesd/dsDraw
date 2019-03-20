@@ -294,28 +294,13 @@ class CommandConsole {
     // print error or literal result
     // TODO check for unexpected types like method objects
     if (commandRet !== undefined)
-      this.historyStack.push(new HistoryLine(this.stringify(commandRet), "result"));
+      this.historyStack.push(new HistoryLine(stringify(commandRet), "result"));
 
     // redraw command history
     this.showHistory();
 
     // keep history scrolled to bottom
     this.history.scrollTop = this.history.scrollHeight; 
-  }
-
-  /** CommandConsole.stringify
-   *    helper method because Array.toString strips brackets
-   *    and JSON.stringify will expose objects
-   */
-  stringify(object) {
-    if (object == null) return "null";
-    if (object instanceof Array) 
-      return "[" + object.map(x => this.stringify(x)) + "]";
-    if (object instanceof Function)
-      return "function";
-    if (object.constructor == Object) // dict object
-      return `{${Object.entries(object).map(([k, v]) => k + ": "  + v).join(", ")}}`;
-    return String(object);
   }
 
   /** CommandConsole.showHistory
