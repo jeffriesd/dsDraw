@@ -76,7 +76,7 @@
 @builtin "number.ne"
 @builtin "whitespace.ne"
 
-exprLine -> line {% id %} 
+code -> line {% id %} 
       | statement {% id %}
       | funcdef   {% id %}
 

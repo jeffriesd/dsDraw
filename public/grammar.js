@@ -1033,9 +1033,9 @@ var grammar = {
     {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
-    {"name": "exprLine", "symbols": ["line"], "postprocess": id},
-    {"name": "exprLine", "symbols": ["statement"], "postprocess": id},
-    {"name": "exprLine", "symbols": ["funcdef"], "postprocess": id},
+    {"name": "code", "symbols": ["line"], "postprocess": id},
+    {"name": "code", "symbols": ["statement"], "postprocess": id},
+    {"name": "code", "symbols": ["funcdef"], "postprocess": id},
     {"name": "line", "symbols": ["statement", "_", {"literal":";"}], "postprocess": id},
     {"name": "line", "symbols": ["forLoop"], "postprocess": id},
     {"name": "statement", "symbols": ["assignment"], "postprocess": id},
@@ -1196,7 +1196,7 @@ var grammar = {
     {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$2", {"literal":"}"}], "postprocess": buildFunctionDefinition},
     {"name": "return", "symbols": [(lexer.has("RET") ? {type: "RET"} : RET), {"literal":" "}, "expr"], "postprocess": buildReturn}
 ]
-  , ParserStart: "exprLine"
+  , ParserStart: "code"
 }
 if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
    module.exports = grammar;
