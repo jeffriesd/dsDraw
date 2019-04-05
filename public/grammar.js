@@ -67,10 +67,13 @@ function id(x) { return x[0]; }
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
+    IF: "if",
+    ELSE: "else",
+    ELIF: "elif",
     DEF: "define",
     RET: "return",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
-    varName: /[a-zA-Z][a-zA-Z0-9]*/,
+    varName: /[a-zA-Z][a-zA-Z0-9_]*/,
     character: /[^\n"]/, 
   });
 
@@ -263,15 +266,10 @@ function buildFunctionCall(operands) {
   var functionArgs = []; // default (no args function)
   if (operands.length == 6) 
     functionArgs = operands[3];
-  
-  // used to check if assignment should set label of 
-  // constructed object
-  var constructed = functionNode.text in constructors;
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    constructed: constructed,
     command: createFunctionCommand(functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
@@ -332,7 +330,7 @@ function wrapNumber(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapNumber(operands);
+      return this;
     },
     toString: () => "wrapNumber",
   }
@@ -354,7 +352,7 @@ function wrapString(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapString(operands);
+      return this;
     },
     toString: () => "wrapString",
   };
@@ -373,7 +371,7 @@ function wrapBool(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapBool(operands);
+      return this;
     },
     toString: () => "wrapBool",
   };
@@ -476,13 +474,25 @@ function buildComparison(operands) {
  *    nodes
  *
  *    pattern:
- *      commaSepStatement -> statement _ ("," _ statement):*
+ *      commaSepStatement -> statement (_ "," _ statement):*
  */
 function buildCommaSepStatements(operands) {
   var statements = [operands[0]];
-  for (var idx in operands[2]) 
-    statements.push(operands[2][idx][2]);
+  for (var idx in operands[1]) 
+    statements.push(operands[1][idx][3]);
   return statements; 
+}
+
+/** buildBlock
+ *    return array of line opNodes
+ *    pattern: 
+ *      block -> "{" _ (line _):* "}" 
+ */
+function buildBlock(operands) {  
+  var lines = [];
+  for (var idx in operands[2])
+    lines.push(operands[2][idx][0]);
+  return lines;
 }
 
 /** buildForPars
@@ -507,16 +517,13 @@ function buildForPars(operands) {
  *
  *    pattern:
  *      forLoop 
-          -> %FOR _  forPars _ "{" _ (statement ";"):* _ "}" 
+          -> %FOR _  forPars _ block
  */
 function buildForLoop(operands) {
   var initStatements = operands[2][0];
   var condition = operands[2][1];
   var incrStatements = operands[2][2];
-
-  var loopStatements = [];
-  for (var idx in operands[6])
-    loopStatements.push(operands[6][idx][0]);
+  var loopStatements = operands[4];
 
   return {
     isLiteral: false,
@@ -535,15 +542,12 @@ function buildForLoop(operands) {
  *
  *    pattern:
  *      whileLoop ->
- *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" 
+ *        %WHILE _ "(" _ bool _ ")" _ block
  */
 function buildWhileLoop(operands) {
   var condition = operands[4];
   
-  var loopStatements = [];
-  for (var idx in operands[10]) 
-    loopStatements.push(operands[10][idx][0])
-
+  var loopStatements = operands[8];
   return {
     isLiteral: false,
     opNodes: loopStatements,
@@ -851,29 +855,29 @@ function buildDict(operands, loc, rej, originalPairs) {
   if (operands.length > 3) 
     pairs = operands[2];
 
-  // evaluate keys only once (not again on clones)
-  pairs = originalPairs || 
-    pairs.map(([k, v]) => {
-      var kval = null;
-      if (k.isLiteral || k.command instanceof GetVariableCommand)
-        kval = k.command.execute();
-      if (kval == null || kval instanceof Object) 
-        throw "Dictionary keys must be string or number";
-
-      return [k.command.execute(), v.command.execute()];
-    });
   return {
-    isLiteral: pairs.every(x => x[1].isLiteral),
+    isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
     opNodes: pairs,
     command: {
       execute: function() {
-        return Object.assign({}, 
-        ...pairs.map(([k, v]) => ({[k]: v})));
+        // evaluate keys only once
+        if (originalPairs) {
+          if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
+            originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
+          return new Dictionary(originalPairs);
+        }
+        var d = new Dictionary([]);
+        // set one by one while executing for short-circuiting
+        pairs.forEach(([k, v]) => { 
+          d.set(k.command.execute(), v.command.execute());
+        })
+        return d;
       },
       undo: function() {}
     },
     clone: function() {
-      return buildDict(cloneOperands(operands), null, null, pairs);
+      return buildDict(
+        cloneOperands(operands), null, null, originalPairs || pairs);
     },
     toString: () => "buildDict",
   };
@@ -886,24 +890,16 @@ function buildDict(operands, loc, rej, originalPairs) {
  *    
  *    pattern:
  *      funcdef -> 
- *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" 
- *        %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 
+ *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ block
+ *        %DEF " " %varName _ "(" ")" _ block
  */
 function buildFunctionDefinition(operands) {
-  var argNames = [];
-  var flIdx;
-  if (operands.length > 11) {
-    argNames = operands[6].map(x => x.text);
-    flIdx = 12;
-  }
-  else 
-    flIdx = 9;
-
   var funcName = operands[2].text;
-  var funcStatements = [];
-  for (var idx in operands[flIdx])
-    funcStatements.push(operands[flIdx][idx][0]);
-  
+  var argNames = [];
+  if (operands.length > 8) 
+    argNames = operands[6].map(x => x.text);
+
+  var funcStatements = operands[operands.length - 1];
   return {
     isLiteral: false,
     opNodes: funcStatements,
@@ -936,6 +932,62 @@ function buildReturn(operands) {
     },
     toString: () => "buildReturn",
   };
+}
+
+/** buildIf
+ *    build AST node (opNode) for if-else if-else block.
+ *    note elseIf and else return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *    If block command object is parameterized with complete 
+ *    array of [bool expr, [lines]], so if, else if, and else 
+ *    arrays must be combined
+ *
+ *    pattern:
+ *      %IF _ "(" _ bool _ ")" _ block (_ elseIf):* (_ else):? 
+ */
+function buildIf(operands) {
+  var condBlockPairs = [];
+  condBlockPairs.push([operands[4], operands[8]]);
+
+  var elseIfIdx = 9;
+  for (var idx in operands[elseIfIdx])
+    condBlockPairs.push(operands[elseIfIdx][idx][1]);
+  
+  // if final else block
+  if (operands[operands.length - 1])
+    condBlockPairs.push(operands[operands.length - 1][1]);
+
+  return {
+    isLiteral: false,
+    opNodes: condBlockPairs,
+    command: new IfBlockCommand(condBlockPairs),
+    clone: function() {
+      return buildIf(cloneOperands(operands));
+    },
+    toString: () => "buildIf",
+  };
+}
+
+/** buildElseIf
+ *    return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *
+ *    pattern:
+ *      elseIf -> %ELIF _ "(" _ bool _ ")" _ block 
+ */
+function buildElseIf(operands) {
+  return [operands[4], operands[8]];
+}
+
+/** buildElse
+ *    return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *
+ *    pattern:
+ *      else -> %ELSE _ block 
+ */
+function buildElse(operands) {
+  return [wrapBool(["true"]), operands[2]];
 }
 var grammar = {
     Lexer: lexer,
@@ -1037,7 +1089,10 @@ var grammar = {
     {"name": "code", "symbols": ["statement"], "postprocess": id},
     {"name": "code", "symbols": ["funcdef"], "postprocess": id},
     {"name": "line", "symbols": ["statement", "_", {"literal":";"}], "postprocess": id},
-    {"name": "line", "symbols": ["forLoop"], "postprocess": id},
+    {"name": "line", "symbols": ["controlBlock"], "postprocess": id},
+    {"name": "controlBlock", "symbols": ["forLoop"], "postprocess": id},
+    {"name": "controlBlock", "symbols": ["whileLoop"], "postprocess": id},
+    {"name": "controlBlock", "symbols": ["if"], "postprocess": id},
     {"name": "statement", "symbols": ["assignment"], "postprocess": id},
     {"name": "statement", "symbols": ["expr"], "postprocess": id},
     {"name": "statement", "symbols": ["return"], "postprocess": id},
@@ -1070,10 +1125,10 @@ var grammar = {
     {"name": "comparator$subexpression$1", "symbols": [{"literal":">"}]},
     {"name": "comparator$subexpression$1", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},
     {"name": "comparator$subexpression$1", "symbols": [(lexer.has("GREATEQ") ? {type: "GREATEQ"} : GREATEQ)]},
+    {"name": "comparator$subexpression$1", "symbols": [(lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ)]},
+    {"name": "comparator$subexpression$1", "symbols": [(lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ)]},
     {"name": "comparator", "symbols": ["comparator$subexpression$1"], "postprocess": id},
     {"name": "comp", "symbols": ["bool", "_", "comparator", "_", "bool"], "postprocess": buildComparison},
-    {"name": "comp", "symbols": ["bool", "_", (lexer.has("EQEQ") ? {type: "EQEQ"} : EQEQ), "_", "bool"]},
-    {"name": "comp", "symbols": ["bool", "_", (lexer.has("NOTEQ") ? {type: "NOTEQ"} : NOTEQ), "_", "bool"]},
     {"name": "math$subexpression$1", "symbols": [{"literal":"+"}]},
     {"name": "math$subexpression$1", "symbols": [{"literal":"-"}]},
     {"name": "math", "symbols": ["math", "_", "math$subexpression$1", "_", "product"], "postprocess": buildAddSub},
@@ -1174,26 +1229,27 @@ var grammar = {
     {"name": "forPars$ebnf$3", "symbols": ["forPars$ebnf$3$subexpression$1"], "postprocess": id},
     {"name": "forPars$ebnf$3", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "forPars", "symbols": [{"literal":"("}, "_", "forPars$ebnf$1", {"literal":";"}, "_", "forPars$ebnf$2", {"literal":";"}, "_", "forPars$ebnf$3", {"literal":")"}], "postprocess": buildForPars},
-    {"name": "forLoop$ebnf$1", "symbols": []},
-    {"name": "forLoop$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
-    {"name": "forLoop$ebnf$1", "symbols": ["forLoop$ebnf$1", "forLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "forLoop", "symbols": [(lexer.has("FOR") ? {type: "FOR"} : FOR), "_", "forPars", "_", {"literal":"{"}, "_", "forLoop$ebnf$1", {"literal":"}"}], "postprocess": buildForLoop},
-    {"name": "whileLoop$ebnf$1", "symbols": []},
-    {"name": "whileLoop$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
-    {"name": "whileLoop$ebnf$1", "symbols": ["whileLoop$ebnf$1", "whileLoop$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "whileLoop$ebnf$1", {"literal":"}"}], "postprocess": buildWhileLoop},
+    {"name": "forLoop", "symbols": [(lexer.has("FOR") ? {type: "FOR"} : FOR), "_", "forPars", "_", "block"], "postprocess": buildForLoop},
+    {"name": "whileLoop", "symbols": [(lexer.has("WHILE") ? {type: "WHILE"} : WHILE), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", "block"], "postprocess": buildWhileLoop},
+    {"name": "block$ebnf$1", "symbols": []},
+    {"name": "block$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
+    {"name": "block$ebnf$1", "symbols": ["block$ebnf$1", "block$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "block", "symbols": [{"literal":"{"}, "_", "block$ebnf$1", {"literal":"}"}], "postprocess": buildBlock},
+    {"name": "if$ebnf$1", "symbols": []},
+    {"name": "if$ebnf$1$subexpression$1", "symbols": ["_", "elseIf"]},
+    {"name": "if$ebnf$1", "symbols": ["if$ebnf$1", "if$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "if$ebnf$2$subexpression$1", "symbols": ["_", "else"]},
+    {"name": "if$ebnf$2", "symbols": ["if$ebnf$2$subexpression$1"], "postprocess": id},
+    {"name": "if$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "if", "symbols": [(lexer.has("IF") ? {type: "IF"} : IF), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", "block", "if$ebnf$1", "if$ebnf$2"], "postprocess": buildIf},
+    {"name": "elseIf", "symbols": [(lexer.has("ELIF") ? {type: "ELIF"} : ELIF), "_", {"literal":"("}, "_", "bool", "_", {"literal":")"}, "_", "block"], "postprocess": buildElseIf},
+    {"name": "else", "symbols": [(lexer.has("ELSE") ? {type: "ELSE"} : ELSE), "_", "block"], "postprocess": buildElse},
     {"name": "funcdefargs$ebnf$1", "symbols": []},
     {"name": "funcdefargs$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", (lexer.has("varName") ? {type: "varName"} : varName)]},
     {"name": "funcdefargs$ebnf$1", "symbols": ["funcdefargs$ebnf$1", "funcdefargs$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "funcdefargs", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "funcdefargs$ebnf$1"], "postprocess": buildCommaSepStatements},
-    {"name": "funcdef$ebnf$1", "symbols": []},
-    {"name": "funcdef$ebnf$1$subexpression$1", "symbols": ["line", "_"]},
-    {"name": "funcdef$ebnf$1", "symbols": ["funcdef$ebnf$1", "funcdef$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, "_", "funcdefargs", "_", {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$1", {"literal":"}"}], "postprocess": buildFunctionDefinition},
-    {"name": "funcdef$ebnf$2", "symbols": []},
-    {"name": "funcdef$ebnf$2$subexpression$1", "symbols": ["line", "_"]},
-    {"name": "funcdef$ebnf$2", "symbols": ["funcdef$ebnf$2", "funcdef$ebnf$2$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", {"literal":"{"}, "_", "funcdef$ebnf$2", {"literal":"}"}], "postprocess": buildFunctionDefinition},
+    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, "_", "funcdefargs", "_", {"literal":")"}, "_", "block"], "postprocess": buildFunctionDefinition},
+    {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", "block"], "postprocess": buildFunctionDefinition},
     {"name": "return", "symbols": [(lexer.has("RET") ? {type: "RET"} : RET), {"literal":" "}, "expr"], "postprocess": buildReturn}
 ]
   , ParserStart: "code"

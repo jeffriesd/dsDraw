@@ -153,18 +153,10 @@ class LinearCanvasObject extends CanvasObject {
     });
   }
 
-  /** LinearCanvasObject.move
-   *    update x, y for all cells in array
-   */  
-  move(deltaX, deltaY) {
-    super.move(deltaX, deltaY);
-    this.nodes.forEach((node) => {
-      node.x += deltaX;
-      node.y += deltaY; 
-    });
-
-    this.arrows.forEach(arr => arr.move(deltaX, deltaY, true));
+  get floatingChildren() {
+    return this.nodes.concat(Array.from(this.arrows.values()));
   }
+
 
   /** LinearCanvasObject.deleteArrow
    *    remove arrow object from map
@@ -284,12 +276,6 @@ class NodeObject extends CanvasChildObject {
 		this.ctx.fillText(idx,
 					this.x + textOffX, this.y + yOffset);
     
-  }
- 
-  /** NodeObject.move
-   */  
-  move(deltaX, deltaY) {
-    this.getParent().move(deltaX, deltaY);
   }
 
   /** NodeObject.click

@@ -174,7 +174,7 @@ class CanvasState {
   setMode(mode) {
     var dmLabel = document.getElementById("drawMode");
 
-    dmLabel.innerHTML = "Draw mode: " + mode;
+    dmLabel.innerHTML = mode;
     this.drawMode = mode;
   }
 
@@ -487,7 +487,10 @@ class CanvasEventHandler {
 
       // draw commands happen here
       if (this.cState.activeObj) {
-        if (hotkeys[CTRL]) {
+        if (hotkeys[CTRL] && hotkeys[SHIFT]) {
+          this.cState.activeObj.shiftMove(deltaX, deltaY);
+        }
+        else if (hotkeys[CTRL]) {
           this.cState.activeObj.move(deltaX, deltaY);
           // Group select move
           if (this.cState.selectGroup.has(this.cState.activeParent())) {

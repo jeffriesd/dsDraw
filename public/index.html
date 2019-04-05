@@ -6,6 +6,8 @@
   <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 <body>
+    <div hidden id="plotly_div"> </div>
+    <img hidden id="jpg-export"></img>
   <!-- clip menu contains thumbnails of recorded clips -->
   <div id="clipHover"> 
     <div id="clipContainer">
@@ -21,8 +23,9 @@
   </div>
 
   <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">Draw mode: SelectTool</label>
-    <label class="toolbarLabel" id="recording">Paused</label>
+    <label class="toolbarLabel" id="drawMode">SelectTool</label>
+    <!-- <label class="toolbarLabel" id="recording">Paused</label> --> 
+    <button class="toolbarButton" id="recording">  </button>
     <!-- <button class="toolbarButton" id="rightAngleArrow"></button> -->
     <button class="toolbarButton" id="selectTool"></button>
     <button class="toolbarButton" id="curvedArrow"></button>
@@ -115,15 +118,18 @@
   <!--External library scripts -->
   <script src="lib/jquery-3.3.1.min.js"></script>
   <script src="lib/mousetrap.min.js"></script>
+  <script src="lib/plotly-latest.min.js"></script>
   <script src="lib/moo.js"></script>
   <script src="lib/nearley.js"></script>
   <!-- -->
+  <script src="dict.js"></script>
   <script src="globals.js"></script>
   <script src="variables.js"></script>
   <script src="client-connection.js"></script>
+  <script src="toolbars.js"></script>
   <script src="player.js"></script>
   <script src="canvas-object.js"></script>
-  <script src="toolbars.js"></script>
+  <script src="plotting.js"></script>
   <script src="flowchart.js"></script>
   <script src="linear-ds.js"></script>
   <script src="list.js"></script>
@@ -134,6 +140,7 @@
   <script src="arrays.js"></script>
   <script src="util-command.js"></script>
   <script src="command.js"></script>
+  <script src="constructors.js"></script>
   <script src="evaluate.js"></script>
   <script src="command-factory.js"></script>
   <script src="control-flow.js"></script>

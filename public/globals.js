@@ -106,16 +106,23 @@ function randomArray(length, max) {
   return arr;
 }
 
-// extend JSON.stringify slightly for better array representation
+// extend JSON.stringify slightly for better array/dict representation
 function stringify(object) {
   if (object == null) return "null";
-  if (object instanceof Array) 
+  if (typeof object == "function") return "function";
+  if (typeof object == "string" 
+      || typeof object == "number" || typeof object == "boolean") return String(object);
+  if (object.command) return "method";
+  if (object instanceof CanvasChildObject
+    || object instanceof CanvasObject)
+    return String(object);
+  if (object instanceof Array) // 'list' object
     return "[" + object.map(stringify) + "]";
-  if (object instanceof Function)
-    return "function";
-  if (object.constructor == Object) // dict object
+  if (object instanceof Dictionary)
     return `{${Object.entries(object).map(([k, v]) => k + ": "  + v).join(", ")}}`;
-  return String(object);
+  if (object.funcName) return "function " + object.funcName;
+  if (object.methodClass) return "method";
+  // console.log("Unknown string representation for:", object);
 }
 
 // allow dict objects to be printed as such

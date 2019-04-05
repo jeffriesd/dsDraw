@@ -115,7 +115,8 @@ body {
   bottom: 0px;
   height: 20px;
   width: 95%;
-  font-size: 12px;
+  font-size: 16px;
+  font-family: monospace;
   padding: 0px;
   background: transparent;
   border: none;
@@ -141,7 +142,7 @@ body {
 
 #commandHistory {
   position: absolute;
-  font-size: 12px;
+  font-size: 16px;
   padding-bottom: 5px;
   width: 100%;
   height: calc(100% - 20px);
@@ -238,6 +239,30 @@ textarea {
   margin-bottom: 1%;
   margin-right: 1%;
   float: right;
+}
+
+#recording {
+  float: right;
+  padding-right: 3%;
+  margin: 0;
+  background: gray;
+  background-image: url("../images/hole.png");
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+#drawMode {
+  float: right;
+  font-size: 14pt;
+  padding-right: 3%;
+  padding-left: 3%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  # background: #C5D0E6;
+  text-align: center;
+  height: 98%;
 }
 
 #deleteButton {

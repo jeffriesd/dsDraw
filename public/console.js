@@ -240,8 +240,13 @@ class CommandConsole {
   commandEntered() {
     this.cycleIndex = 0;
 
-    var line = this.commandLine.value.trim();
+    // this.commandLine.value.trim()
+    //   .split(";").map(x => x.trim())
+    //   .forEach(x => this.processLine(x));
+    this.processLine(this.commandLine.value.trim());
+  }
 
+  processLine(line) {
     var cmdObj;
     var parseFunc;
     var rawCommand;

@@ -36,6 +36,10 @@ class FlowchartBox extends CanvasObject {
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
 
+  get floatingChildren() {
+    return [this.resizePoint];
+  }
+
   propNames() {
     return {
         "ff": "fontFamily",
@@ -141,11 +145,9 @@ class FlowchartBox extends CanvasObject {
   /** FlowchartBox.configureOptions
    */
   configureOptions() {
+    super.configureOptions();
     // editor bg color
     this.editor.style.backgroundColor = this.fill;
-
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
-    this.ctx.lineWidth = this.borderThickness;
 
     this.ctx.fillStyle = this.fill;
     
@@ -193,9 +195,6 @@ class FlowchartBox extends CanvasObject {
     }
 
     this.textY += this.textMargin;
-
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.strokeStyle = this.hashColor;
   }
   
   /** FlowchartBox.drawText
@@ -227,17 +226,9 @@ class FlowchartBox extends CanvasObject {
   /** FlowchartBox.move
    */
   move(deltaX, deltaY) {
-    this.x1 += deltaX;
-    this.x2 += deltaX;
-    this.y1 += deltaY;
-    this.y2 += deltaY; 
-
+    super.move(deltaX, deltaY);
     // move editor with box
     this.positionEditor();
-
-    // move resize point with box
-    this.resizePoint.x += deltaX;      
-    this.resizePoint.y += deltaY;
   }
 
   /** FlowchartBox.resize
@@ -248,23 +239,11 @@ class FlowchartBox extends CanvasObject {
    *    If resize would invert box, don't allow it.
    */
   resize(deltaX, deltaY) {
-    this.x2 += deltaX;
-    this.y2 += deltaY;
-
-    if (this.x2 < this.x1)
-      this.x2 = this.x1;
-    if (this.y2 < this.y1)
-      this.y2 = this.y1;
-
+    super.resize(deltaX, deltaY);
     // resize editor as well
     this.positionEditor();
-
     // re-render text
     this.textEntered();
-   
-    // move resize point
-    this.resizePoint.x = this.x2;
-    this.resizePoint.y = this.y2;
   }
 
   /** FlowchartBox.click
@@ -278,7 +257,6 @@ class FlowchartBox extends CanvasObject {
     event.preventDefault();
     this.editor.select();
   } 
-
 
   /** FlowchartBox.deactivate
    *    hide editor and format text
@@ -303,6 +281,7 @@ class FlowchartBox extends CanvasObject {
    *    i.e. transparent
    */
   draw() {
+    super.draw()
     // check for transparency
     // if (!this.active() && this.showBorder && this.border.startsWith("#")) {
     //   // border color is #xxx0 or #xxxxxx00
@@ -910,17 +889,6 @@ class Arrow extends CanvasObject {
   getStartCoordinates() {
     return {x: this.x1, y: this.y1};
   }
-
-  /** Arrow.move
-   *    translate entire arrow by deltaX, deltaY
-   */
-  move(deltaX, deltaY) {
-    this.x1 += deltaX;
-    this.x2 += deltaX;
-    this.y1 += deltaY;
-    this.y2 += deltaY;
-  }
-
 }
 
 
@@ -1061,6 +1029,17 @@ class CurvedArrow extends Arrow {
     return -Math.atan2(dx, dy) + 0.5*Math.PI;
   }
 
+  /** CurvedArrow.straighten
+   *    set control points to midpoint
+   */
+  straighten() {
+    var mx = (this.x2 + this.x1) / 2 | 0;
+    var my = (this.y2 + this.y1) / 2 | 0;
+    this.cp1.x = mx;
+    this.cp2.x = mx;
+    this.cp1.y = my;
+    this.cp2.y = my;
+  }
 
   /** CurvedArrow.move
    *    translate entire arrow by deltaX, deltaY
@@ -1106,170 +1085,6 @@ class CurvedArrow extends Arrow {
       this.cState.addCanvasObj(this);
   }
 }
-
-
-/** RightAngleArrow to handle
- *  arrow composed of solely right angles.
- *
- *  To add a new right angle: hold ctrl,
- *  click on arrow head,
- *  and drag in new direction.
- *
- */
-class RightAngleArrow extends Arrow {
-  constructor(canvasState, x1, y1, x2, y2) {
-    super(canvasState, x1, y1, x2, y2); 
-
-    // force axis alignment
-    this.y2 = this.y1;
-
-    this.anglePoints = [];
-    this.addedNewAngle = false;
-
-    // create ArrowHead
-    // (handled here because of forced alignment)
-    this.head = new ArrowHead(canvasState, this);
-  }
-
-  /** RightAngleArrow.clone
-   */
-  clone() {
-    var copy = super.clone();
-
-    // copy angle points -- somehow broken currently
-    // var copyPoint = {x: 0, y: 0};
-    // this.anglePoints.forEach((point) => {
-    //   copyPoint.x = point.x;
-    //   copyPoint.y = point.y;
-    //   copy.anglePoints.push(copyPoint);
-    //   console.log("adding point at ", point);
-    // }); 
-  
-    return copy;
-  }
-
-
-  /** endingOrientation()
-   *    return up/down/left/right
-   *    so arrowhead can be positioned appropriately
-   */
-  endingOrientation() {
-    var penultimate = null;
-    if (this.anglePoints.length > 0) 
-      penultimate = this.anglePoints[this.anglePoints.length-1];
-    else
-      penultimate = {x: this.x1, y: this.y1};
-
-    //up
-    if (this.y2 - penultimate.y < 0) 
-      return "U"; 
-    //down
-    if (this.y2 - penultimate.y > 0)
-      return "D";      
-    //left
-    if (this.x2 - penultimate.x < 0)      
-      return "L"
-    //right
-    if (this.x2 - penultimate.x > 0)
-      return "R";
-
-    // default
-    return "R";
-  }
-
-  endingAngle() {
-    var penultimate = null;
-    if (this.anglePoints.length > 0) 
-      penultimate = this.anglePoints[this.anglePoints.length-1];
-    else
-      penultimate = {x: this.x1, y: this.y1};
-    var dx = this.x2 - penultimate.x;
-    var dy = this.y2 - penultimate.y;
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
-  }
-
-  configureOptions() {
-    this.ctx.lineWidth = this.thickness;
-    this.ctx.strokeStyle = this.strokeColor;
-
-    if (this.dashed)
-      this.ctx.setLineDash(this.lineDash);
-
-    this.hitCtx.strokeStyle = this.hashColor;
-    this.hitCtx.lineWidth = this.hitThickness;
-  }
-
-  /** RightAngleArrow.draw()
-   *    draw line segments to canvas
-   *    (draw slightly thicker on hit canvas so
-   *    arrow can be more easily clicked)
-   */
-  draw() {
-    super.draw();
-    this.configureOptions();
-
-    var curX = this.x1;
-    var curY = this.y1;
-
-    var ctx = this.ctx;
-    var hitCtx = this.hitCtx;
-
-    ctx.beginPath();
-    ctx.moveTo(curX, curY);
-
-    hitCtx.beginPath();
-    hitCtx.moveTo(curX, curY);
-
-    this.anglePoints.forEach(function(point) {
-      ctx.lineTo(point.x, point.y);
-      ctx.moveTo(point.x, point.y);
-
-      hitCtx.lineTo(point.x, point.y);
-      hitCtx.moveTo(point.x, point.y);
-
-      curX = point.x;
-      curY = point.y;
-    });
-
-    ctx.lineTo(this.x2, this.y2);
-    ctx.stroke();
-
-    if (this.dashed)
-      this.ctx.setLineDash([]);
-
-    hitCtx.lineTo(this.x2, this.y2);
-    hitCtx.stroke();
-
-    this.head.draw();
-  }
-
-  /** RightAngleArrow.move
-   */
-  move(deltaX, deltaY) {
-    this.x1 += deltaX;
-    this.y1 += deltaY;
-
-    this.anglePoints.forEach(function(point) {
-      point.x += deltaX;
-      point.y += deltaY;
-    });
-
-    this.x2 += deltaX;
-    this.y2 += deltaY;
-  }
-
-  /** RightAngleArrow.outline
-   */
-  static outline(ctx, x1, y1, x2, y2) {
-    ctx.strokeStyle = "#000";
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y1);
-    ctx.stroke();
-  }
-
-}
-
 
 /** Handles drawing of arrow head using
  *  rotation and translation
@@ -1359,86 +1174,33 @@ class ArrowHead extends CanvasChildObject {
     this.hitCtx.restore();
   }
 
-  release() {
-    if (this.parentArrow instanceof RightAngleArrow)
-      this.parentArrow.addedNewAngle = false;
-  }
-
   /** ArrowHead.drag
    *    shift arrow end point by deltaX, deltaY
-   *    and add a new anglePoint if RightAngleArrow 
    */
   drag(deltaX, deltaY, fromParent=false) {
-    if (this.parentArrow instanceof RightAngleArrow) {
-      var ori = this.parentArrow.endingOrientation();
-      
-      var addNew = hotkeys[SHIFT];
+    if (this.parentArrow.locked && ! fromParent) return;
 
-      if (addNew && !this.parentArrow.addedNewAngle) {
-        // dont allow user to add more than one angle per drag
-        this.parentArrow.addedNewAngle = true;
+    // just move end point to new location
+    this.parentArrow.x2 += deltaX;
+    this.parentArrow.y2 += deltaY;
+  }
 
-        this.parentArrow.anglePoints.push({x: this.parentArrow.x2, y: this.parentArrow.y2});
-        if (ori == "U" || ori == "D") {
-          this.parentArrow.x2 += deltaX;
-        } else {
-          this.parentArrow.y2 += deltaY;    
-        }
-      } else {
-        if (ori == "U" || ori == "D") {
-          this.parentArrow.y2 += deltaY;    
-        } else {
-          this.parentArrow.x2 += deltaX;
-        }
-      }
-
-      // check if tip is on anchor point
-      // TODO:
-      //  need to consider case where arrow is created later
-      //  and thus its color is on top
-      //  -> easy fix: just check color 1 pixel ahead of arrow
-      // var ori = this.parentArrow.endingOrientation();
-      // var x = this.parentArrow.x2;
-      // var y = this.parentArrow.y2;
-
-      // var anchorRadius = 10;
-
-      // if (ori == "L")
-      //     x -= (this.height + anchorRadius);
-      // if (ori == "R")
-      //     x += (this.height + anchorRadius);
-      // if (ori == "U")
-      //     y -= (this.height + anchorRadius);
-      // if (ori == "D")
-      //     y += (this.height + anchorRadius);
-
-      // var hoverObj = this.cState.getClickedObject(x, y);
-      // var newX = this.parentArrow.x2;
-      // var newY = this.parentArrow.y2;
-      //     
-      // if (hoverObj instanceof FlowchartBox) {
-      //   // set arrow end to center of anchor - arrow tip height
-      //   if (ori == "L")
-      //     newX = hoverObj.x2 + this.height;
-      //   if (ori == "R")
-      //     newX = hoverObj.x1 - this.height;
-      //   if (ori == "U")
-      //     newY = hoverObj.y2 + this.height;
-      //   if (ori == "D")
-      //     newY = hoverObj.y1 - this.height;
-      //   
-      //   this.parentArrow.x2 = newX;
-      //   this.parentArrow.y2 = newY;
-      //   hoverObj.anchoredArrow = this.parentArrow;
-      // }
+  shiftDrag(deltaX, deltaY, fromParent) {
+    if (this.parentArrow.locked && ! fromParent) return;
+    // holding shift will lock arrow into horizontal or vertical orientation.
+    // snap along more displaced (by drag) axis
+    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
+    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
+    if (dx > dy) { // lock in horizontal orientation
+      this.parentArrow.y2 = this.parentArrow.y1;
+      this.parentArrow.x2 += deltaX;
     }
-    else if (this.parentArrow instanceof CurvedArrow) {
-      if (! this.parentArrow.locked || fromParent) {
-        // just move end point to new location
-        this.parentArrow.x2 += deltaX;
-        this.parentArrow.y2 += deltaY;
-      }
+    else {
+      this.parentArrow.x2 = this.parentArrow.x1;
+      this.parentArrow.y2 += deltaY;
     }
+    // snap straight
+    this.parentArrow.straighten();
   }
 }
 

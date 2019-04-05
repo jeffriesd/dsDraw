@@ -23,7 +23,8 @@ class CanvasObject {
     // var hashStr = this.hashColor.split("rgb(")[1];
     // hashStr = hashStr.split(")")[0];
     // var hashCode = hashStr.replace(/[,\s]/g, "");
-    this.label = this.constructor.name.substring(0,1).toLowerCase(); // + "_" + hashCode;
+    // this.label = this.constructor.name.substring(0,1).toLowerCase() + "_" + hashCode;
+    this.label = this.constructor.name.substring(0,1).toLowerCase();
   }
 
   toString() {
@@ -42,9 +43,6 @@ class CanvasObject {
   }
 
   set label(value) {
-    if (value == "TEMP")
-      return;
-
     if (! value.match(variablePattern))
       throw "Variable name must consists of only alphanumeric (or _) characters" 
         + " and begin with an alphabetic character";
@@ -67,13 +65,18 @@ class CanvasObject {
         value = value + "1";
     }
 
+    if (value == this._label) return;
+    
+    if (VariableEnvironment.hasVar(value))
+      throw `Variable '${value}' already in use.`;
+
     // if previous name is already mapping to this object, 
     // clear that mapping
     if (VariableEnvironment.hasVar(this.label)) {
       VariableEnvironment.deleteVar(this.label);
       // console.log("clearing label for ", this.label);
     }
-    
+
     VariableEnvironment.setVar(value, this);
 
     this._label = value;
@@ -164,6 +167,23 @@ class CanvasObject {
   click(event) {
   }
 
+  resize(deltaX, deltaY) {
+    this.x2 += deltaX;
+    this.y2 += deltaY;
+
+    if (this.x2 < this.x1)
+      this.x2 = this.x1;
+    if (this.y2 < this.y1)
+      this.y2 = this.y1;
+
+    // move resize point
+    if (this.resizePoint) {
+      this.resizePoint.x = this.x2;
+      this.resizePoint.y = this.y2;
+    }
+  }
+
+
   /** CanvasObject.hover
    *    default behavior to reset hover action over resize point
    */
@@ -171,11 +191,39 @@ class CanvasObject {
     document.body.style.cursor = "default";
   }
 
+  /** CanvasObject.floatingChildren
+   *    return array of children with independent (not based
+   *    on this object) coordinates. These
+   *    are the objects that should be translated whenever
+   *    the parent is
+   */
+  get floatingChildren() {
+    return [];
+  }
+
+  /** CanvasObject.move
+   *    move self and all children (use fromParent 
+   *    flag = true to override
+   *    locked child objects)
+   */
   move(deltaX, deltaY) {
     this.x1 += deltaX;
     this.x2 += deltaX;
     this.y1 += deltaY;
     this.y2 += deltaY;
+
+    this.floatingChildren.forEach(x => x.move(deltaX, deltaY, true));
+  }
+
+  shiftMove(deltaX, deltaY) {
+    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
+    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
+    if (dx > dy) { // lock in horizontal orientation
+      this.move(deltaX, 0);
+    }
+    else {
+      this.move(0, deltaY);
+    }
   }
 
   drag(deltaX, deltaY) {
@@ -195,6 +243,13 @@ class CanvasObject {
    */
   draw() {
     if (this.active()) this.drawLabel();
+  }
+
+  configureOptions() {
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
+    this.ctx.lineWidth = this.borderThickness;
+    this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.strokeStyle = this.hashColor;
   }
 
   drawLabel() {
@@ -277,14 +332,23 @@ class CanvasChildObject {
     this.getParent().click(event);
   }
 
-  move(deltaX, deltaY) {
-    this.getParent().move(deltaX, deltaY);
+  move(deltaX, deltaY, fromParent) {
+    if (fromParent) { 
+      this.x += deltaX; 
+      this.y += deltaY; 
+    }
+    else 
+      this.getParent().move(deltaX, deltaY);
+  }
+
+  shiftMove(deltaX, deltaY, fromParent) {
+    this.getParent().shiftMove(deltaX, deltaY);
   }
 
   drag(deltaX, deltaY) {
   }
 
-  shiftDrag() {
+  shiftDrag(deltaX, deltaY) {
   }
 
   /** Event when click begins

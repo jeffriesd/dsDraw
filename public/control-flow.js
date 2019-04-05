@@ -32,6 +32,28 @@
 const LOOP_MAX = 1000000; // stop infinite loops from 
                             // taking up too many resources
 
+
+class ControlFlowCommand {
+  constructor() {
+    this.executed = [];
+    this.storedStack = false;
+    this.steps = 0;
+  }
+  /** ControlFlowCommand.execPush
+   *    execute command and push it onto stack for undo
+   *    if this is first call to execute
+   */
+  execPush(command) {
+    if (! this.storedStack) this.executed.push(command);
+    return command.execute();
+  }
+
+  undo() {
+    this.executed.slice().reverse().forEach(cmd => cmd.undo());
+  }
+
+}
+
 /** WhileLoopCommand
  *    accepts Condition function and executes
  *    each command in a loop as long as
@@ -39,29 +61,22 @@ const LOOP_MAX = 1000000; // stop infinite loops from
  *
  *    TODO: stop infinite loops-- limit to 1M steps maybe
  */
-class WhileLoopCommand {
+class WhileLoopCommand extends ControlFlowCommand {
   constructor(condition, loopStatements) {
+    super();
     this.condition = condition;
     this.loopStatements = loopStatements;
-    this.steps = 0;
   }
 
   execute() {
     while (this.condition.command.execute()) {
-      this.loopStatements.forEach(s => s.command.execute());
+      this.loopStatements.forEach(s => this.execPush(s.command));
       if (this.steps++ > LOOP_MAX) {
         alert("Loop is taking too long");
         break;
       }
     }
-  }
-
-  step() {
-    // this.statements.next().execute();
-  }
-
-  undo() {
-
+    this.storedStack = true;
   }
 }
 
@@ -82,21 +97,13 @@ class WhileLoopCommand {
  *  TODO
  *    add to array for undo
  */
-class ForLoopCommand {
+class ForLoopCommand extends ControlFlowCommand {
   constructor(initStatements, condition, incrStatements, loopStatements) {
+    super();
     this.initStatements = initStatements;
     this.condition = condition;
     this.incrStatements = incrStatements;
     this.loopStatements = loopStatements;
-    this.steps = 0;
-    this.executed = [];
-    // flag to ensure command stack is only created once
-    this.storedStack = false; 
-  }
-
-  execPush(command) {
-    if (! this.storedStack) this.executed.push(command);
-    return command.execute();
   }
 
   execute() {
@@ -113,10 +120,29 @@ class ForLoopCommand {
     }
     this.storedStack = true;
   }
+}
 
-  undo() {
-    this.executed.slice().reverse().forEach(cmd => cmd.undo());
+class IfBlockCommand extends ControlFlowCommand {
+  constructor(condBlockPairs) {
+    super();
+    this.condBlockPairs = condBlockPairs;
   }
 
+  /** IfBlockCommand.execute
+   *    try conditions until one evaluates true, then
+   *    execute all the lines in that block and break
+   */
+  execute() {
+    var cond, lines;
+    for (var i = 0; i < this.condBlockPairs.length; i++) {
+      cond = this.condBlockPairs[i][0];
+      lines = this.condBlockPairs[i][1];
+      if (this.execPush(cond.command)) {
+        lines.forEach(line => this.execPush(line.command));
+        break;
+      }
+    }
+    this.storedStack = true;
+  }
 }
 

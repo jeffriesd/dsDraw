@@ -23,6 +23,13 @@ function initDOM() {
 }
 
 
+function setRecordingIcon(state) {
+  var rec = $("#recording");
+  if (state == "RecordState") 
+    rec.css("backgroundColor", "red");
+  else 
+    rec.css("backgroundColor", "gray");
+}
 /*  The Toolbar class maintains a reference to a toolbar element
  *  and some state regarding what parts of it are hidden
  *  and what options are set. Composed with ToolOption

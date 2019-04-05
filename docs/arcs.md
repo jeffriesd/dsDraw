@@ -5,7 +5,7 @@ should no longer show arcs going to a node if that node is deleted. Therefore in
 will call draw() on each CurvedArrow object in its 'arrows' map. 
 
 Indices are used to store arcs in map and check for duplicates. It is also used for lookup for methods like
-linked lists cut.
+linked lists 'cut' method.
 
 ## Overhead
 #### CurvedArrow

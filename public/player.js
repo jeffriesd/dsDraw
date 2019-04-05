@@ -290,6 +290,10 @@ class MediaController {
     this.commandRecorders.set(clipId, cmdRec);
 
     cmdRec.initCmds.push({ type: "execute", command: cloneCommand });
+
+    // restore contents of current canvas
+    // so 'continue' button can be clicked more than once in a row
+    this.setEditorState(this.activeClipId);
   }
 
   /** MediaController.removeClip
@@ -332,7 +336,7 @@ class MediaController {
    *    change state variable and update controls
    */
   setState(newState) {
-    document.getElementById("recording").innerHTML = newState.constructor.name;
+    setRecordingIcon(newState.constructor.name);
     this.state = newState;
   }
 
@@ -744,9 +748,14 @@ class CommandRecorder {
 
   init() {
     return new Promise((resolve, reject) => {
-      this.initCmds.slice().reverse().forEach(ct => {
-        console.log("INIT CMD: ", ct.command.constructor.name);
-        if (ct.type == "execute") ct.command.execute();
+      this.initCmds.forEach(ct => {
+        console.log("INIT CMD: ", ct.command.constructor.name, ct.command);
+        if (ct.type == "execute") { 
+          if (ct.command.command) // quick fix for function being executed
+            ct.command.command.execute();
+          else
+            ct.command.execute();
+        }
         else ct.command.undo();
       });
 

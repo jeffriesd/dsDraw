@@ -34,6 +34,7 @@ const constructors = {
   "arrow":    CurvedArrowConstructor,
   "bst":      BSTConstructor,
   "bheap":    BinaryHeapConstructor,
+  "plot":     PlotlyPlotConstructor,
 };
 
 /** createFunctionCommand 
@@ -77,7 +78,7 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
   }
   else {
     // otherwise construct this AST node at runtime
-    // TODO always do this
+    // TODO always do this so recursive functions can be parsed successfully
     return {
       execute: function() {
         if (this.command == undefined)

@@ -105,13 +105,13 @@ class VariableEnvironment {
   }
 
   /** VariableEnvironment.getVar
-   *    Always check for function first because they 
-   *    have global scope 
+   *    Always check for function because they 
+   *    have global scope, but check local scope first
    */
   getVar(varName) {
+    if (this.hasVar(varName)) return this.variables.get(varName);
     if (this.functions.has(varName)) return this.functions.get(varName); 
-    if (! this.hasVar(varName)) throw `Undefined variable: '${varName}'.`;
-    return this.variables.get(varName);
+    throw `Undefined variable: '${varName}'.`;
   }
 
   static defineFunction(funcName, funcDef) {

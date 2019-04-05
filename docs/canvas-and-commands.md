@@ -1,4 +1,4 @@
-# dsDraw Technical Documentation
+# dsDraw Technical Documentation -- DEPRECATED mostly
 
 ## Canvas
 

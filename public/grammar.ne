@@ -63,10 +63,13 @@
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
+    IF: "if",
+    ELSE: "else",
+    ELIF: "elif",
     DEF: "define",
     RET: "return",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
-    varName: /[a-zA-Z][a-zA-Z0-9]*/,
+    varName: /[a-zA-Z][a-zA-Z0-9_]*/,
     character: /[^\n"]/, 
   });
 %}
@@ -81,7 +84,11 @@ code -> line {% id %}
       | funcdef   {% id %}
 
 line -> statement _ ";" {% id %} 
-      | forLoop   {% id %}
+      | controlBlock {% id %}
+
+controlBlock -> forLoop {% id %}
+              | whileLoop {% id %}
+              | if {% id %}
 
 statement -> assignment {% id %} 
            | expr {% id %} 
@@ -125,11 +132,9 @@ boolTerminal -> math    {% id %}
       | %TRUE           {% wrapBool %}
       | %FALSE          {% wrapBool %}
 
-comparator -> ("<" | ">" | %LESSEQ | %GREATEQ ) {% id %} 
+comparator -> ("<" | ">" | %LESSEQ | %GREATEQ | %EQEQ | %NOTEQ ) {% id %} 
 
 comp -> bool _ comparator _ bool  {% buildComparison %}
-      | bool _ %EQEQ _ bool       # {% buildEquals %}  
-      | bool _ %NOTEQ _ bool      # {% buildNotEquals %}  
 
 math -> math _ ("+"|"-") _ product {% buildAddSub %} | product {% id %}
 
@@ -212,16 +217,24 @@ forPars
 -> "(" _ (commaSepStatements _ ):? ";" _ (bool _):? ";" _ (commaSepStatements _):?  ")" {% buildForPars %}
 
 forLoop -> 
-  %FOR _  forPars _ "{" _ (line _ ):* "}" {% buildForLoop %}
+  %FOR _  forPars _ block {% buildForLoop %}
   
 whileLoop ->
-  %WHILE _ "(" _ bool _ ")" _ "{" _ (line _ ):* "}" {% buildWhileLoop %}
+  %WHILE _ "(" _ bool _ ")" _ block {% buildWhileLoop %}
+
+block -> "{" _ (line _):* "}" {% buildBlock %}
+
+# # Condition control flow
+if ->   
+  %IF _ "(" _ bool _ ")" _ block (_ elseIf):* (_ else):? {% buildIf %}
+elseIf -> %ELIF _ "(" _ bool _ ")" _ block  {% buildElseIf %}
+else -> %ELSE _ block                         {% buildElse %}
 
 
 # function definition
-funcdefargs -> %varName (_ "," _ %varName):*                                          {% buildCommaSepStatements %}
-funcdef -> %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" {% buildFunctionDefinition %}
-funcdef -> %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 {% buildFunctionDefinition %}
+funcdefargs -> %varName (_ "," _ %varName):*     {% buildCommaSepStatements %}
+funcdef -> %DEF " " %varName _ "(" _ funcdefargs _ ")" _ block  {% buildFunctionDefinition %}
+funcdef -> %DEF " " %varName _ "(" ")" _ block                 {% buildFunctionDefinition %}
 return -> %RET " " expr {% buildReturn %} 
 
 @{%
@@ -413,15 +426,10 @@ function buildFunctionCall(operands) {
   var functionArgs = []; // default (no args function)
   if (operands.length == 6) 
     functionArgs = operands[3];
-  
-  // used to check if assignment should set label of 
-  // constructed object
-  var constructed = functionNode.text in constructors;
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    constructed: constructed,
     command: createFunctionCommand(functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
@@ -482,7 +490,7 @@ function wrapNumber(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapNumber(operands);
+      return this;
     },
     toString: () => "wrapNumber",
   }
@@ -504,7 +512,7 @@ function wrapString(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapString(operands);
+      return this;
     },
     toString: () => "wrapString",
   };
@@ -523,7 +531,7 @@ function wrapBool(operands) {
       undo: function() {},
     },
     clone: function() {
-      return wrapBool(operands);
+      return this;
     },
     toString: () => "wrapBool",
   };
@@ -626,13 +634,25 @@ function buildComparison(operands) {
  *    nodes
  *
  *    pattern:
- *      commaSepStatement -> statement _ ("," _ statement):*
+ *      commaSepStatement -> statement (_ "," _ statement):*
  */
 function buildCommaSepStatements(operands) {
   var statements = [operands[0]];
-  for (var idx in operands[2]) 
-    statements.push(operands[2][idx][2]);
+  for (var idx in operands[1]) 
+    statements.push(operands[1][idx][3]);
   return statements; 
+}
+
+/** buildBlock
+ *    return array of line opNodes
+ *    pattern: 
+ *      block -> "{" _ (line _):* "}" 
+ */
+function buildBlock(operands) {  
+  var lines = [];
+  for (var idx in operands[2])
+    lines.push(operands[2][idx][0]);
+  return lines;
 }
 
 /** buildForPars
@@ -657,16 +677,13 @@ function buildForPars(operands) {
  *
  *    pattern:
  *      forLoop 
-          -> %FOR _  forPars _ "{" _ (statement ";"):* _ "}" 
+          -> %FOR _  forPars _ block
  */
 function buildForLoop(operands) {
   var initStatements = operands[2][0];
   var condition = operands[2][1];
   var incrStatements = operands[2][2];
-
-  var loopStatements = [];
-  for (var idx in operands[6])
-    loopStatements.push(operands[6][idx][0]);
+  var loopStatements = operands[4];
 
   return {
     isLiteral: false,
@@ -685,15 +702,12 @@ function buildForLoop(operands) {
  *
  *    pattern:
  *      whileLoop ->
- *        %WHILE _ "(" _ bool _ ")" _ "{" _ (statement _ ";" _ ):* "}" 
+ *        %WHILE _ "(" _ bool _ ")" _ block
  */
 function buildWhileLoop(operands) {
   var condition = operands[4];
   
-  var loopStatements = [];
-  for (var idx in operands[10]) 
-    loopStatements.push(operands[10][idx][0])
-
+  var loopStatements = operands[8];
   return {
     isLiteral: false,
     opNodes: loopStatements,
@@ -1001,29 +1015,29 @@ function buildDict(operands, loc, rej, originalPairs) {
   if (operands.length > 3) 
     pairs = operands[2];
 
-  // evaluate keys only once (not again on clones)
-  pairs = originalPairs || 
-    pairs.map(([k, v]) => {
-      var kval = null;
-      if (k.isLiteral || k.command instanceof GetVariableCommand)
-        kval = k.command.execute();
-      if (kval == null || kval instanceof Object) 
-        throw "Dictionary keys must be string or number";
-
-      return [k.command.execute(), v.command.execute()];
-    });
   return {
-    isLiteral: pairs.every(x => x[1].isLiteral),
+    isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
     opNodes: pairs,
     command: {
       execute: function() {
-        return Object.assign({}, 
-        ...pairs.map(([k, v]) => ({[k]: v})));
+        // evaluate keys only once
+        if (originalPairs) {
+          if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
+            originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
+          return new Dictionary(originalPairs);
+        }
+        var d = new Dictionary([]);
+        // set one by one while executing for short-circuiting
+        pairs.forEach(([k, v]) => { 
+          d.set(k.command.execute(), v.command.execute());
+        })
+        return d;
       },
       undo: function() {}
     },
     clone: function() {
-      return buildDict(cloneOperands(operands), null, null, pairs);
+      return buildDict(
+        cloneOperands(operands), null, null, originalPairs || pairs);
     },
     toString: () => "buildDict",
   };
@@ -1036,24 +1050,16 @@ function buildDict(operands, loc, rej, originalPairs) {
  *    
  *    pattern:
  *      funcdef -> 
- *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ "{" _ (line _ ):* "}" 
- *        %DEF " " %varName _ "(" ")" _ "{" _ (line _ ):* "}"                 
+ *        %DEF " " %varName _ "(" _ funcdefargs _ ")" _ block
+ *        %DEF " " %varName _ "(" ")" _ block
  */
 function buildFunctionDefinition(operands) {
-  var argNames = [];
-  var flIdx;
-  if (operands.length > 11) {
-    argNames = operands[6].map(x => x.text);
-    flIdx = 12;
-  }
-  else 
-    flIdx = 9;
-
   var funcName = operands[2].text;
-  var funcStatements = [];
-  for (var idx in operands[flIdx])
-    funcStatements.push(operands[flIdx][idx][0]);
-  
+  var argNames = [];
+  if (operands.length > 8) 
+    argNames = operands[6].map(x => x.text);
+
+  var funcStatements = operands[operands.length - 1];
   return {
     isLiteral: false,
     opNodes: funcStatements,
@@ -1086,5 +1092,61 @@ function buildReturn(operands) {
     },
     toString: () => "buildReturn",
   };
+}
+
+/** buildIf
+ *    build AST node (opNode) for if-else if-else block.
+ *    note elseIf and else return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *    If block command object is parameterized with complete 
+ *    array of [bool expr, [lines]], so if, else if, and else 
+ *    arrays must be combined
+ *
+ *    pattern:
+ *      %IF _ "(" _ bool _ ")" _ block (_ elseIf):* (_ else):? 
+ */
+function buildIf(operands) {
+  var condBlockPairs = [];
+  condBlockPairs.push([operands[4], operands[8]]);
+
+  var elseIfIdx = 9;
+  for (var idx in operands[elseIfIdx])
+    condBlockPairs.push(operands[elseIfIdx][idx][1]);
+  
+  // if final else block
+  if (operands[operands.length - 1])
+    condBlockPairs.push(operands[operands.length - 1][1]);
+
+  return {
+    isLiteral: false,
+    opNodes: condBlockPairs,
+    command: new IfBlockCommand(condBlockPairs),
+    clone: function() {
+      return buildIf(cloneOperands(operands));
+    },
+    toString: () => "buildIf",
+  };
+}
+
+/** buildElseIf
+ *    return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *
+ *    pattern:
+ *      elseIf -> %ELIF _ "(" _ bool _ ")" _ block 
+ */
+function buildElseIf(operands) {
+  return [operands[4], operands[8]];
+}
+
+/** buildElse
+ *    return arrays of pairs (2 element arrays)
+ *    [bool expr, [lines]]
+ *
+ *    pattern:
+ *      else -> %ELSE _ block 
+ */
+function buildElse(operands) {
+  return [wrapBool(["true"]), operands[2]];
 }
 %}

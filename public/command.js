@@ -392,18 +392,17 @@ class ConsoleDestroyCommand extends ConsoleCommand {
   constructor(cState, receiver) {
     super(receiver);
     this.cState = cState;
-    // save label for undoing
-    this.objLabel = receiver.command.execute().label;
   }
 
   executeChildren() {
     super.executeChildren();
     this.receiver = this.args[0];
+    this.objLabel = this.receiver.label;
   }
 
   checkArguments() {
     if (! (this.receiver instanceof CanvasObject))
-      throw `Cannot delete non-CanvasObject '${this.receiver}'.`;
+      throw `Cannot delete non-CanvasObject '${stringify(this.receiver)}'.`;
   }
 
   executeSelf() {
@@ -421,23 +420,35 @@ class AssignVariableCommand extends ConsoleCommand {
   constructor(variableName, value) {
     super(value);
     this.variableName = variableName;
+
+    // variables that corresponed to labeled canvas objects
+    // cant be reassigned
+    if (VariableEnvironment.hasVar(this.variableName)) 
+      if (VariableEnvironment.getVar(this.variableName) instanceof CanvasObject) 
+        throw `Cannot reassign reference to canvas object: '${this.variableName}' .`;
   }
 
+  /** AssignVariableCommand.executeChildren
+   *    evaluate opNode on right side of equals 
+   */
   executeChildren() {
     super.executeChildren();
     this.value = this.args[0];
-    this.constructed = this.argNodes[0].constructed;
-    this.funcReturn = this.argNodes[0].command instanceof UserFunctionCommand;
+    // if rvalue is returned from function (including constructors), 
+    // update the label of the canvas object
+    this.funcReturn = this.argNodes[0].toString() == "buildFunctionCall";
   }
 
   /** AssignVariableCommand.execute
-   *    either assign label to result of constructor 
+   *    either assign label to result of constructor/function
    *    (which calls VarEnv.setVar) or simply call
    *    VarEnv.setVar
    */
   executeSelf() {
-    if (this.constructed || this.funcReturn)
-      this.value.label = this.variableName;
+    if (this.value instanceof CanvasObject) {
+      if (this.funcReturn)
+        this.value.label = this.variableName;
+    }
     else
       VariableEnvironment.setVar(this.variableName, this.value); 
   }
@@ -445,6 +456,7 @@ class AssignVariableCommand extends ConsoleCommand {
   undo() {
     if (VariableEnvironment.hasVar(this.variableName))
       VariableEnvironment.deleteVar(this.variableName);
+    this.argNodes[0].command.undo();
   }
 }
 
@@ -500,7 +512,7 @@ class ConfigCommand extends ConsoleCommand {
         this.receiver instanceof CanvasChildObject))
       throw "Cannot configure non-canvas object";
     if (this.property == undefined)
-      throw `${this.receiver.constructor.name} has no property '${this.property}'.`;
+      throw `${this.receiver.constructor.name} has no property '${this.propName}'.`;
   }
 
   /** ConfigCommand.parseValue
@@ -598,6 +610,9 @@ class GetChildCommand extends ConsoleCommand {
     if (this.receiver instanceof Array)
       if (this.key < 0 || this.key >= this.receiver.length)
         throw "Array index out of bounds: " + this.key;
+    if (! (this.receiver instanceof CanvasObject
+        || this.receiver.hasOwnProperty(this.key)))
+      throw `Undefined property '${this.key}'.`;
   }
 
   /** GetChildCommand.executeSelf
@@ -736,6 +751,7 @@ class RangeConfigCommand extends ConsoleCommand {
 
 class AssignListElementCommand extends ConsoleCommand {
 
+  // assign list/list value at idx/key
   executeChildren() {
     super.executeChildren();
     this.list = this.args[0];
@@ -744,8 +760,9 @@ class AssignListElementCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (! (this.list instanceof Array))
-      throw "Cannot assign value to non-list " + listName;
+    if (this.list instanceof Dictionary) return;
+    if (! (this.list instanceof Array || this.list.constructor == Object))
+      throw "Element assignment is only allowed for lists and dicts";
     if (this.index < 0 || this.index >= this.list.length) 
       throw "Array index out of bounds: " + this.index;
   }
@@ -774,122 +791,6 @@ class MacroCommand {
   }
 }
 
-class CanvasObjectConstructor extends ConsoleCommand {
-  constructor(cState, ...argNodes) {
-    super(...argNodes);
-    this.cState = cState;
-  }
-
-  /** CanvasObjectConstructor.createObject
-   *    default no args constructor
-   */
-  createObject() {
-    var coords = this.cState.getCenter();
-    var x2 = coords.x + this.canvasClass.defaultWidth();
-    var y2 = coords.y + this.canvasClass.defaultHeight();
-    this.newObj = new this.canvasClass(this.cState, 
-      coords.x, coords.y, x2, y2);
-  }
-
-  applyStyle() {
-    if (this.styleOptions == undefined) return; 
-    var validOptions = this.newObj.propNames();
-    console.log(validOptions);
-    if (Object.keys(this.styleOptions)
-      .every(x => validOptions.hasOwnProperty(x))) {
-        Object.entries(this.styleOptions)
-          .forEach(([k, v]) => this.newObj[validOptions[k]] = v);
-    }
-    else
-      throw "Invalid style options";
-  }
-
-  /** CanvasObjectConstructor.executeSelf
-   *    create object if uninitialized.
-   *    add object to canvas by calling restore
-   *    and return it as an object so label assignment
-   *    can be performed when user enters
-   *    'x = array()'
-   *    but not for
-   *    'y = x'
-   */
-  executeSelf() {
-    if (this.newObj == undefined) {
-      this.createObject();
-      this.applyStyle();
-    }
-    this.newObj.restore();
-    return this.newObj;
-  }
-
-  undo() {
-    this.newObj.destroy();
-  }
-
-  parseError(errMessage) {
-    if (this.usage)
-      throw errMessage + "\nUsage: " + this.usage();
-    throw errMessage;
-  }
-}
-
-
-class TextBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = TextBox;
-  }
-}
-
-class MathBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = MathBox;
-  }
-}
-
-class RectBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = RectBox;
-  }
-}
-
-class RoundBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = RoundBox;
-  }
-}
-
-class DiamondBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = DiamondBox;
-  }
-}
-
-class ParallelogramBoxConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = ParallelogramBox;
-  }
-}
-
-class ConnectorConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = Connector;
-  }
-}
-
-class CurvedArrowConstructor extends CanvasObjectConstructor {
-  constructor(...args) {
-    super(...args);
-    this.canvasClass = CurvedArrow;
-  }
-}
-
 class CanvasObjectMethod extends ConsoleCommand {
 
   constructor(receiver, ...argNodes) {
@@ -904,61 +805,6 @@ class CanvasObjectMethod extends ConsoleCommand {
     throw errMessage;
   }
 }
-
-
-
-/** Array1DConstructor
- *    array constructor syntax:
- *      array([[initializer]], [[styleOptions]])
- *
- *      e.g. 
- *      array("random", { ds: "tower" })
- *      array([1, 2, 3, 4])
- *      array()
- *
- *    default initializer is random
- *    default array length is 8
- */
-class Array1DConstructor extends CanvasObjectConstructor {
-  constructor(cState, ...args) {
-    super(cState, ...args);
-    this.canvasClass =  Array1D;
-  }
-  
-  executeChildren() {
-    super.executeChildren();
-    this.initializer = this.args[0];
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
-    this.styleOptions = this.args[1];
-  }
-
-  /** Array1DConstructor.checkArguments
-   *    initializer must be string "random"
-   *    or array
-   */
-  checkArguments() {
-    if (! (this.initializer == "random" || this.initializer instanceof Array))
-      this.parseError("Invalid array initializer. Must be 'random' or list");
-  }
-  
-  createObject() {
-    this.coords = Array1D.defaultCoordinates(this.cState);
-    this.newObj = new Array1D(this.cState, this.coords.x1, this.coords.y1, this.coords.x2,
-      this.coords.y2);
-
-    if (this.initializer == "random")
-      randomArray(Array1D.defaultLength, Array1D.randomSeed).forEach(x => this.newObj.append(x));
-    else if (this.initializer instanceof Array)
-      this.initializer.forEach(x => this.newObj.append(x));
-  }
-
-  usage() {
-    return "array(initializer, styleOptions)";
-  }
-}
-
 
 
 class Array1DCommand extends CanvasObjectMethod {
@@ -1248,51 +1094,6 @@ class Array1DSortCommand extends Array1DCommand {
 /** LinkedList commands
  */
 
-/** LinkedListConstructor 
- *    array constructor syntax:
- *      array(initializer, styleOptions)
- *
- *      e.g. 
- *      array("random", { ds: "tower" })
- *      array([1, 2, 3, 4])
- *      array()
- *
- *    default initializer is random
- *    default array length is 8
- */
-class LinkedListConstructor extends CanvasObjectConstructor {
-  constructor(cState, ...args) {
-    super(cState, ...args);
-    this.canvasClass =  LinkedList;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.initializer = this.args[0];
-    this.styleOptions = this.args[1];
-  }
-
-  createObject() {
-    this.coords = LinkedList.defaultCoordinates(this.cState);
-    this.newObj = new LinkedList(
-      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
-
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
-    if (this.initializer == "random")
-      randomArray(LinkedList.defaultLength, LinkedList.randomSeed).forEach(x => this.newObj.append(x));
-    else if (this.initializer instanceof Array)
-      this.initializer.forEach(x => this.newObj.append(x));
-    else 
-      this.parseError("Invalid initializer");
-  }
-
-  usage() {
-    return "array(initializer, styleOptions)";
-  }
-}
-
 class LinkedListCommand extends CanvasObjectMethod {
   checkIndices(...indices) {
     indices.forEach(i => {
@@ -1415,52 +1216,6 @@ class LinkedListRemoveCommand extends LinkedListCommand {
   undo() {
     this.receiver.list.set(this.removeIndex, this.node);
     this.removedArrows.forEach(arr => arr.restore());
-  }
-}
-
-class BSTConstructor extends CanvasObjectConstructor {
-  constructor(cState, ...args) {
-    super(cState, ...args);
-    this.canvasClass = BST;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.initializer = this.args[0];
-    this.styleOptions = this.args[1];
-  }
-
-  buildComplete(bst, arr, low, high) {
-    if (low > high) return;
-    var mid = Math.floor((low + high) / 2);
-    bst.insert(arr[mid]);
-    this.buildComplete(bst, arr, low, mid - 1);
-    this.buildComplete(bst, arr, mid + 1, high);
-  }
-
-  createObject() {
-    this.coords = BST.defaultCoordinates(this.cState);
-    this.newObj = new BST(
-      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
-
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
-    var len = BST.defaultSize;
-    if (this.initializer == "random")
-      randomArray(len, BST.randomSeed).forEach(x => this.newObj.insert(x));
-    else if (this.initializer == "complete") {
-      var vals = randomArray(len, BST.randomSeed).sort((a, b) => a > b);
-      this.buildComplete(this.newObj, vals, 0, len - 1);
-    }
-    else if (this.initializer instanceof Array)
-      this.initializer.forEach(x => this.newObj.insert(x));
-    else 
-      this.parseError("Invalid initializer");
-  }
-
-  usage() {
-    return "bst(initializer, styleOptions)";
   }
 }
 
@@ -1772,39 +1527,6 @@ class BSTNodeValueCommand extends BSTNodeCommand {
 /**
  * Heap methods
  */
-class BinaryHeapConstructor extends CanvasObjectConstructor {
-  constructor(cState, ...args) {
-    super(cState, ...args);
-    this.canvasClass = BinaryHeap;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.initializer = this.args[0];
-    this.styleOptions = this.args[1];
-  }
-
-  createObject() {
-    this.coords = BinaryHeap.defaultCoordinates(this.cState);
-    this.newObj = new BinaryHeap(
-      this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
-
-    // default parameters
-    if (this.initializer == undefined) this.initializer = "random";
-
-    var len = BinaryHeap.defaultSize;
-    if (this.initializer == "random")
-      randomArray(len, BinaryHeap.randomSeed).forEach(x => this.newObj.insert(x));
-    else if (this.initializer instanceof Array)
-      this.initializer.forEach(x => this.newObj.insert(x));
-    else 
-      this.parseError("Invalid initializer");
-  }
-
-  usage() {
-    return "bheap(initializer, styleOptions)";
-  }
-}
 
 class BinaryHeapCommand extends CanvasObjectMethod {
 }
@@ -2001,30 +1723,37 @@ class RandomFloatCommand extends ConsoleCommand {
 }
 
 class RangeCommand extends ConsoleCommand {
-  constructor(cState, low, high, step) {
-    super(low, high, step);
+  constructor(cState, start, end, step) {
+    super(start, end, step);
     this.value = null;
   }
 
   executeChildren() {
     super.executeChildren();
-    this.low = this.args[0];
-    this.high = this.args[1];
+    this.start = this.args[0];
+    this.end = this.args[1];
     this.step = this.args[2] || 1;
   }
 
   checkArguments() {
     if (this.step == 0) 
       throw "Invalid range step: 0";
-    if (this.high == undefined 
-      || Math.sign(this.high - this.low) != Math.sign(this.step))
-      throw `Invalid range arguments: ${this.low}, ${this.high}, ${this.step}.`;
+    if (this.end == undefined 
+      || Math.sign(this.end - this.start) != Math.sign(this.step))
+      throw `Invalid range arguments: ${this.start}, ${this.end}, ${this.step}.`;
+  }
+
+  // helper function for determining when range is complete
+  beyond(currValue, bound) {
+    if (this.start <= this.end)
+      return currValue >= bound;
+    return currValue <= bound;
   }
 
   executeSelf() {
     if (this.value == null) {
       this.value = [];
-      for (var i = this.low; i != this.high; i += this.step)
+      for (var i = this.start; ! this.beyond(i, this.end); i += this.step)
         this.value.push(i);
     }
     return this.value;
@@ -2075,7 +1804,7 @@ class UserFunctionCommand extends ConsoleCommand {
   setArguments() {
     if (this.argNames.length != this.argNodes.length)  {
       console.log(this.argNames, this.argNodes);
-      throw `${this.funcName} requires ${this.argNames.length} arguments.`;
+      throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
     }
     var namespace = new Map();
     this.argNames.forEach((argname, i) => {
