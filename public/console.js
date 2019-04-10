@@ -27,9 +27,6 @@ class CommandConsole {
 
     this.cmdConsole.appendChild(commandLine);
 
-    // command parsing class
-    this.parser = new CommandInterpreter(this.cState, this);
-
     this.history.value = "";
     this.commandLine.value = "";
   
@@ -248,39 +245,13 @@ class CommandConsole {
 
   processLine(line) {
     var cmdObj;
-    var parseFunc;
-    var rawCommand;
 
-    // multiline command has ended, 
-    // parse it and clear the buffer
-    // if (line.includes("}")) {
-    //   this.multiLine = false;
-
-    //   parseFunc = this.parser.parseMultiLine.bind(this.parser);
-    //   rawCommand = this.multiCommand.slice();
-    //   this.multiCommand = []; // clear multiline buffer
-    // }
-    // // multiline command starting
-    // else if (line.includes("{")) {
-    //   this.multiLine = true;
-
-    //   // push starting line so it can be included
-    //   // in final parsing step
-    //   var stripped = line.replace("{", "").trim();
-    //   this.multiCommand.push(stripped);
-    // }
-    //else 
-    if (line.trim()) {
-      parseFunc = this.parser.parseLine.bind(this.parser);
-      rawCommand = line;
-    }
-
-    var parseErr, execErr, commandRet;
+    var parseErr, commandRet;
 
     // try to parse line
-    if (parseFunc && rawCommand) {
+    if (line) {
       try {
-        cmdObj = parseFunc(rawCommand);
+        cmdObj = this.parseLine(line);
       }
       catch (error) {
         parseErr = "[PARSE ERROR]: " + error.toString();
@@ -328,89 +299,6 @@ class CommandConsole {
     this.history.value += this.historyStack.join("\n");
   }
 
-}
-
-class CommandInterpreter {
-  constructor(canvasState, commandConsole) {
-    this.cState = canvasState;
-    this.commandConsole = commandConsole; 
-  }
-
-  /** CommandInterpreter.parseMultiLine
-   *    helper method for multi-line commands.
-   *    currently supporting 'create' and 'macro'
-   *
-   *    returns MacroCommand composed of 
-   *    individual config command objects
-   */
-  parseMultiLine(cmds) {
-    var firstLine = cmds[0];
-    if (firstLine.startsWith("create"))
-      return this.parseConstructor(cmds); 
-    else if (firstLine.startsWith("macro"))
-      return this.parseMacro(cmds); 
-  }
-
-  /** CommandInterpreter.parseMacro
-   *    syntax is
-   *    'macro macroName arg1 arg2 {
-   *      cmd1
-   *      cmd2 $arg1 $arg2
-   *      cmd3 $arg1 4 5
-   *      $arg1.resize 4 3
-   *    }'
-   *
-   *    TODO: need to differentiate between
-   *    macro def/declaration and macro call
-   */
-  parseMacro(cmds) {
-    var args = cmds[0].split(" ");
-    var macroName = args[1];
-    args = args.slice(1);
-    if (macroName == null) throw "Usage: 'macro macroName'";
-    cmds = cmds.slice(1);
-    if (cmds.length == 0) throw "Empty macro";
-    
-  }
-
-  /** CommandInterpreter.parseConstructor
-   *    helper method for constructor-type
-   *    commands, e.g. 
-   *
-   *    create [objType] [[objName]] {
-   *      prop1: value1
-   *      prop2: value2
-   *    }
-   */
-  parseConstructor(cmds) {
-    var firstLine = cmds[0];
-    // create actual object so it can be configured
-    // by following lines
-    var creator = this.parseLine(firstLine);
-    if (creator) 
-      var newObj = this.commandConsole.executeCommand(creator);
-    else
-      throw "Invalid command: " + firstLine;
-
-    // all following lines are config commands
-    var lines = cmds.slice(1);
-    console.log("lines = ", lines);
-
-    // convert lines to one-liner equivalents
-    var commands = [];
-    lines.forEach((line) => {
-      var oneliner = newObj.label + " " + line.replace(":", " ");
-      var lineCmd = this.parseLine(oneliner);
-      commands.push(lineCmd);
-    });
-
-    return new MacroCommand(commands);
-  }
-
-  /** CommandInterpreter.parseLine
-   *    parsing method for single line commands
-   *    with some basic syntax checking
-   */
   parseLine(cmdStr) {
     this.nearleyParser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar), {});
     var parseTree = this.nearleyParser.feed(cmdStr);
@@ -422,106 +310,5 @@ class CommandInterpreter {
       throw "Incomplete parse error";
 
     return parseTree.results[0].command;
-    // if (! cmdStr.match(expressionChars))
-    //   throw `Unexpected characters in '${cmdStr}'.`;
-    // // check for balanced parens
-    // if (! parenBalanced(cmdStr))
-    //   throw `Unbalanced parentheses in '${cmdStr}'.`;
-    //  
-    // return new CommandExpression(this.cState, cmdStr);
-  }
-
-  // parseLine(cmdStr) {
-  //   var spl = cmdStr.split(/(\s)/).filter((s) => s.trim().length);
-  //   var mainCmd = "";
-  //   var args =  [];
-
-  //   var mainCmd = spl[0];
-  //   if (spl.length > 1)
-  //     args = spl.slice(1);
-
-  //   // check if 'mainCmd' is 
-  //   // 1. labeled object with subcommand
-  //   // 2. labeled object with config command
-  //   // 3. a command type 
-  //   //  e.g
-  //   // 1. '$myarr123.swap(0,5)'
-  //   // 2. '$myarr123[1:3] bg #ff0' or 'myarr123 fs 12'
-  //   // 3. '$create array myarr123'
-  //   
-  //   if (mainCmd.includes(".")) {
-  //     var name = mainCmd.split(".")[0];
-  //     // if (this.cState.labeled.get(name))
-  //     //   return this.createObjectCommand(mainCmd, args);
-  //     // throw `No object named ${name}`;
-  //   }
-
-  //   // name is first word up to [ symbol
-  //   var name = mainCmd.match(/[^\[]*/).toString();
-  //   if (this.cState.labeled.get(name)) 
-  //     return this.createConfigCommand(mainCmd, args);
-  //   else
-  //     return this.createMainCommand(mainCmd, args);
-  // }
-
-  /** CommandInterpreter.createObjectCommand
-   *    parses command with an object label and a '.'
-   *    and returns command object -- may throw exception
-   *    if parsing errors or bad arguments
-   */
-  // createObjectCommand(mainCmd, args) {
-  //   var cmdSpl = mainCmd.split(".");
-  //   var receiverName = cmdSpl[0];
-  //   var commandName = cmdSpl[1];
-
-  //   var receiverObj = this.cState.labeled.get(receiverName); 
-
-  //   // keys of command map are ClassnameCommandName
-  //   var cmdKey = receiverObj.constructor.name + commandName;
-
-  //   var commandClass = objectCommands[cmdKey];
-  //   
-  //   if (commandClass == null)
-  //     throw `No command '${commandName}' for class '${receiverObj.constructor.name}'`;
-
-  //   return new commandClass(receiverObj, ...args);
-  // }
-
-  /** CommandInterpreter.createConfigCommand
-   *    parses commands with an object label and no '.'
-   *    and returns command object
-   *
-   *    e.g. 
-   *      myarr fontFamily purisa
-   *    or
-   *      myarr[0:5] fg blue
-   */
-  createConfigCommand(mainCmd, args) {
-    // either configure single object or range of child objects
-    // such as cells in an array
-    var receiverName = mainCmd.match(/[^\[]*/).toString();
-    var receiverObj = VariableEnvironment.getCanvasObj(receiverName);
-
-    var configCommand;
-    if (mainCmd.includes("[")) {
-      var range = mainCmd.match(/\[.*\]/).toString();
-      configCommand = new RangeConfigCommand(receiverObj, range, ...args);
-    }        
-    else 
-      configCommand = new ConfigCommand(receiverObj, ...args);
-
-    return configCommand;
-  }
-   
-  /** CommandInterpreter.createMainCommand
-   *    parse command with mainCmd as the commandType and
-   *    returns a new command object 
-   */
-  createMainCommand(mainCmd, args) {  
-    var commandObj = mainCommands[mainCmd];
-    if (commandObj)
-      return new commandObj(this.cState, ...args);
-    else
-      throw `Invalid command '${mainCmd}'.`;
   }
 }
