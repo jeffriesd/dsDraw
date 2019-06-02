@@ -68,6 +68,7 @@
     ELIF: "elif",
     DEF: "define",
     RET: "return",
+    NULL: "null",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     varName: /[a-zA-Z][a-zA-Z0-9_]*/,
     character: /[^\n"]/, 
@@ -160,6 +161,7 @@ mathTerminal -> number            {% id %}
        | list                     {% id %}
        | dict                     {% id %}
        | %QUOTE nonQuote:* %QUOTE {% wrapString %}
+       | %NULL                    {% wrapNull   %}
        | %varName                 {% buildVariable %}
        | "(" _ bool _ ")"         {% d => d[2] %}     # drop parens
        | propGet                  {% id %}
@@ -535,6 +537,25 @@ function wrapBool(operands) {
     },
     toString: () => "wrapBool",
   };
+}
+
+/** wrapNull
+ *  create null eval node
+ *  pattern: %NULL
+ */
+function wrapNull(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { return null; },
+      undo: function() {},
+    },
+    clone: function() {
+      return this;
+    },
+    toString: () => "wrapNull",
+  }
 }
 
 /** buildVariable

@@ -72,6 +72,7 @@ function id(x) { return x[0]; }
     ELIF: "elif",
     DEF: "define",
     RET: "return",
+    NULL: "null",
     number: /-?(?:[0-9]|[0-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     varName: /[a-zA-Z][a-zA-Z0-9_]*/,
     character: /[^\n"]/, 
@@ -375,6 +376,25 @@ function wrapBool(operands) {
     },
     toString: () => "wrapBool",
   };
+}
+
+/** wrapNull
+ *  create null eval node
+ *  pattern: %NULL
+ */
+function wrapNull(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { return null; },
+      undo: function() {},
+    },
+    clone: function() {
+      return this;
+    },
+    toString: () => "wrapNull",
+  }
 }
 
 /** buildVariable
@@ -1179,6 +1199,7 @@ var grammar = {
     {"name": "mathTerminal$ebnf$1", "symbols": []},
     {"name": "mathTerminal$ebnf$1", "symbols": ["mathTerminal$ebnf$1", "nonQuote"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "mathTerminal", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "mathTerminal$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
+    {"name": "mathTerminal", "symbols": [(lexer.has("NULL") ? {type: "NULL"} : NULL)], "postprocess": wrapNull},
     {"name": "mathTerminal", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
     {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
     {"name": "mathTerminal", "symbols": ["propGet"], "postprocess": id},
