@@ -1,3 +1,4 @@
+
 // TODO
 // organize command classes into separate files
 
@@ -165,7 +166,12 @@ class CloneCommand extends DrawCommand {
 
     // don't clone objects that are 'locked' -- they get cloned 
     // by parent object
-    this.group = this.group.filter(r => ! r.getParent().locked);
+    // this.group = this.group.filter(r => ! r.getParent().locked);
+
+    // clone arrows last so their anchors get cloned first
+    // (false comes first in sorting)
+    const isArrow = x => x instanceof Arrow;
+    this.group = this.group.sort(isArrow);
 
     this.newPos = this.group.map(r => {
       return { x: r.x + deltaX, y: r.y + deltaY };
@@ -246,6 +252,7 @@ class SelectCommand {
            && pt.y <= this.y2 && pt.y >= this.y1) {
         this.cState.selectGroup.add(pObj);
         toRaise.push(pObj);
+        console.log("adding to st")
       }
     });
 
@@ -258,7 +265,6 @@ class SelectCommand {
     if (this.cState.selectGroup.size == 1) {
       this.cState.selectGroup.forEach((obj) => {
         this.cState.activeObj = obj;
-        this.cState.showToolbar();
       });
     }
   }
@@ -312,7 +318,7 @@ class CloneCanvasCommand {
    */
   doClone() {
     this.receivers = this.originals
-      .filter(obj => ! obj.locked)
+      // .filter(obj => ! obj.locked)
       .map(obj => obj.clone());
   }
 
@@ -490,9 +496,12 @@ class ConfigCommand extends ConsoleCommand {
       throw "Cannot configure null"; 
     if (this.receiver.propNames == undefined)
       throw `Cannot configure receiver '${this.receiver.constructor.name}'.`;
-      
-    var propNames = this.receiver.propNames();
-    this.property = propNames[this.propName];
+    
+    // propName is either exact property name or alias
+    if (Object.values(this.receiver.propNames()).includes(this.propName)) // exact
+      this.property = this.propName;
+    else // alias
+      this.property = this.receiver.propNames()[this.propName];
 
     // save original value for undo
     this.oldValue = this.receiver[this.property];
@@ -504,7 +513,10 @@ class ConfigCommand extends ConsoleCommand {
   }
 
   /** ConfigCommand.checkArguments
-   *    TODO add checking for expected types
+   *    - possibly convert rvalue string (currently just mapping on/off to true/false).
+   *    - check object being configured is canvas object.
+   *    - check that property (already mapped by propNames) exists in canvas object.
+   *    - check that value falls in correct 'type'
    */
   checkArguments() {
     this.value = this.parseValue(this.value);
@@ -513,6 +525,9 @@ class ConfigCommand extends ConsoleCommand {
       throw "Cannot configure non-canvas object";
     if (this.property == undefined)
       throw `${this.receiver.constructor.name} has no property '${this.propName}'.`;
+    var expectedType = this.receiver.propTypes()[this.property];
+    if (! validPropertyAssignment(this.value, expectedType))
+      throw `Invalid value '${this.value}' for property '${this.propName}'. Expected value: ${expectedType}.`;
   }
 
   /** ConfigCommand.parseValue
@@ -534,6 +549,27 @@ class ConfigCommand extends ConsoleCommand {
 
   undo() {
     this.receiver[this.property] = this.oldValue;
+  }
+}
+
+// take value directly (as opposed to valueNode in ConfigCommand)
+class MenuConfigCommand extends ConfigCommand {
+  constructor(receiver, propName, value) {
+    super(receiver, propName, value);
+    this.value = value;
+  }
+
+  executeChildren() {
+  }
+
+  // convert string (from <input> unlike parsed ConfigCommand)
+  parseValue(value) {
+    value = super.parseValue(value);
+    if (isNumber(value))
+      return Number(value);
+    if (value == "true") return true;
+    if (value == "false") return false;
+    return value;
   }
 }
 
@@ -679,7 +715,7 @@ class GetPropertyCommand extends ConsoleCommand {
     }
     else if (this.receiver instanceof CanvasObject 
         || this.receiver instanceof CanvasChildObject) {
-      this.property = this.receiver.propNames()[this.propName];
+      this.property = this.receiver.propMethodNames()[this.propName];
       if (this.property == undefined)
         throw `Undefined property '${this.propName}' for ${this.receiver.constructor.name}.`;
     }
@@ -717,7 +753,6 @@ class RangeConfigCommand extends ConsoleCommand {
     super(receiverNode, rValueNode);
     this.configCommands = [];
     this.property = property;
-    console.log("rValueNode = ", rValueNode);
   }
 
   executeChildren() {
@@ -957,11 +992,8 @@ class Array1DArrowCommand extends Array1DCommand {
     
       var y = this.receiver.y1;
       
-      // create new locked arrow
-      var anchors = {from: fromAnchor, to: toAnchor};
-
       this.arrow = 
-        new CurvedArrow(this.receiver.cState, x1, y, x2, y, anchors);
+        new CurvedArrow(this.receiver.cState, x1, y, x2, y, fromAnchor, toAnchor);
       this.arrow.keyRestore = [this.i1, this.i2];
 
       // set control points so arc goes above by default
@@ -972,7 +1004,6 @@ class Array1DArrowCommand extends Array1DCommand {
       this.arrow.cp2.y = y - cs;
     } 
     this.receiver.arrows.set([this.i1, this.i2], this.arrow);
-    this.arrow.restore();
   }
 
   /** Array1DArrowCommand.undo
@@ -1161,8 +1192,8 @@ class LinkedListCutCommand extends LinkedListCommand {
     this.fromIndex = this.args[0];
     this.toIndex = this.args[1];
 
-    // save arrow object for undo
-    this.edge = null;
+    // // save arrow object for undo
+    // this.edge = null;
   }
 
   checkArguments() {
@@ -1180,7 +1211,8 @@ class LinkedListCutCommand extends LinkedListCommand {
    *    to parent map in its restore method)
    */
   undo() {
-    this.edge.restore();
+    // this.edge.restore();
+    this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
   }
 }
 
@@ -1670,6 +1702,48 @@ class BinaryHeapNodeCommand extends CanvasObjectMethod {
 class BinaryHeapNodeValueCommand extends BinaryHeapNodeCommand {
   executeSelf() {
     return this.receiver.value;
+  }
+}
+
+
+/** Graph Command  */
+class GraphCommand extends CanvasObjectMethod {
+}
+
+class GraphDeleteNodeCommand extends GraphCommand {
+  constructor(receiver, nodeId) {
+    super(receiver, nodeId);
+    // save adjacency
+    this.savedAdj = new Map();
+    receiver.adjacency.forEach((adj, nid) => {
+      this.savedAdj.set(nid, adj.slice());
+    });
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.nodeId = this.args[0];
+  }
+
+  checkArguments() {
+    if (! this.receiver.ids.has(this.nodeId)) 
+      throw `No node with id ${this.nodeId}`;
+  }
+
+  executeSelf() {
+    this.receiver.adjacency.delete(this.nodeId);
+    this.receiver.adjacency.forEach((adj, nid) => {
+      adj = Array.from(adj.filter(x => x != this.nodeId));
+    });
+
+    renderGraph(this.receiver);
+  }
+
+  undo() {
+    this.receiver.adjacency = new Map();
+    this.savedAdj.forEach((adj, nid) => {
+      this.receiver.adjacency.set(nid, adj.slice());
+    });
   }
 }
 
