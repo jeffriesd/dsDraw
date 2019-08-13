@@ -1,49 +1,66 @@
 
 /** Graph Command  */
 class GraphCommand extends CanvasObjectMethod {
-}
 
 /** saveGraphCoords
  *    save graph coordinates for restoring
  *    graph shape pre-render 
- * 
- *    @param {Graph} g 
  *    @returns Map {nodeId : Int -> {x : Float, y : Float}}
  */
-function saveGraphCoords(g) {
-  var coords = new Map();
-  g.nodes.forEach(node => {
-    coords.set(node.index, { x: node.x, y: node.y });
-  });
-  return coords;
-}
+  saveCoords() {
+    var coords = new Map();
+    this.receiver.nodes.forEach(node => {
+      coords.set(node.index, { x: node.x, y: node.y });
+    });
+    return coords;
+  }
+
+  restoreCoords(coords) {
+    var c;
+    this.receiver.nodes.forEach(node => {
+      c = coords.get(node.index);
+      node.x = c.x;
+      node.y = c.y;
+    });
+    this.receiver.snapBoundingBox();
+  }
 
 
-/** restoreGraphCoords
- *    restore node coordinates in place
- * 
- *    @param {Graph} g 
- *    @param {Map{Int, {Int, Int}}} coords
+/** saveAdj
+ *    deepcopy current adjacency list
+ *    @returns Map {nodeId : Int -> [nodeId] : [Int]}
  */
-function restoreGraphCoords(g, coords) {
-  var c;
-  g.nodes.forEach(node => {
-    c = coords.get(node.index);
-    node.x = c.x;
-    node.y = c.y;
-  });
+  saveAdj() {
+    var savedAdj = new Map();
+    this.receiver.adjacency.forEach((adj, nid) => {
+      savedAdj.set(nid, adj.slice());
+    });
+    return savedAdj;
+  }
+
+  restoreAdj(adj) {
+    this.receiver.adjacency = new Map();
+    adj.forEach((neighbors, nid) => {
+      this.receiver.adjacency.set(nid, neighbors.slice());
+    });
+  }
+
+  maybeRender() {
+    if (this.newCoords == undefined) {
+      renderGraph(this.receiver);
+      this.newCoords = this.saveCoords();
+    }
+    this.restoreCoords(this.newCoords);
+  }
 }
 
 class GraphDeleteNodeCommand extends GraphCommand {
   constructor(receiver, nodeId) {
     super(receiver, nodeId);
     // save adjacency
-    this.savedAdj = new Map();
-    receiver.adjacency.forEach((adj, nid) => {
-      this.savedAdj.set(nid, adj.slice());
-    });
-    this.coords = saveGraphCoords(this.receiver);
-    this.newCoords = undefined;
+    this.oldAdj = this.saveAdj();
+
+    this.oldCoords = this.saveCoords();
   }
 
   executeChildren() {
@@ -57,30 +74,28 @@ class GraphDeleteNodeCommand extends GraphCommand {
   }
 
   executeSelf() {
-    // save coords from render first time
-    if (this.newCoords == undefined) {
-      renderGraph(this.receiver);
-      this.newCoords = saveGraphCoords(this.receiver);
+    if (this.newAdj == undefined) {
+      this.receiver.adjacency.delete(this.nodeId);
+      this.receiver.adjacency.forEach((adj, id) => {
+        adj = Array.from(adj.filter(x => x != this.nodeId));
+        this.receiver.adjacency.set(id, adj);
+      });
+      this.newAdj = this.saveAdj();
+      console.log("removed ", this.nodeId, this.receiver.adjacency);
     }
-    else {
-      restoreGraphCoords(this.receiver, this.newCoords);
-    }
+    else
+      this.restoreAdj(this.newAdj);
 
-    this.receiver.adjacency.delete(this.nodeId);
-    this.receiver.adjacency.forEach((adj, nid) => {
-      adj = Array.from(adj.filter(x => x != this.nodeId));
-    });
+    // save coords from render first time
+    this.maybeRender();
   }
 
   /** GraphDeleteNodeCommand.undo
    *    restore state of adjacency list
    */
   undo() {
-    this.receiver.adjacency = new Map();
-    this.savedAdj.forEach((adj, nid) => {
-      this.receiver.adjacency.set(nid, adj.slice());
-    });
-    restoreGraphCoords(this.receiver, this.coords);
+    this.restoreAdj(this.oldAdj);
+    this.restoreCoords(this.oldCoords);
   }
 }
 
@@ -88,7 +103,7 @@ class GraphRenderCommand extends GraphCommand {
   constructor(receiver, iterations) {
     super(receiver, iterations);
     // save node positions
-    this.coords = saveGraphCoords(receiver);
+    this.oldCoords = this.saveCoords();
   }
 
   executeChildren() {
@@ -102,14 +117,16 @@ class GraphRenderCommand extends GraphCommand {
   }
 
   executeSelf() {
-    if (this.newCoords == undefined) {
-      renderGraph(this.receiver, this.iterations);
-      this.newCoords = saveGraphCoords(this.receiver);
-    }
+    this.maybeRender();
   }
 
   undo() {
-    restoreGraphCoords(this.receiver, this.coords);
+    this.restoreCoords(this.oldCoords);
   }
+
+}
+
+class GraphAddNodeCommand extends GraphCommand {
+
 
 }
