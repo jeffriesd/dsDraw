@@ -36,14 +36,22 @@ function updateExtremesBottomUp(node) {
   updateExtremes(node);
 }
 
-function renderBST(bst) {
+function renderBST(bstCanvasObject, bst) {
   var root = bst.root;
   if (root == null) return;
   updateChildDepths(root, 0);
   updateExtremesBottomUp(root);
 
-  setupTR(root, 0, root.xleft, root.xright, bst.minSep);
-  petrifyTR(bst, root, 0);
+  setupTR(root, 0, root.xleft, root.xright, bstCanvasObject.minSep);
+  petrifyTR(bstCanvasObject, root, 0);
+
+  // give bstCanvasObject nodes coordinates from 
+  // internal BST data structure
+  bst.ids.forEach((node, id) => {
+    canvasNode = bstCanvasObject.ids.get(id);
+    canvasNode.x = node.x;
+    canvasNode.y = node.y;
+  })
 }
 
 function setupTR(root, depth, rmost, lmost, minSep) {
@@ -177,19 +185,19 @@ function setupTR(root, depth, rmost, lmost, minSep) {
   }
 }
 
-function petrifyTR(bst, root, x) {
+function petrifyTR(bstCanvasObject, root, x) {
   if (root == null) return;
   root.relX = x;
 
   // assign absolute coordinates
-  root.x = bst.x1 + root.relX * bst.cellSize;
-  root.y = bst.y1 + root.relY * (bst.cellSize + bst.depthSep);
+  root.x = bstCanvasObject.x1 + root.relX * bstCanvasObject.cellSize;
+  root.y = bstCanvasObject.y1 + root.relY * (bstCanvasObject.cellSize + bstCanvasObject.depthSep);
 
   if (root.hasThread) {
     root.hasThread = false;
     root.left = null;
     root.right = null;
   }
-  petrifyTR(bst, root.leftChild(), x - root.parOffset);
-  petrifyTR(bst, root.rightChild(), x + root.parOffset);
+  petrifyTR(bstCanvasObject, root.leftChild(), x - root.parOffset);
+  petrifyTR(bstCanvasObject, root.rightChild(), x + root.parOffset);
 }
