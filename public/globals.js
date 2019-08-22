@@ -126,7 +126,53 @@ function stringify(object) {
 }
 
 // allow dict objects to be printed as such
-Object.prototype.toString = function() { return stringify(this); }
+var toString = Object.prototype.toString;
+Object.prototype.toString = function() { 
+  try {
+    return stringify(this); 
+  }
+  catch(err) {
+    return toString(this);
+  }
+}
+
+// isNumber function for strings
+function isNumber(obj) {
+  return ! isNaN(Number(obj));
+}
+
+
+// verify allowed font
+const allowedFontsList = [
+  "times", "arial", "helvetica",
+  "purisa", "mono", "monospace", "gothic",
+  "courier",
+]
+// use set for speed
+const allowedFonts = new Set();
+allowedFontsList.forEach(x => allowedFonts.add(x));
+function validFontString(str) {
+  return typeof str == "string" && allowedFonts.has(str.trim().toLowerCase());
+}
+
+// hack to verify css color
+const colorTest = document.createElement("img");
+const rgbp  = /^rgb\((\d+\s*\,\s*){2}\d+\s*\)$/;
+const rgbap = /^rgba\((\d+\s*\,\s*){3}\d+\s*\)$/;
+const hexp  = /^#[0-9a-fA-F]{4,6}$/;
+function validColorString(str) {
+  if (typeof str !== "string") return false;
+  str = str.trim();
+  if (str == "") return false;
+  if (str.match(rgbp) || str.match(rgbap) || str.match(hexp)) return true;
+
+  // user entered 'black' or other color name
+  if (str == "black" || str == "white" || str == "transparent") return true;
+  colorTest.style.color = "black";
+  colorTest.style = str;
+  // if it actually changed, user supplied valid css color
+  return colorTest.style !== "black";
+}
 
 const SHIFT = 16;
 const CTRL = 17;
@@ -142,6 +188,8 @@ const hotkeys = {
   [SHIFT]: false,
   [ALT]: false,
 };
+
+const noHotkeys = () => Object.values(hotkeys).every(x => ! x);
 
 window.onkeydown = (event) => {
   if (event.keyCode in hotkeys)
@@ -162,5 +210,9 @@ const PAUSEBTN = "url(../images/pause.png)";
       
 const DEFAULT_THUMBNAIL = "images/default_thumb.png";
       
-// text height for flowchart text
-const TEXT_HEIGHT = 14;
+const defaultLabelMargin = {
+  width: () => 25,
+  height: () => 10,
+};
+
+const labelColor = "#97bade";

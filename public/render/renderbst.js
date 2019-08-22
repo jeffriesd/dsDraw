@@ -43,7 +43,7 @@ function renderBST(bst) {
   updateExtremesBottomUp(root);
 
   setupTR(root, 0, root.xleft, root.xright, bst.minSep);
-  petrifyTR(root, 0);
+  petrifyTR(bst, root, 0);
 }
 
 function setupTR(root, depth, rmost, lmost, minSep) {
@@ -177,14 +177,19 @@ function setupTR(root, depth, rmost, lmost, minSep) {
   }
 }
 
-function petrifyTR(root, x) {
+function petrifyTR(bst, root, x) {
   if (root == null) return;
   root.relX = x;
+
+  // assign absolute coordinates
+  root.x = bst.x1 + root.relX * bst.cellSize;
+  root.y = bst.y1 + root.relY * (bst.cellSize + bst.depthSep);
+
   if (root.hasThread) {
     root.hasThread = false;
     root.left = null;
     root.right = null;
   }
-  petrifyTR(root.leftChild(), x - root.parOffset);
-  petrifyTR(root.rightChild(), x + root.parOffset);
+  petrifyTR(bst, root.leftChild(), x - root.parOffset);
+  petrifyTR(bst, root.rightChild(), x + root.parOffset);
 }

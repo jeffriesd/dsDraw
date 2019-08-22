@@ -1,0 +1,119 @@
+/* Console styles */
+#commandConsole {
+  z-index: 2;
+  position: absolute;
+  background: var(--blacko70);
+  scrollbar-width: none;
+}
+
+#commandLine {
+  position: absolute;
+  bottom: 0px;
+  font-size: var(--console-fs);
+  font-family: var(--console-ff);
+  padding: 0px;
+  background: transparent;
+  border: none;
+  color: var(--white);
+  left: var(--console-fs);
+  margin-left: 10px; /* bit of extra space to align history with input */
+  width: 100%;
+}
+
+#commandBg {
+  position: absolute;
+  bottom: 0px;
+  padding: 0px;
+  background: transparent;
+  padding-left: 5px;
+  overflow: hidden;
+
+  color: white;
+  font-size: var(--console-fs);
+  font-family: var(--console-ff);
+
+  width: 100%;
+}
+#commandHistory {
+  position: absolute;
+  font-size: var(--console-fs);
+  padding-bottom: 5px;
+  width: 100%;
+  height: calc(100% - 1.5*var(--console-fs));
+  color: var(--white);
+  border: 0;
+  resize: none;
+  pointer-events: none;
+  scrollbar-width: none;
+  line-height: var(--console-fs);
+  padding-left: 5px;
+  overflow: hidden;
+
+  border-bottom: 2px solid var(--dgray7);
+}
+
+#commandConsole::-webkit-scrollbar, #commandHistory::-webkit-scrollbar {
+  display: none;
+}
+
+
+#commandTopBar {
+  width: 100%;
+  background: none;
+}
+
+#commandConsoleSettingsButton {
+  float: right;
+  background: none;
+  width: 30px;
+  height: 30px;
+
+  background: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-image: url("../images/settings.png");
+  border: none;
+  opacity: .5;
+}
+
+#commandConsoleSettingsButton:hover {
+  opacity: 1;
+}
+
+#commandConsoleSettingsButton:active {
+  opacity: .5;
+}
+
+#commandSettingsPane {
+  z-index: 3;
+  position: absolute;
+  width: 200px;
+  height: 100%;
+  background: var(--blacko70);
+  border-left: 3px solid var(--dgray7);
+}
+
+#commandSettingsClose {
+  float: right;
+  width: 12px;
+  height: 12px;
+  margin: 5px;
+  background: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-image: url("../images/white-x.png");
+  opacity: .5;
+}
+
+#commandSettingsClose:hover {
+  opacity: 1;
+}
+
+#commandSettingsClose:active {
+  opacity: .5;
+}
+
+#commandLine:focus {
+  outline: 0;
+  border: none;
+}

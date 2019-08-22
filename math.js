@@ -8,11 +8,11 @@ mathjax.config({
   {
     SVG: 
     {
-      scale: 120,
       // font: "",
       // linebreaks: { automatic: true },
       tex2jax: { 
         inlineMath: [['$','$'], ['\\(','\\)']],
+        inline: [["$", "$"]],
         processEscapes: true,
       },
     }

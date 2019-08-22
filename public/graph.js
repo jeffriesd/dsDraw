@@ -1,5 +1,3 @@
-
-
 // undirected graph class
 // adjacency list is upper edge matrix
 // so each entry is
@@ -16,6 +14,8 @@ class Graph extends LinearCanvasObject {
     this.bboxThickness = 2;
     
     Graph.defaultSize = 15;
+
+    this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
 
   static defaultCoordinates(cState) {
@@ -56,11 +56,11 @@ class Graph extends LinearCanvasObject {
    */
   methodNames() {
     return {
-      // "addNode": GraphAddNodeCommand,
-      // "addEdge": GraphAddEdgeCommand,
+      "addNode": GraphAddNodeCommand,
+      "addEdge": GraphAddEdgeCommand,
       "delNode": GraphDeleteNodeCommand,
       "render": GraphRenderCommand,
-      // "delEdge": GraphDeleteEdgeCommand,
+      "delEdge": GraphDeleteEdgeCommand,
       // "layout": GraphLayoutCommand,
     };
   }
@@ -73,13 +73,25 @@ class Graph extends LinearCanvasObject {
     };
   }
 
+  get floatingChildren() {
+    return [this.resizePoint, ...this.nodes];
+  }
+
+  /** Graph.setAdjacency
+   *    update state using deepcopy of other adjacency list 
+   */
+  setAdjacency(otherAdj) {
+    this.adjacency = new Map();
+    otherAdj.forEach((neighbors, id) => {
+      this.adjacency.set(id, new Set(neighbors));
+    });
+  }
+
   /** Graph.clone
    *    clone nodes and update their parent references
    */
   clone() {
     var copy = super.clone();
-
-    var oa = new Map(this.adjacency);
 
     var copyNodes = this.nodes.map(node => { 
       var c = node.clone();
@@ -90,13 +102,9 @@ class Graph extends LinearCanvasObject {
     copyNodes.forEach(node => node.parentObject = copy);
     copy.ids = new Map();
     copyNodes.forEach(node => copy.ids.set(node.index, node));
-    copy.adjacency = new Map(this.adjacency);
 
-
-    console.log("old == new", oa == this.adjacency)
-    console.log("ok = ", oa);
-    console.log("nk = ", this.adjacency);
-
+    // do deep copy of adjacency list because values are arrays
+    copy.setAdjacency(this.adjacency);
 
     this._cloneRef = copy; return copy;
   }
@@ -154,11 +162,8 @@ class Graph extends LinearCanvasObject {
     });
     this.ctx.stroke();
 
-    this.adjacency.forEach((_, nid)  => {
-      var node = this.ids.get(nid);
-      // draw node overtop of edges
-      node.draw();
-    });
+    // draw node overtop of edges
+    this.nodes.forEach(node => node.draw());
 
     // draw bbox
     if (this.active()) {
@@ -168,6 +173,9 @@ class Graph extends LinearCanvasObject {
       this.ctx.rect(this.x1, this.y1, this.width, this.height);
       this.ctx.stroke();
     }
+
+    this.ctx.beginPath();
+    this.resizePoint.draw();
   }
 
   /** Graph.addNode
@@ -180,7 +188,7 @@ class Graph extends LinearCanvasObject {
     this.ids.set(id, newNode);
 
     // adjacency maps GraphNode -> [id]
-    this.adjacency.set(id, []);
+    this.adjacency.set(id, new Set());
     return newNode;
   }
 
@@ -198,10 +206,26 @@ class Graph extends LinearCanvasObject {
       throw "Node ids don't refer to existing nodes";
     
     // if edge already exists
-    if (neighbors.includes(i2))
+    if (neighbors.has(i2))
       throw `Edge ${i1}, ${i2} already exists.`;
     
-    neighbors.push(i2);
+    neighbors.add(i2);
+  }
+
+/**   Graph.deleteEdge
+   *    delete an edge but first make sure 
+   *    it exists   
+   *    @param {Int} i1 -- edge comes from i1
+   *    @param {Int} i2 -- edge goes to i2
+   */
+  deleteEdge(i1, i2) {
+    if (this.adjacency.has(i1)) {
+      if (this.adjacency.get(i1).has(i2)) {
+        this.adjacency.get(i1).delete(i2);
+        return;
+      }
+    }
+    throw `Edge ${x}, ${y} doesn't exist`
   }
 
   snapBoundingBox() {
@@ -217,10 +241,18 @@ class Graph extends LinearCanvasObject {
       minY = Math.min(minY, node.y - r);
 
     });
+
+    // move resize point 
     this.x1 = minX;
     this.x2 = maxX;
     this.y1 = minY;
     this.y2 = maxY;
+    this.resizePoint.x = this.x2;
+    this.resizePoint.y = this.y2;
+  }
+
+  resize(deltaX, deltaY) {
+    super.resize(deltaX, deltaY);
   }
 
   /** Graph.doubleClick

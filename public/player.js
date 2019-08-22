@@ -18,7 +18,7 @@ class MediaController {
       
     this.player = new VideoPlayer(canvasState);
     this.cStream = canvasState.recCanvas.captureStream(this.framerate);
-    // this.requestAudio();
+    this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, 
       { mimeType: "video/webm;codecs=vp8,opus"});
@@ -195,7 +195,6 @@ class MediaController {
   /** MediaController.setEditorState
    *    clear current canvas contents,
    *    update activeClipId, update time,
-   *    apply any initialization commands
    *    for newly selected clip, and 
    *    add 'activeClip' class for css
    */
@@ -207,7 +206,9 @@ class MediaController {
     this.player.updateTime();
 
     // apply any initialization commands
-    this.cmdRecorder.init();
+    this.cmdRecorder.init()
+      .then(() => repaint())
+      .catch(() => console.log("ERROR initializing canvas"));
   }
 
   /** MediaController.setCurrentClip
@@ -336,8 +337,10 @@ class MediaController {
    *    change state variable and update controls
    */
   setState(newState) {
-    setRecordingIcon(newState.constructor.name);
     this.state = newState;
+
+    // update react
+    window.reactEditor.setState({ recording: this.state === this.recordState });
   }
 
   record() {
@@ -351,6 +354,10 @@ class MediaController {
   /** MediaController.hotkeyUndo
    *    grabs current command recorder and undoes
    *    most recent command
+   * 
+   *    doesn't use past/futureCmds because those
+   *    stacks are used for seeking in time
+   *    after recording has occurred. 
    */
   hotkeyUndo() {
     if (this.getState() !== this.recordState 
@@ -380,7 +387,7 @@ class MediaController {
     var redoStack = this.cmdRecorder.redoStack;
     if (redoStack.length) {
       var nextCommand = redoStack.pop();
-      CommandRecorder.execute(nextCommand, true);
+      executeCommand(nextCommand, true);
     }
   }
 }
@@ -642,6 +649,12 @@ class CommandRecorder {
       return cmdObj.execute();
     if (this.postRecording) return alert("Clip can no longer be edited");
 
+    // may throw exec error
+    var ret = cmdObj.execute();
+
+    // only update undo stack and other state
+    // if execution succeeds      
+
     this.mc.updateThumbnail();
 
     this.undoStack.push(cmdObj);
@@ -652,8 +665,8 @@ class CommandRecorder {
       this.initCmds.push({ type: "execute", command: cmdObj });
     else
       this.recordCommand(cmdObj, "execute");
-      
-    return cmdObj.execute();
+
+    return ret;
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -718,6 +731,11 @@ class CommandRecorder {
       if (cmdTime.type == "undo") cmdTime.command.execute();
       this.futureCmds.push(cmdTime);
     }
+
+    // call repaint manually here
+    // since seeking isn't handled 
+    // by the Command pattern
+    repaint();
   }
 
   fullRewind() {

@@ -3,6 +3,7 @@ const mainCommands = {
   // "relabel": RelabelCommand,
   "snap": ExportToImageCommand,
   "sleep": SleepCommand,
+  "dir": DirCommand,
   "truncate": TruncateVideoCommand,
   "export": ExportVideoCommand,
   "rand": RandomFloatCommand,
@@ -35,6 +36,7 @@ const constructors = {
   "bst":      BSTConstructor,
   "bheap":    BinaryHeapConstructor,
   "plot":     PlotlyPlotConstructor,
+  "graph":    GraphConstructor,
 };
 
 /** createFunctionCommand 
@@ -62,12 +64,24 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
   // if just calling a built-in function 
   if (false // functionNode.command instanceof GetVariableCommand 
       || runtimeOverride) {
+
     // get mapped value from variable name
-    var functionClass = functionNode.command.execute(); 
+    // -- error thrown if function name undefined
+    try {
+      var functionClass = functionNode.command.execute(); 
+    }
+    catch (e) {
+      // try catch just to show where exception originates 
+      // -- propagate back up to CommandRecorder.execute
+      // -- so this command is ignored in history
+      console.log("Unknown function");
+      throw e;
+    }
 
     if (functionClass.methodClass !== undefined)
       return createMethodCommand(functionClass, args);
 
+    // built-in commands and constructors get cState reference
     if (Object.values(mainCommands).includes(functionClass)
         || Object.values(constructors).includes(functionClass))
       return new functionClass(CanvasState.getInstance(), ...args);
@@ -83,7 +97,8 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
       execute: function() {
         if (this.command == undefined)
           this.command = createFunctionCommand(functionNode, args, true);
-        return this.command.execute();
+        if (this.command)
+          return this.command.execute();
       },
       undo: function() {
         return this.command.undo();
@@ -126,8 +141,6 @@ function createDrawCommand(cState) {
   }
   if (! cState.activeCommandType) return;
   switch (cState.activeCommandType) {
-    case "clickCreate":
-      return new ClickCreateCommand(cState, cState.activeObj);
     case "move":
       return new MoveCommand(cState, cState.activeObj);
     case "drag":

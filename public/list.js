@@ -15,7 +15,12 @@ class LinkedList extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
     LinkedList.defaultLength = 4;
+
+    // ids used purely for unique mapping
+    this.ids = new Map();
     
+    // list actually tracks linked list state
+    // so nodes get added/removed
     this.list = new Map();
     this.arrows = new Map();
 
@@ -48,6 +53,11 @@ class LinkedList extends LinearCanvasObject {
       ...super.propNames(),
       "display": "nodeStyle",
       "ds": "nodeStyle",
+    };
+  }
+
+  methodNames() {
+    return {
       "insert": LinkedListInsertCommand,
       "link": LinkedListLinkCommand,
       "cut": LinkedListCutCommand,
@@ -63,18 +73,32 @@ class LinkedList extends LinearCanvasObject {
     this.list.forEach((node, idx) => {
       copy.list.set(idx, new ListNode(this.cState, copy, 
         node.value, node.index, node.x, node.y));
+      copy.ids.set(idx, copy.list.get(idx));
       Object.assign(copy.list.get(idx), node.config()); 
     });
 
+    console.log(`${copy._label}: `, Array.from((copy.ids).keys()), `${this._label}: `, Array.from((this.ids).keys()));
+
     this.arrows.forEach((arr, index) => {
-      var cparrow = arr.clone();
-      
       var i1 = index[0];
       var i2 = index[1];
 
-      cparrow.lockedFrom = copy.list.get(i1);
-      cparrow.lockedTo = copy.list.get(i2);
-      cparrow.locked = copy;
+      var from = this.ids.get(i1);
+      var to = this.ids.get(i2);
+
+      // var cparrow = new ChildArrow(this.cState, copy, 
+      //   from.x, from.y, to.x, to.y);
+      var cparrow = arr.clone();
+      cparrow.parentObject = copy; 
+      cparrow.x1 = from.x;
+      cparrow.y1 = from.y;
+      cparrow.x2 = to.x;
+      cparrow.y2 = to.y;
+
+      cparrow.cp1.x = arr.cp1.x;
+      cparrow.cp1.y = arr.cp1.y;
+      cparrow.cp2.x = arr.cp2.x;
+      cparrow.cp2.y = arr.cp2.y;
 
       copy.arrows.set(index, cparrow);
     });
@@ -82,7 +106,7 @@ class LinkedList extends LinearCanvasObject {
     // copy head of list
     copy.head = copy.list.get(this.head.index);
 
-    return copy;
+    this._cloneRef = copy; return copy;
   }
 
   /** LinkedList.getChildren
@@ -97,6 +121,17 @@ class LinkedList extends LinearCanvasObject {
         children.push(node);
     });
     return children;
+  }
+
+  draw() {
+    super.draw();
+
+    this.nodes.forEach((node, idx) => {
+      node.draw(idx);
+      idx++;
+    });
+
+    this.drawArrows();
   }
 
   /** LinekdList.newIndex
@@ -141,12 +176,15 @@ class LinkedList extends LinearCanvasObject {
     var newNode = new ListNode(this.cState, this, value, this.newIndex(), x, y);
     this.list.set(newNode.index, newNode);
 
+    this.ids.set(newNode.index, newNode);
+
     // add edge/link
     if (fromNode)
       this.addEdge(fromNode, newNode);
 
     return newNode;
   }
+
 
   /** LinkedList.removeNode
    *    remove node from map
@@ -180,11 +218,8 @@ class LinkedList extends LinearCanvasObject {
 
     // create new curved arrow that is locked to 
     // this linked list 
-    var anchors = {from: fromNode, to: toNode};
-    
-    var arrow = new CurvedArrow(this.cState, 
-      fromNode.x, fromNode.y, toNode.x, toNode.y, anchors);
-    arrow.keyRestore = [fromNode.index, toNode.index];
+    var arrow = new ChildArrow(this.cState, this,
+      fromNode.x, fromNode.y, toNode.x, toNode.y, fromNode, toNode);
 
     this.arrows.set(e, arrow);
   }
@@ -195,10 +230,14 @@ class LinkedList extends LinearCanvasObject {
       throw `Edge ${e} does not exist.`;
      
     var edge = this.arrows.getEquiv(e);
-    edge.destroy();
+    this.arrows.deleteEquiv(e);
+    // edge.destroy();
     return edge;
   }
 
+  get floatingChildren() {
+    return this.nodes.concat(Array.from(this.arrows.values()));
+  }
 }
 
 class ListNode extends NodeObject {
@@ -224,10 +263,10 @@ class ListNode extends NodeObject {
   /** ListNode.draw
    */
   draw() {
+    super.draw();
     // list uses unique (i.e. not positional like array)
     // indices
     var idx = this.index;
-    this.configureOptions();    
 
     this.ctx.beginPath();
     this.hitCtx.beginPath();

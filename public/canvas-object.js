@@ -1,3 +1,27 @@
+/**  
+ * Verifies that rvalue of assignment is of the correct type
+ * for properties of canvas objects
+ * 
+ * @param value - Rvalue of assignment
+ * @param expectedType - expected type from propTypes map
+ */
+function validPropertyAssignment(value, expectedType) {
+  if (expectedType == "any") return true;
+  if (expectedType instanceof Array) return expectedType.includes(value);
+  switch (expectedType) {
+    case "any": return true;
+    case "bool": 
+      return (typeof value == "number") || (typeof value == "boolean");
+    case "color": return validColorString(value);
+    case "font": return validFontString(value);
+    case "int": return (typeof value == "number") && ((value | 0) == value);
+    case "float": return (typeof value == "number"); 
+    case "number": return (typeof vlaue == "number");
+  }
+  throw "Unexpected type constraint: " + expectedType;
+}
+
+
 /** CanvasObject
  *    class for macro objects such as textbox, arrows,
  *    (not ResizePoint or ArrowHead, etc.)
@@ -15,8 +39,11 @@ class CanvasObject {
     this.x2 = x2;
     this.y2 = y2;
 
+    this.dead = false;
     this.cState.registerCanvasObj(this);
     
+    this.labelMargin = defaultLabelMargin;
+
     this._label = "";
 
     // default label: convert 'rgb(1, 2, 3)' to 123
@@ -39,7 +66,7 @@ class CanvasObject {
       new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
 
     Object.assign(copy, this.config());
-    return copy;
+    this._cloneRef = copy; return copy;
   }
 
   set label(value) {
@@ -122,12 +149,25 @@ class CanvasObject {
     return this.y1;
   }
 
-  getToolbar() {
-    return Toolbar.getInstance(this.cState);
+  // mapping from property to expected type
+  propTypes() {
+    return {};
   }
 
-  getOptions() {
-    return ToolOptions.getInstance(this.cState);
+  // property names and method names
+  propNames() {
+    return {};
+  }
+
+  methodNames() {
+    return {};
+  }
+
+  propMethodNames() {
+    return {
+      ...this.propNames(),
+      ...this.methodNames(),
+    };
   }
 
   getParent() {
@@ -145,11 +185,13 @@ class CanvasObject {
    */
   destroy() {
     this.cState.remove(this);
+    this.dead = true;
   }
 
   restore() {
     this.cState.addCanvasObj(this);
     VariableEnvironment.setVar(this.label, this);
+    this.dead = false;
   }
 
   /** CanvasObject.active
@@ -161,9 +203,9 @@ class CanvasObject {
   }
 
   deactivate() {
-    this.getOptions().hide();
   }
 
+  // clicked with no modifiers (CTRL/ALT/etc.)
   click(event) {
   }
 
@@ -233,43 +275,93 @@ class CanvasObject {
    *    default behavior 
    *    is to ignore hotkey
    */
+  // shiftDrag(deltaX, deltaY) {
+  //   this.drag(deltaX, deltaY);
+  // }
   shiftDrag(deltaX, deltaY) {
-    this.drag(deltaX, deltaY);
+    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
+    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
+    if (dx > dy) 
+      this.drag(deltaX, 0);
+    else 
+      this.drag(0, deltaY);
   }
+
 
   /** CanvasObject.draw
    *    all CanvasObjects call this
    *    to draw label
    */
   draw() {
+    this.configureOptions();
     if (this.active()) this.drawLabel();
   }
 
   configureOptions() {
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
-    this.ctx.lineWidth = this.borderThickness;
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.strokeColor;
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.strokeStyle = this.hashColor;
   }
 
+  /** CanvasObject.drawLabel
+   *    draw clickable label that refers to (same hashcolor)
+   *    this parent canvas object
+   *    
+   *    determine dimensions of label and place it so
+   *    its bounding box still has space from x1/y1 of this canvas object
+   */
   drawLabel() {
-    // save fillStyle and font 
+    // save altered properties
     var fs = this.ctx.fillStyle;
+    var ss = this.ctx.strokeStyle;
     var font = this.ctx.font;
+    var tb = this.ctx.textBaseline;
+    var ta = this.ctx.textAlign;
+    var linew = this.ctx.lineWidth;
+
+    this.ctx.editCtx.lineWidth = 1;
 
     this.ctx.editCtx.beginPath();
     this.ctx.editCtx.font = "bold 12px Monospace";
-    this.ctx.editCtx.fillStyle = "black";
+    this.ctx.editCtx.textBaseline = "top";
+    this.ctx.editCtx.textAlign = "left";
     var lw = this.ctx.editCtx.measureText(this.label).width;
     var lh = this.ctx.editCtx.measureText("_").width * 2;
 
-    this.ctx.editCtx.fillText(this.label, 
-        this.x1 - (lw + 10), this.y1 - (lh + 10));
+    var lhp = 10; // label padding
+    var lvp = 5;
+
+    // label margin is specific to each object
+    // (space between label and canvas obj)
+
+    var boxx = this.x1 - (lw + this.labelMargin.width());
+    var boxy = this.y1 - (lh + this.labelMargin.height());
+    var boxw = lw + 2*lhp;
+    var boxh = lh + 2*lvp;
+
+    var labelx = boxx + lhp;
+    var labely = boxy + lvp;
+
+    this.ctx.editCtx.fillStyle = labelColor;
+    this.ctx.editCtx.strokeStyle = "black";
+    this.ctx.editCtx.rect(boxx, boxy, boxw, boxh);
+    this.ctx.editCtx.fillRect(boxx, boxy, boxw, boxh);
+    this.ctx.editCtx.stroke();
+    this.ctx.editCtx.fillStyle = "black";
+    this.ctx.editCtx.fillText(this.label, labelx, labely);
     this.ctx.editCtx.stroke();
 
-    // reset fillStyle and font
+    // draw label bg
+    this.hitCtx.fillRect(boxx, boxy, boxw, boxh);
+    this.hitCtx.fill();
+
+    // restore altered properties
+    this.ctx.strokeStyle = ss;
     this.ctx.fillStyle = fs;
     this.ctx.font = font;
+    this.ctx.textBaseline = tb;
+    this.ctx.textAlign = ta;
+    this.ctx.lineWidth = linew;
   }
 
   /** CanvasObject.mouseDown
@@ -282,6 +374,13 @@ class CanvasObject {
     if (idx == -1) return;
     this.cState.objects.splice(idx, 1);
     this.cState.objects.push(this);
+  }
+
+  /** CanvasObject.doubleClick
+   *    bring up menu with config options
+   */
+  doubleClick() {
+    window.reactEditor.setState({ showOptionMenu : true });
   }
 
   release() {
@@ -314,7 +413,34 @@ class CanvasChildObject {
     var copy = 
       new this.constructor(this.cState);
     Object.assign(copy, this.config());
-    return copy;
+    this._cloneRef = copy; return copy;
+  }
+
+  get dead() {
+    return this.getParent().dead;
+  }
+
+  set dead(d) {
+    throw "Can't set 'dead' attribute for CanvasChildObject";
+  }
+
+  propTypes() {
+    return {};
+  }
+
+  propNames() {
+    return {};
+  }
+
+  methodNames() {
+    return {};
+  }
+
+  propMethodNames() {
+    return {
+      ...this.propNames(),
+      ...this.methodNames()
+    };
   }
 
   /** CanvasChildObject.active
@@ -326,6 +452,15 @@ class CanvasChildObject {
   }
 
   deactivate() {
+  }
+
+  configureOptions() {
+    this.hitCtx.fillStyle = this.hashColor;
+    this.hitCtx.strokeStyle = this.hashColor;
+  }
+
+  draw() {
+    this.configureOptions();
   }
 
   click(event) {
@@ -349,12 +484,23 @@ class CanvasChildObject {
   }
 
   shiftDrag(deltaX, deltaY) {
+    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
+    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
+    if (dx > dy) 
+      this.drag(deltaX, 0);
+    else 
+      this.drag(0, deltaY);
   }
+
 
   /** Event when click begins
    */
   mouseDown() {
     this.getParent().mouseDown();
+  }
+
+  doubleClick() {
+    this.getParent().doubleClick();
   }
 
   release() {

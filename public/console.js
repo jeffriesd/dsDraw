@@ -30,7 +30,10 @@ class CommandConsole {
     this.history.value = "";
     this.commandLine.value = "";
   
+    // use two buffer so contents can be cleared but
+    // history is always retained for arrows
     this.historyStack = [];
+    this.printStack = [];
     this.numLines = 15;
 
     // amount of space between text and edge of console
@@ -61,9 +64,10 @@ class CommandConsole {
     this.cmdConsole.style.top = "100px";
     this.cmdConsole.style.width = this.width + "px";
     this.cmdConsole.style.height= this.height + "px";
-    this.cmdConsole.style.background = "rgba(0, 0, 0, .1)";
 
-    this.history.style.lineHeight = "16px";
+    $("#commandConsole" ).resizable({ handles: "se"});
+
+    this.history.style.lineHeight = "18px";
   }
 
   toggleVisible(toggle="") {
@@ -75,6 +79,11 @@ class CommandConsole {
     
     this.cmdConsole.hidden = hidden;
     this.commandLine.focus();
+  }
+
+  push(line) {
+    this.historyStack.push(line);
+    this.printStack.push(line);
   }
 
   bindActions() {
@@ -150,12 +159,10 @@ class CommandConsole {
       if (hotkeys[CTRL]) {
         if (event.keyCode == Z) {
           event.preventDefault(); // dont undo typing
-          var mc = MediaController.getInstance(this.cState);
-          mc.hotkeyUndo();
+          hotkeyUndo();
         }
         if (event.keyCode == Y) {
-          var mc = MediaController.getInstance(this.cState);
-          mc.hotkeyRedo();
+          hotkeyRedo();
         }
       }
 
@@ -171,7 +178,7 @@ class CommandConsole {
         this.cycleCommands(-1);
       else if (event.keyCode == C && hotkeys[CTRL]) {
         this.commandLine.value = "";
-        this.historyStack = [];
+        this.printStack = [];
         this.showHistory();
       }
 
@@ -213,13 +220,13 @@ class CommandConsole {
       this.commandLine.value = "";
   }
 
-  /** ComamndConsole.executeCommand
+  /** ComamndConsole.evaluate
    *    execute command using CommandRecorder
    *    and return value for Multiline config
    */
-  executeCommand(cmdObj) {
+  evaluate(cmdObj) {
     try {
-      var ret = CommandRecorder.execute(cmdObj);
+      var ret = executeCommand(cmdObj);
       if (cmdObj instanceof UtilCommand) return;
       return ret;
     }
@@ -260,17 +267,17 @@ class CommandConsole {
 
     // add entered line to command history 
     if (line && line.trim()) 
-      this.historyStack.push(new HistoryLine(line, "command"));
+      this.push(new HistoryLine(line, "command"));
 
     if (parseErr)
-      this.historyStack.push(new HistoryLine(parseErr, "error"));
-    else if (cmdObj)
-      commandRet = this.executeCommand(cmdObj);
+      this.push(new HistoryLine(parseErr, "error"));
+    else if (cmdObj) 
+      commandRet = this.evaluate(cmdObj);
 
     // print error or literal result
     // TODO check for unexpected types like method objects
     if (commandRet !== undefined)
-      this.historyStack.push(new HistoryLine(stringify(commandRet), "result"));
+      this.push(new HistoryLine(stringify(commandRet), "result"));
 
     // redraw command history
     this.showHistory();
@@ -290,13 +297,13 @@ class CommandConsole {
     this.numLines = 
         Math.floor(this.history.offsetHeight / lineHeight);
 
-    var filledLines = this.historyStack.length;
+    var filledLines = this.printStack.length;
     this.history.value = "";
 
     // fill in empty lines for bottom-up look
-    for (var l = filledLines; l < this.numLines; l++)
+    for (var l = filledLines; l <= this.numLines; l++)
       this.history.value += "\n";
-    this.history.value += this.historyStack.join("\n");
+    this.history.value += this.printStack.join("\n");
   }
 
   parseLine(cmdStr) {

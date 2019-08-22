@@ -33,11 +33,24 @@ class BST extends LinearCanvasObject {
     return `BST(${this.root.size()})`;
   }
 
+  propTypes() {
+    return {
+      ...super.propTypes(),
+      "minSep": "int",
+      "depthSep": "int",
+    }
+  }
+
   propNames() {
     return {
       ...super.propNames(),
       "hs": "minSep",
       "vs": "depthSep",
+    };
+  }
+  
+  methodNames() {
+    return {
       "insert": BSTInsertCommand,
       "remove": BSTRemoveCommand,
       "find": BSTFindCommand,
@@ -48,7 +61,7 @@ class BST extends LinearCanvasObject {
       "max": BSTMaxCommand,
       "root": BSTRootCommand,
       "range": BSTRangeCommand,
-      "arc": BSTArrowCommand,
+      // "arc": BSTArrowCommand,
     };
   }
 
@@ -80,7 +93,7 @@ class BST extends LinearCanvasObject {
     var copy = super.clone();
     copy.root = this.root.deepCopy();
     copy.claimChildren(copy.root);
-    return copy;
+    this._cloneRef = copy; return copy;
   }
 
   /** BST.claimChildren
@@ -202,7 +215,7 @@ class BST extends LinearCanvasObject {
   }
 
   configureOptions() {
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
+    super.configureOptions();
     this.ctx.lineWidth = this.borderThickness;
 
     var font = "";
@@ -213,14 +226,10 @@ class BST extends LinearCanvasObject {
     font += this.fontFamily;
 
     this.ctx.font = font;
-
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.strokeStyle = this.hashColor;
   }
 
   draw() {
-    if (this.active()) this.drawLabel();
-    this.configureOptions();
+    super.draw();
 
     // TODO only render when needed
     // TODO move ancestor collapsed to render
@@ -228,18 +237,14 @@ class BST extends LinearCanvasObject {
 
     this.preorder().forEach(node => {
       if (node.ancestorHas("collapsed")) return;
-
-      // determine absolute coordinates
-      // of node center
-      var x = this.x1 + node.relX * this.cellSize;
-      var y = this.y1 + node.relY * (this.cellSize + this.depthSep);
-      node.x = x;
-      node.y = y;
-
       if (node.collapsed) return node.drawTriangle();
+
+      var x = node.x;
+      var y = node.y;
       
-      // draw edges with stroke = 1
-      this.ctx.lineWidth = 1;
+      // draw black edges with stroke = 1
+      this.ctx.strokeStyle = "black";
+      this.ctx.lineWidth = node.borderThickness;
       this.ctx.beginPath();
       this.ctx.moveTo(x, y);
 
@@ -256,8 +261,7 @@ class BST extends LinearCanvasObject {
     this.hitCtx.beginPath();
     this.hitCtx.fillRect(this.x1, this.y1, this.x2 - this.x1, this.y2 - this.y1);
 
-    // draw arrows last
-    this.drawArrows();
+    // super.drawArrows();
   }
 }
 
@@ -288,6 +292,18 @@ class BSTNode extends NodeObject {
     return `BSTNode(${this.value})`;
   }
 
+  propTypes() {
+    return {
+      "fill": "color",
+      "showIndices": "bool",
+      "showValues": "bool",
+      "borderThickness": "int",
+      "textColor": "color",
+      "showIndices": "bool",
+      "collapsed": "bool"
+    };
+  }
+
   propNames() {
     return {
       "bg": "fill",
@@ -299,6 +315,11 @@ class BSTNode extends NodeObject {
       "fg": "textColor",
       "ind": "showIndices",
       "collapsed": "collapsed",
+    };
+  }
+
+  methodNames() {
+    return {
       "pred": BSTNodePredecessorCommand,
       "succ": BSTNodeSuccessorCommand,
       "value": BSTNodeValueCommand,
@@ -522,7 +543,7 @@ class BSTNode extends NodeObject {
     if (this.left) copy.left = this.left.deepCopy(copy);
     if (this.right) copy.right = this.right.deepCopy(copy);
     copy.parNode = par;
-    return copy;
+    this._cloneRef = copy; return copy;
   }
 
   /** BSTNode.children
@@ -539,7 +560,8 @@ class BSTNode extends NodeObject {
     return [this.xleft, this.xright];
   }
 
-  /** ListNode.drawValue
+  /** BSTNode.drawValue
+   *    draw in circle (vs square)
    */
   drawValue() {
     var valStr = this.value.toString();
@@ -562,7 +584,7 @@ class BSTNode extends NodeObject {
    *    node value
    */
   draw() {
-    this.configureOptions();
+    super.draw();
     this.ctx.beginPath();  
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     this.ctx.stroke();
@@ -580,7 +602,6 @@ class BSTNode extends NodeObject {
   }
 
   drawTriangle() {
-    this.configureOptions();
     this.ctx.beginPath();
     this.ctx.moveTo(this.x - this.radius, this.y + this.radius);
     this.ctx.lineTo(this.x, this.y - this.cellSize);

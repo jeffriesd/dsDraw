@@ -4,8 +4,15 @@
   <meta charset="utf-8"/>
   <title>dsDraw</title>
   <link rel="stylesheet" type="text/css" href="css/style.css">
+  <link rel="stylesheet" type="text/css" href="css/controls.css">
+  <link rel="stylesheet" type="text/css" href="css/console.css">
+  <link rel="stylesheet" type="text/css" href="css/toolbar.css">
 </head>
 <body>
+
+  <!-- React elements (toolbar, ) -->
+  <div id="reactroot"></div>
+
     <div hidden id="plotly_div"> </div>
     <img hidden id="jpg-export"></img>
   <!-- clip menu contains thumbnails of recorded clips -->
@@ -22,75 +29,6 @@
     </div>
   </div>
 
-  <div class="toolbar" id="flowchartToolbar" >
-    <label class="toolbarLabel" id="drawMode">SelectTool</label>
-    <!-- <label class="toolbarLabel" id="recording">Paused</label> --> 
-    <button class="toolbarButton" id="recording">  </button>
-    <!-- <button class="toolbarButton" id="rightAngleArrow"></button> -->
-    <button class="toolbarButton" id="selectTool"></button>
-    <button class="toolbarButton" id="curvedArrow"></button>
-    <button class="toolbarButton" id="rectBox"></button> 
-    <button class="toolbarButton" id="roundBox"></button> 
-    <button class="toolbarButton" id="diamondBox"></button> 
-    <button class="toolbarButton" id="parallelogramBox"></button>
-    <button class="toolbarButton" id="connector"></button>
-    <button class="toolbarButton" id="deleteButton"></button>
-
-    <!--Arrow options -->
-    <div hidden class="subToolbar" id="arrowOptions">
-      <select class="toolbarSelect" id="arrowWidth">
-        <optgroup label="Line width:">
-          <option value="1">1px</option>
-          <option value="2">2px</option>
-          <option value="3">3px</option>
-        </optgroup>
-      </select>
-      <select class="toolbarSelect" id="arrowDash">
-        <optgroup label="Line dash:">
-          <option value="solid">solid</option>
-          <option value="dashed">dashed</option>
-        </optgroup>
-      </select>
-      <select class="toolbarSelect" id="arrowHeadFill">
-        <optgroup label="Arrow head:">
-          <option value="filled (white)">filled (white)</option>
-          <option value="filled (black)">filled (black)</option>
-          <option value="hollow">hollow</option>
-        </optgroup>
-      </select>
-    </div>
-
-    <!--Text options for flowchart boxes-->
-    <div hidden class="subToolbar" id="textOptions">
-      <select class="toolbarSelect" id="fontSize">
-        <optgroup label="Font size:">
-          <option value="12">12px</option>
-          <option value="14">14px</option>
-          <option value="16">16px</option>
-          <option value="18">18px</option>
-        </optgroup>
-      </select>
-      <select class="toolbarSelect" id="fontFamily">
-        <optgroup label="Font family:">
-          <option value="Arial">Arial</option>
-          <option value="Garamond">Garamond</option>
-          <option value="Purisa">Purisa</option>
-          <option value="Monospace">Monospace</option>
-          <option value="Verdana">Verdana</option>
-        </optgroup>
-      </select>
-      <button class="toolbarButton" id="leftAlign"></button>
-      <button class="toolbarButton" id="centerAlign"></button>
-      <button class="toolbarButton" id="rightAlign"></button>
-      <button class="toolbarButton" id="centerVAlign"></button>
-      <button class="toolbarButton" id="topVAlign"></button>
-    </div>
-  </div>
-  <div id="commandConsole">
-    <div id="commandBg"></div>
-    <input id="commandLine" spellcheck=false type=text>
-    <textarea id="commandHistory" readonly disabled></textarea>
-  </div>
 
   <!-- a element for saving blobs -->
   <a hidden id="downloadLink"></a>
@@ -110,13 +48,21 @@
         min="0" max="100" value="100" step="1">
     </div>
   </div>
-  <canvas id="drawCanvas" hidden> </canvas>
+  <canvas id="recCanvas" hidden> </canvas>
   <canvas id="editCanvas" 
     style="background-color:rgba(235, 255, 255);"> </canvas>
 
   <canvas hidden id="hitCanvas" > </canvas>
   <!--External library scripts -->
+  <!-- Load React. -->
+  <!-- Note: when deploying, replace "development.js" with "production.min.js". -->
+  <script src="lib/react.js"></script>
+  <script src="lib/react-dom.js"></script>
+
   <script src="lib/jquery-3.3.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css"> 
+
   <script src="lib/mousetrap.min.js"></script>
   <script src="lib/plotly-latest.min.js"></script>
   <script src="lib/moo.js"></script>
@@ -126,20 +72,26 @@
   <script src="globals.js"></script>
   <script src="variables.js"></script>
   <script src="client-connection.js"></script>
-  <script src="toolbars.js"></script>
+  <script src="./ui/toolbar.js"></script>
+  <script src="./ui/rcanvas.js"></script>
+  <script src="./ui/rconsole.js"></script>
+  <script src="static-toolbars.js"></script>
   <script src="player.js"></script>
   <script src="canvas-object.js"></script>
   <script src="plotting.js"></script>
   <script src="flowchart.js"></script>
+  <script src="arcs.js"></script>
   <script src="linear-ds.js"></script>
   <script src="list.js"></script>
-  <script src="renderbst.js"></script>
+  <script src="./render/renderbst.js"></script>
+  <script src="./render/rendergraph.js"></script>
   <script src="bst.js"></script>
   <script src="heap.js"></script>
-  <script src="ds.js"></script>
+  <script src="graph.js"></script>
   <script src="arrays.js"></script>
-  <script src="util-command.js"></script>
-  <script src="command.js"></script>
+  <script src="./commands/util-command.js"></script>
+  <script src="./commands/command.js"></script>
+  <script src="./commands/graph-command.js"></script>
   <script src="constructors.js"></script>
   <script src="evaluate.js"></script>
   <script src="command-factory.js"></script>

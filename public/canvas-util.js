@@ -1,15 +1,30 @@
+// for custom static outline methods
 canvasObjectClasses = {
-  "RectBox": RectBox,
   "RoundBox": RoundBox,
   "DiamondBox": DiamondBox,
   "ParallelogramBox": ParallelogramBox,
-  "TextBox": TextBox,
-  "MathBox": MathBox,
   "CurvedArrow": CurvedArrow,
   "Connector": Connector,
-  "Array1D": Array1D,
 };
 
+canvasObjectConstructors = {
+  "RectBox": RectBoxConstructor,
+  "RoundBox": RoundBoxConstructor,
+  "DiamondBox": DiamondBoxConstructor,
+  "ParallelogramBox": ParallelogramBoxConstructor,
+  "TextBox": TextBoxConstructor,
+  "MathBox": MathBoxConstructor,
+  "CurvedArrow": CurvedArrowConstructor,
+  "Connector": ConnectorConstructor,
+  "TextBox": TextBoxConstructor,
+  "Array1D": Array1DConstructor,
+  "LinkedList": LinkedListConstructor,
+  "TextBox": TextBoxConstructor,
+  "MathBox": MathBoxConstructor,
+  "BST": BSTConstructor,
+  "BinaryHeap": BinaryHeapConstructor,
+  "Graph": GraphConstructor,
+};
 
 /** randInt
  *  - return a random integer in range [lo, hi)
@@ -49,7 +64,8 @@ function newColor(uniqueColors) {
 }
 
 class CtxProxy {
-  constructor(recCtx, editCtx) {
+  constructor(cState, recCtx, editCtx) {
+    this.cState = cState;
     this.recCtx = recCtx;
     this.editCtx = editCtx;
     return new Proxy({}, this);
@@ -105,9 +121,9 @@ class CtxProxy {
 class CanvasState {
   constructor(recCanvas, editCanvas, hitCanvas) {
     if (CanvasState.instance) return CanvasState.instance;
-    this.recCanvas = canvas;
+    this.recCanvas = recCanvas;
     this.editCanvas = editCanvas;
-    this.ctx = new CtxProxy(canvas.getContext("2d"), editCanvas.getContext("2d"));
+    this.ctx = new CtxProxy(this, recCanvas.getContext("2d"), editCanvas.getContext("2d"));
 
     // event handling and event state
     this.eventHandler = new CanvasEventHandler(this);
@@ -126,18 +142,13 @@ class CanvasState {
     this.selectGroup = new Set();
     this.activeBorder = "blue";
     this.clickedBare = true;
-    this.activeObj = null;
+    this._activeObj = null;
 
     // hit detection with hidden canvas
     this.hitCanvas = hitCanvas;
     this.hitCtx = hitCanvas.getContext("2d");
     this.uniqueColors = new Set();
     this.colorHash = {};
-
-    // initialize toolbars and buttons
-    this.toolbars = {};
-    this.initToolbars();
-    this.initButtons();
 
     CanvasState.instance = this;
   }
@@ -172,12 +183,22 @@ class CanvasState {
    *    sets drawMode and updates label on toolbar
    */
   setMode(mode) {
-    var dmLabel = document.getElementById("drawMode");
-
-    dmLabel.innerHTML = mode;
+    this.reactEditor.setState({ drawMode : mode });
     this.drawMode = mode;
   }
 
+  get activeObj() {
+    return this._activeObj;
+  }
+
+  set activeObj(obj) {
+    this.reactEditor.setState( { activeObj: obj || this.selectGroup.size });
+    this._activeObj = obj;
+  }
+
+  updateOptions(object, name, value) {
+    executeCommand(new MenuConfigCommand(object, name, value));
+  }
 
   /** CanvasState.activeParent
    *    returns selected parent object 
@@ -190,16 +211,6 @@ class CanvasState {
   textHeight() {
     return this.ctx.measureText("_").width * 2;
   }
-
-  /** CanvasState.createNewCanvasObject
-   *    call objectFactory to instantiate new object
-   *    if in "create" mode
-   */
-  createNewCanvasObject() {
-    if (this.drawMode in canvasObjectClasses)
-      this.activeObj = this.objectFactory.createCanvasObject();
-  }
-
   /** CanvasState.registerCanvasObj
    *    assign a unique rgb color to canvasObj 
    *    for event detection. 
@@ -219,6 +230,8 @@ class CanvasState {
    *   Note: only register (assign unique color) if hashColor is null
    *   (may have been previously assigned if this is being called
    *   as an undo/redo)
+   * 
+   *   only called for (macro) CanvasObject in CanvasObject.restore()
    */
   addCanvasObj(canvasObj) {
     if (canvasObj.hashColor == null)
@@ -230,7 +243,6 @@ class CanvasState {
   updateLabels() {
     this.objects.forEach(obj => VariableEnvironment.setVar(obj.label, obj));
   } 
-
 
   /** CanvasState.remove
    *    remove this object from list
@@ -261,7 +273,7 @@ class CanvasState {
    */
   executeDrawCommand() {
     var drawCommand = createDrawCommand(this);
-    if (drawCommand) CommandRecorder.execute(drawCommand);
+    if (drawCommand) executeCommand(drawCommand);
   }
 
   /** CanvasState.getCenter
@@ -300,13 +312,13 @@ class CanvasState {
       // reset lineWidth for outline
       this.ctx.lineWidth = 1;
 
+
       // use tool or outline object creation
       var toolClass = null;
       if (this.drawMode in canvasObjectClasses)
         toolClass = canvasObjectClasses[this.drawMode];
       else 
-        toolClass = CanvasObject; // default
-
+        toolClass = CanvasObject; // default for outline method
 
       var x1 = this.mouseDown.x;
       var y1 = this.mouseDown.y;
@@ -337,61 +349,14 @@ class CanvasState {
             || this.selectGroup.has(canvasObj);
   }
 
-  /** CanvasState.initButtons
-   *    TODO
-   *    Move to toolbars.js
-   */
-  initButtons() {
-    this.buttons = [
-      "rectBox",
-      "roundBox",
-      "diamondBox",
-      "parallelogramBox",
-      "curvedArrow",
-      "connector",
-      "selectTool"
-    ];
+  deleteActive() {
+    var activeP = this.activeParent();
+    var toDestroy = this.selectGroup.size ? this.selectGroup : [activeP];
 
-    this.buttons.forEach((buttonName) => {
-      var button = document.getElementById(buttonName);
-      // make first character uppercase
-      var first = buttonName.substr(0, 1).toUpperCase();
-      var className = first + buttonName.substr(1);
-      button.onclick = () => this.setMode(className);
-    });
-
-    // delete button
-    var deleteButton = document.getElementById("deleteButton");
-    deleteButton.onclick = () => {
-      var activeP = this.activeParent();
-      var toDestroy = this.selectGroup.size ? this.selectGroup : [activeP];
-      
-      // remove from canvas, hide options, and set activeObj to null
-      CommandRecorder.execute(new ClickDestroyCommand(this, ...toDestroy));
-      this.selectGroup.clear();
-      this.activeObj = null;
-    }
-  }
-
-  initToolbars() {
-    this.toolbars["flowchart"] = new FlowchartToolbar(this);
-    this.toolbars["default"] = this.toolbars["flowchart"];
-  }
-
-  /*  showToolbars
-   *    bring up toolbar for active object and set select options
-   *    to appropriate values
-   */
-  showToolbar() {
-    var active = this.activeParent();
-    var activeToolbar;
-    if (active && active.getToolbar) 
-      activeToolbar = active.getToolbar();
-    else
-      activeToolbar = this.toolbars["default"];
-
-    if (active)
-      activeToolbar.show();
+    // remove from canvas, hide options, and set activeObj to null
+    executeCommand(new ClickDestroyCommand(this, ...toDestroy));
+    this.selectGroup.clear();
+    this.activeObj = null;
   }
 
 }
@@ -406,15 +371,26 @@ class CanvasObjectFactory {
 
   createCanvasObject() {
     var x1 = cState.mouseDown.x;    
-    var y1 = cState.mouseDown.y;    
+    var y1 = cState.mouseDown.y;
     var x2 = cState.mouseUp.x;    
     var y2 = cState.mouseUp.y;    
 
-    var canvasClass = canvasObjectClasses[this.cState.drawMode];
-    if (canvasClass)
-      return new canvasClass(cState, x1, y1, x2, y2);
+    var constrClass = canvasObjectConstructors[this.cState.drawMode];
+    if (constrClass == undefined) return null;
+    var constr = new constrClass(this.cState);
+    // set coordinates of constructor 
+    Object.assign(constr, { coords : { x1: x1, y1: y1, x2: x2, y2: y2 } });
+    var newObj = executeCommand(constr);
+
+    return newObj;
   }
 } 
+
+
+/**
+ * event handler constants
+ */
+const doubleClickTime = 250; // ms
 
 class CanvasEventHandler {
   constructor(canvasState) {
@@ -427,6 +403,9 @@ class CanvasEventHandler {
   
   mouseDown(event) {
     this.cState.mouseDown = {x: event.clientX, y: event.clientY};
+    // update react state
+    this.cState.reactEditor.setState({ mouseDown: this.cState.mouseDown });
+
     this.cState.mouseUp = null;
 
     var canvasObj = cState.getClickedObject(event.clientX, event.clientY);
@@ -445,13 +424,19 @@ class CanvasEventHandler {
 
       // mouse down event for some objects
       canvasObj.mouseDown();
+      
+      // set doubleclick timeout
+      if (canvasObj.dcTimer) { 
+        clearTimeout(canvasObj.dcTimer);
+        canvasObj.doubleClick();
+      }
+      canvasObj.dcTimer = setTimeout(() => {
+        canvasObj.dcTimer = null;
+      }, doubleClickTime);
 
       // set offset for dragging
       this.dragOffsetX = event.clientX;
       this.dragOffsetY = event.clientY;
-
-      // show toolbar
-      this.cState.showToolbar();
 
       // set start state for whatever DrawCommand 
       // is about to occur 
@@ -468,7 +453,7 @@ class CanvasEventHandler {
         this.cState.activeParent().deactivate();
       }
       // hide generic options
-      ToolOptions.getInstance(this.cState).hide();
+      // ToolOptions.getInstance(this.cState).hide();
   
       this.cState.clickedBare = true;
       this.cState.activeObj = null;
@@ -538,8 +523,7 @@ class CanvasEventHandler {
 
       // create new object
       if (this.cState.clickedBare) {
-        this.cState.createNewCanvasObject();
-        this.cState.activeCommandType = "clickCreate";
+        this.cState.activeObj = this.cState.objectFactory.createCanvasObject();
       }
 
       // clone clicked object
@@ -553,27 +537,23 @@ class CanvasEventHandler {
 
       // get clicked object from colorHash map
       var canvasObj = this.cState.getClickedObject(this.cState.mouseUp.x, this.cState.mouseUp.y);
-      if (canvasObj) 
+      if (canvasObj && noHotkeys())  // clicked with no modifiers
         canvasObj.click(event);
     }
 
     // release active object
-    if (this.cState.activeObj) {
+    if (this.cState.activeObj) 
       this.cState.activeObj.release();
-
-      // show toolbar on object creation
-      this.cState.showToolbar();
-    }
 
     // create DrawCommand object and push onto undo stack
     this.cState.executeDrawCommand();
     this.cState.activeCommandType = "";
 
+    // send update to show X for group selection
     if (this.cState.selectGroup.size)
-      this.cState.showToolbar();
+      window.reactEditor.setState({ activeObj: this.cState.selectGroup });
 
     this.cState.mouseDown = null;
-
   }
 
 }

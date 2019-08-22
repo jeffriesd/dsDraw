@@ -33,6 +33,8 @@ class Array1D extends LinearCanvasObject {
     // randomly assign values between 0 and randSeed
     this.randomSeed = 100;
     Array1D.randomSeed = 100;
+
+    this.labelMargin = defaultLabelMargin;
   }
 
   toString() {
@@ -46,6 +48,15 @@ class Array1D extends LinearCanvasObject {
     return this.array;
   }
 
+  propTypes() {
+    return {
+      ...super.propTypes(),
+      "displayStyle": ["tower", "cell"],
+      "maxTowerHeight": "int",
+      "seed": "int",
+    }
+  }
+
   propNames() {
     return {
       ...super.propNames(),
@@ -53,10 +64,15 @@ class Array1D extends LinearCanvasObject {
       "ds": "displayStyle",
       "height": "maxTowerHeight",
       "seed": "randomSeed",
+    };
+  }
+
+  methodNames() {
+    return {
       "length": Array1DLengthCommand,
       "resize": Array1DResizeCommand,
       "swap": Array1DSwapCommand,
-      "arc": Array1DArrowCommand,
+      // "arc": Array1DArrowCommand,
       "copy": Array1DCopyCommand,
       "sort": Array1DSortCommand,
     };
@@ -90,14 +106,26 @@ class Array1D extends LinearCanvasObject {
       var i2 = index[1];
   
       // copy anchors
-      cparrow.lockedFrom = copy.array[i1];
-      cparrow.lockedTo = copy.array[i2];
-      cparrow.locked = copy;
+      cparrow.locked = {
+        from: copy.array[i1],
+        to: copy.array[i2]
+      };
 
       copy.arrows.set(index, cparrow);
     });
 
-    return copy;
+    this._cloneRef = copy; return copy;
+  }
+
+  draw() {
+    super.draw();
+
+    this.nodes.forEach((node, idx) => {
+      node.draw(idx);
+      idx++;
+    });
+
+    this.drawArrows();
   }
 
   getStartCoordinates() {
@@ -161,7 +189,7 @@ class Array1D extends LinearCanvasObject {
             (min, x) => x.value < min ? x.value : min, Number.POSITIVE_INFINITY);
 
       this.array.forEach((arrNode) => {
-        // draw negative values same direction as positive
+        // araw negative values same direction as positive
         var percentHeight = (arrNode.value - min) / max;
         var tHeight = percentHeight * this.maxTowerHeight + 1;
 
@@ -210,17 +238,13 @@ class ArrayNode extends NodeObject {
     }
   }
 
-  configureOptions(idx) {
-    super.configureOptions();
-
-    this.x = (idx * this.cellSize) + this.getParent().x1;
-    this.y = this.getParent().y1;
-  }
-
   /** ArrayNode.draw
    */
   draw(idx) {
-    this.configureOptions(idx);
+    super.draw();
+
+    this.x = (idx * this.cellSize) + this.getParent().x1;
+    this.y = this.getParent().y1;
 
     // draw box
     this.ctx.beginPath();

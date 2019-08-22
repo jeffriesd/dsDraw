@@ -11,15 +11,32 @@ class LinearCanvasObject extends CanvasObject {
     this.fontFamily = "Monospace";
     this.fontSize = 12;
     this.fontStyle = "";
-    this.border = "black";
+    this.strokeColor = "black";
     this.indexPlacement = "above";
-    this.borderThickness = 0;
+    this.borderThickness = 1;
 
     // configured at parent or cell level
     this.showIndices = false; 
     this.showValues = true;
 
     LinearCanvasObject.randomSeed = 100;
+
+    // label margin for circular nodes
+    this.labelMargin = {
+      width: () => this.cellSize * .75,
+      height: () => this.cellSize * .75,
+    }
+  }
+
+  propTypes() {
+    return {
+      "fontFamily": "font",
+      "fontSize": "int",
+      "cellSize": "int",
+      "indexPlacement": ["above", "below"],
+      "showIndices": "bool",
+      "showValues": "bool"
+    };
   }
 
   propNames() {
@@ -44,7 +61,7 @@ class LinearCanvasObject extends CanvasObject {
       fontStyle: this.fontStyle,
       fontFamily: this.fontFamily,
       fontSize: this.fontSize,
-      border: this.border,
+      strokeColor: this.strokeColor,
       borderThickness: this.borderThickness,
       displayStyle: this.displayStyle,
       indexPlacement: this.indexPlacement,
@@ -71,21 +88,11 @@ class LinearCanvasObject extends CanvasObject {
   /** LinearCanvasObject.restore
    *    restore this object and its arrows
    */
-  // restore() {
-  //   super.restore();
-  //   this.arrows.forEach(arr => {
-  //     arr.restore()
-  //   });
-  // }
-
-  static defaultCoordinates(cState) {
-    var center = cState.getCenter();
-    return {
-      x1: center.x,
-      y1: center.y,
-      x2: center.x,
-      y2: center.y,
-    };
+  restore() {
+    super.restore();
+    // this.arrows.forEach(arr => {
+    //   arr.restore();
+    // });
   }
 
   getChild(idx) {
@@ -102,8 +109,8 @@ class LinearCanvasObject extends CanvasObject {
    *    font, and set style (cell or tower)
    */
   configureOptions() {
+    super.configureOptions();
     this.ctx.lineWidth = this.borderThickness;
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.border;
 
     var font = "";
     if (this.fontStyle)
@@ -114,20 +121,6 @@ class LinearCanvasObject extends CanvasObject {
 
     // always draw cell text with left align
     this.ctx.textAlign = "left";
-  }
-
-  /** LinearCanvasObject.draw
-   */
-  draw() {
-    super.draw();
-    this.configureOptions();
-
-    this.nodes.forEach((node, idx) => {
-      node.draw(idx);
-      idx++;
-    });
-
-    this.drawArrows();
   }
   
   /** LinearCanvasObject.drawArrows
@@ -142,8 +135,6 @@ class LinearCanvasObject extends CanvasObject {
    */
   drawArrows() {
     this.arrows.forEach((arrow, idx) => { 
-      var fromIdx = idx[0];
-      var toIdx = idx[1];
       var from = this.getChild(idx[0]);
       var to = this.getChild(idx[1]);
       if (from == null || to == null) return;
@@ -154,27 +145,8 @@ class LinearCanvasObject extends CanvasObject {
   }
 
   get floatingChildren() {
-    return this.nodes.concat(Array.from(this.arrows.values()));
+    return this.nodes;
   }
-
-
-  /** LinearCanvasObject.deleteArrow
-   *    remove arrow object from map
-   */
-  deleteArrow(arrObj) {
-    this.arrows.forEach((arr, key) => {
-      if (arr === arrObj) this.arrows.delete(key);
-      arr.keyRestore = key;
-    });
-  }
-
-  restoreArrow(arrObj) {
-    if (arrObj.keyRestore == undefined)
-      throw "Failed to restore arrow; key is undefined";
-    if (! this.arrows.hasValue(arrObj))
-      this.arrows.set(arrObj.keyRestore, arrObj);
-  }
-
 }
 
 class NodeObject extends CanvasChildObject {
@@ -186,6 +158,7 @@ class NodeObject extends CanvasChildObject {
     // drawing options
     this.fill = "#fff";
     this.textColor = "#000";
+    this.strokeColor = "#000";
     this.value = value;
     this.borderThickness = 1;
 
@@ -201,6 +174,18 @@ class NodeObject extends CanvasChildObject {
     return {x: this.x, y: this.y};
   }
 
+  propTypes() {
+    return {
+      "fill": "color",
+      "textColor": "color",
+      "value": "any",
+      "showValues": "bool",
+      "showIndices": "bool",
+      "borderThickness": "int",
+      "strokeColor": "color"
+    }
+  }
+
   propNames() {
     return {
         "bg": "fill",
@@ -211,6 +196,7 @@ class NodeObject extends CanvasChildObject {
         "border": "borderThickness",
         "fg": "textColor",
         "ind": "showIndices",
+        "strokeColor": "strokeColor",
     };
   }
 
@@ -223,16 +209,17 @@ class NodeObject extends CanvasChildObject {
       showIndices: this.showIndices,
       showValues: this.showValues,
       index: this.index,
+      strokeColor: this.strokeColor,
     };
   }
 
   configureOptions() {
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : "#000";
+    super.configureOptions();
     this.ctx.fillStyle = this.fill;
+    this.ctx.strokeStyle = this.strokeColor;
     this.ctx.lineWidth = this.borderThickness;
 
     this.cellSize = this.getParent().cellSize;
-    this.hitCtx.fillStyle = this.hashColor;
   }
 
   drawValue() {

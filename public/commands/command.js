@@ -1,3 +1,5 @@
+
+
 // TODO
 // organize command classes into separate files
 
@@ -365,6 +367,31 @@ class ConsoleCommand {
     this.argNodes = argNodes;
   }
 
+
+  /** ConsoleCommand.checkArgsLength
+   *    check number of arguments with inclusive
+   *    bounds 
+   *  
+   *    @param {Int} lo 
+   *    @param {Int} hi - optional if only 1 value possible
+   */
+  checkArgsLength(lo, hi) {
+    hi = hi || lo;
+    if (this.argNodes.length < lo || this.argNodes.length > hi) {
+      if (hi == lo)
+        throw (`Expected number of arguments: ${hi}`);
+      else
+        throw (`Expected number of arguments: [${lo}, ${hi}]`);
+    }
+  }
+
+  /** ConsoleCommand.precheckArguments
+   *    check number of arguments etc. before
+   *    arguments get evaluated
+   * 
+   */
+  precheckArguments() {
+  }
   
   /** ConsoleCommand.executeChildren
    *  //TODO check for cached literal result
@@ -373,27 +400,9 @@ class ConsoleCommand {
   executeChildren() {
     this.args = 
       this.argNodes
-      .filter(node => node != undefined)
+      // .filter(node => node != undefined) // shouldn't be necessary
       .map(node => node.command.execute());  
   }
-
-  /** ConsoleCommand.checkArgsLength
-   *    check number of arguments with inclusive
-   *    bounds 
-   *  
-   *    @param {Int} lo 
-   *    @param {Int} hi 
-   */
-  checkArgsLength(lo, hi) {
-    hi = hi || lo;
-    if (this.args.length < lo || this.args.length > hi) {
-      if (hi == lo)
-        throw `Expected number of arguments: ${hi}`
-      else
-        throw `Expected number of arguments: ${[lo, hi]}`
-    }
-  }
-
   checkArguments() { }
 
   /** ConsoleCommand.execute
@@ -403,6 +412,7 @@ class ConsoleCommand {
    *      - execute self
    */
   execute() {
+    this.precheckArguments();
     this.executeChildren();
     this.checkArguments();
     return this.executeSelf();
@@ -852,7 +862,7 @@ class CanvasObjectMethod extends ConsoleCommand {
     this.argNodes = argNodes;
   }
 
-  parseError(errMessage) {
+  argsError(errMessage) {
     if (this.usage)
       throw errMessage + "\nUsage: " + this.usage();
     throw errMessage;
@@ -867,7 +877,7 @@ class Array1DCommand extends CanvasObjectMethod {
     
     indices.forEach(i => {
       if (i >= len || i < 0 || isNaN(Number(i)))
-        this.parseError(`Invalid index: '${i}'`);
+        this.argsError(`Invalid index: '${i}'`);
     });
   }
 }
@@ -903,12 +913,12 @@ class Array1DResizeCommand extends Array1DCommand {
     this.newLength = this.args[0];
 
     if (typeof this.newLength != "number")
-      this.parseError("Array.resize argument must be number");
+      this.argsError("Array.resize argument must be number");
   }
 
   checkArguments() {
     if (this.newLength < 1)
-      this.parseError(`Invalid array length: ${this.newLength}`);
+      this.argsError(`Invalid array length: ${this.newLength}`);
   }
 
   executeSelf() {
@@ -1079,9 +1089,9 @@ class Array1DCopyCommand extends Array1DCommand {
 
   checkArguments() {
     if (! (this.destArr instanceof Array1D))
-      this.parseError(`'${this.argNodes[0]}' is not an array.`);
+      this.argsError(`'${this.argNodes[0]}' is not an array.`);
     if (this.destStart < 0 || this.destStart >= this.destArr.array.length)
-      this.parseError(`Invalid index: ${this.destStart}`);
+      this.argsError(`Invalid index: ${this.destStart}`);
 
     // calculate upper bounds
     this.srcEnd =
@@ -1148,7 +1158,7 @@ class LinkedListCommand extends CanvasObjectMethod {
     indices.forEach(i => {
       if (! (this.receiver.list.hasEquiv(i))) {
         console.log(i, "not in ", this.receiver.list);
-        this.parseError(`Invalid index: ${i}.`);
+        this.argsError(`Invalid index: ${i}.`);
       }
     });
   }
@@ -1165,7 +1175,7 @@ class LinkedListInsertCommand extends LinkedListCommand {
   checkArguments() {
     this.checkIndices(this.fromIndex);
     if (isNaN(Number(this.value)))
-      this.parseError("Invalid value for linked list:" + this.value);
+      this.argsError("Invalid value for linked list:" + this.value);
   }
 
   executeSelf() {
@@ -1254,18 +1264,28 @@ class LinkedListRemoveCommand extends LinkedListCommand {
   executeSelf() {
     if (this.node == null) {
       this.node = this.receiver.list.get(this.removeIndex);
-      this.receiver.arrows.forEach((arr, idx) => {
-        if (idx.includes(this.removeIndex))
-          this.removedArrows.push(arr);
+      // this.receiver.arrows.forEach((arr, idx) => {
+      //   if (idx.includes(this.removeIndex))
+      //     this.removedArrows.push(arr);
+      // });
+
+      // TODO implement arrow save/restore
+      this.oldArrows = new Map();
+      this.receiver.arrows.forEach((v, k) => {
+        this.oldArrows.set(k, v);
       });
     }
     this.receiver.list.delete(this.removeIndex);
-    this.removedArrows.forEach(arr => arr.destroy());
+
+    // deprecated bc of child arrow class
+    // this.removedArrows.forEach(arr => arr.destroy());
   }
 
   undo() {
     this.receiver.list.set(this.removeIndex, this.node);
-    this.removedArrows.forEach(arr => arr.restore());
+
+    // deprecated bc of child arrow class
+    // this.removedArrows.forEach(arr => arr.restore());
   }
 }
 
@@ -1914,5 +1934,31 @@ class FunctionReturn extends Error {
     super(message);
     this.value = retValue;
     this.name = "";
+  }
+}
+
+// for debugging
+
+class DirCommand extends ConsoleCommand {
+  constructor(cState, ...args) {
+    super(...args);
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.canvasObject = this.args[0];
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
+  executeSelf() {
+    var keys = c => Array.from(Object.keys(c));
+    var propNames = keys(this.canvasObject.propNames());
+    var methNames = keys(this.canvasObject.methodNames());
+    methNames = methNames.map(s => `${s}()`);
+
+    return (propNames.concat(methNames)).map(s => `'${s}'`);
   }
 }

@@ -1,4 +1,3 @@
-
 /** TODO:
  *    - remove anchor point class -- really just need to look ahead 
  *    for flowchart box and handle anchored arrows within FcBox classest 
@@ -11,7 +10,7 @@ class FlowchartBox extends CanvasObject {
     super(canvasState, x1, y1, x2, y2);
 
     this.fill = "#fff";
-    this.border =  "#000";
+    this.strokeColor =  "#000";
     this.fontStyle = null;
     this.fontFamily = "Purisa";
     this.fontSize = 12;
@@ -40,6 +39,16 @@ class FlowchartBox extends CanvasObject {
     return [this.resizePoint];
   }
 
+  propTypes() {
+    return {
+      "fontFamily": "font",
+      "fontSize": "int",
+      "verticalAlign": ["top", "middle"],
+      "horizontalAlign": ["left", "right", "center"],
+      "fill": "color",
+    };
+  }
+
   propNames() {
     return {
         "ff": "fontFamily",
@@ -51,8 +60,6 @@ class FlowchartBox extends CanvasObject {
         "ha": "horizontalAlign",
         "bg": "fill",
         "fill": "fill",
-        "border": "border",
-        "bc": "border",
     };
   }
 
@@ -69,7 +76,7 @@ class FlowchartBox extends CanvasObject {
       horizontalAlign: this.horizontalAlign,
       verticalAlign: this.verticalAlign,
       fill: this.fill,
-      border: this.border,
+      strokeColor: this.strokeColor,
       label: this.label,
     };
   }
@@ -79,15 +86,7 @@ class FlowchartBox extends CanvasObject {
 
     // set text in clone
     copy.editor.value = this.editor.value;
-    return copy;
-  }
-
-  getToolbar() {
-    return FlowchartToolbar.getInstance(this.cState);
-  } 
-
-  getOptions() {
-    return FlowchartBoxOptions.getInstance(this.cState);
+    this._cloneRef = copy; return copy;
   }
 
   /**createEditor
@@ -120,10 +119,34 @@ class FlowchartBox extends CanvasObject {
   
     // end editing with enter key
     this.editor.onkeydown = (event) => {
-      if (event.keyCode == ENTER) {
-        this.deactivate();
+      if (event.keyCode == ENTER && !hotkeys[SHIFT]) { // allow shift-enter
+        this.deactivate(); // calls textEntered()
       }
     };
+
+    this.editor.onmousedown = (event) => {
+      this.cState.eventHandler.mouseDown(event);
+    }
+  }
+
+  get horizontalAlign() {
+    return this._horizontalAlign;
+  }
+
+  set horizontalAlign(ha) {
+    if (this.editor)
+      this.editor.style.textAlign = ha;
+    this._horizontalAlign = ha;
+  }
+
+  get verticalAlign() {
+    return this._verticalAlign;
+  }
+
+  set verticalAlign(va) {
+    if (this.editor)
+      this.editor.style.alignItems = va;
+    this._verticalAlign = va;
   }
 
   /** FlowchartBox.positionEditor
@@ -204,22 +227,38 @@ class FlowchartBox extends CanvasObject {
   drawText() {
     this.textEntered();
     this.ctx.textBaseline = "alphabetic";
+    this.ctx.fillStyle = "#000";
 
+    // when editing, let HTML display
+    // the text. 
+    // When <textarea> is deactivated, 
+    // draw the text to the canvas.
     var ctx = this.editor.hidden ? this.ctx : this.ctx.recCtx;
 
     // approximate height
     var ht = this.cState.textHeight();
     var lineY = this.textY + ht;
-    ctx.fillStyle = "#000";
+
     for (var i = 0; i < this.wrappedText.length; i++) {
       var text = this.wrappedText[i];
       // don't fill past container
-      if (lineY + ht > this.y2) 
-        text = "...";
+      if (lineY + ht > this.y2) {
+        ctx.fillText("...", this.textX, lineY);
+        ctx.stroke();
+        return;
+      }
 
       ctx.fillText(text, this.textX, lineY);
       lineY += ht;
     }
+    ctx.stroke();
+  }
+
+  static outline(ctx, x1, y1, x2, y2) {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#000";
+    ctx.beginPath();
+    ctx.rect(x1, y1, x2-x1, y2-y1);
     ctx.stroke();
   }
 
@@ -251,10 +290,11 @@ class FlowchartBox extends CanvasObject {
    */
   click(event) {
     super.click(event);
+    this.editor.style.display = "flex";
     this.editor.hidden = false;
 
     // necessary for focus/select behavior
-    event.preventDefault();
+    // event.preventDefault();
     this.editor.select();
   } 
 
@@ -262,8 +302,8 @@ class FlowchartBox extends CanvasObject {
    *    hide editor and format text
    */
   deactivate() {
-    super.deactivate();
     this.editor.hidden = true;
+    this.editor.style.display = "none";
     this.textEntered();
   }
 
@@ -276,38 +316,17 @@ class FlowchartBox extends CanvasObject {
     this.showBorder = true;
   }
 
-  /** FlowchartBox.draw
-   *    only here to show border when border color = #0000
-   *    i.e. transparent
-   */
-  draw() {
-    super.draw()
-    // check for transparency
-    // if (!this.active() && this.showBorder && this.border.startsWith("#")) {
-    //   // border color is #xxx0 or #xxxxxx00
-    //   var len = this.border.length;
-    //   var alpha;
-    //   if (len < 7) {
-    //     if (len > 4)
-    //       alpha = parseInt(this.border.substring(4));
-    //   }
-    //   else
-    //     alpha = parseInt(this.border.substring(7));
-    // 
-    //   if (alpha == 0) {
-    //     this.constructor.outline(this.cState.ctx,
-    //         this.x1, this.y1, this.x2, this.y2);
-    //   }
-    // }
-
-    // this.showBorder = false;
-  }
-
   /** FlowchartBox.textEntered
    *    performs word wrap 
    */
   textEntered() {
-    var words = this.editor.value.split(" ");
+    var lines = this.editor.value.split("\n");
+    var wrappedText = lines.map(l => this.wrapText(l)).flat();
+    this.wrappedText = wrappedText;
+  }
+
+  wrapText(text) {
+    var words = text.split(" ");
 
     var wrappedText = [];
       
@@ -323,7 +342,8 @@ class FlowchartBox extends CanvasObject {
       }
       else { 
         lineWidth += wordWidth;
-        if (lineWidth > this.width - (2 * this.textMargin)) {
+        // if line is too long, push it and start a new line
+        if (words[i] == "\n" || lineWidth > this.width - (2 * this.textMargin)) {
           // draw current line and reset
           wrappedText.push(line);
           lineWidth = wordWidth;
@@ -335,8 +355,8 @@ class FlowchartBox extends CanvasObject {
     // add final line if total string was nonempty
     if (this.editor.value != "")
       wrappedText.push(line);
-    
-    this.wrappedText = wrappedText;
+
+    return wrappedText;
   }
 }
 
@@ -347,7 +367,6 @@ class RectBox extends FlowchartBox {
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.rect(this.x1, this.y1, this.width, this.height);
@@ -375,16 +394,10 @@ class RoundBox extends FlowchartBox {
     this.radius = 10;
   } 
 
-  configureOptions() {
-    super.configureOptions();
-
-  }
-
   /** RoundBox.draw
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     // draw rounded box
     this.ctx.beginPath();
@@ -463,7 +476,6 @@ class DiamondBox extends FlowchartBox {
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     this.ctx.beginPath();
 
@@ -539,7 +551,6 @@ class ParallelogramBox extends FlowchartBox {
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -594,11 +605,19 @@ class TextBox extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
     this.fill = "transparent";
-    this.border = "gray";
+    this.strokeColor = "gray";
 
     this.lineDash = [1, 2];
   }
 
+  propTypes() {
+    return {
+      "fontFamily": "font",
+      "fontSize": "int",
+      "verticalAlign": ["top", "middle"],
+      "horizontalAlign": ["left", "right", "center"],
+    };
+  }
 
   propNames() {
     return {
@@ -630,11 +649,10 @@ class TextBox extends FlowchartBox {
 
   /** TextBox.draw
    *    display dotted line border in editor
-   *    but nothing in recording
+   *    but no border in recording
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     this.ctx.editCtx.beginPath();
     this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
@@ -672,14 +690,6 @@ class MathBox extends TextBox {
     };
   }
 
-  getToolbar() {
-    return Toolbar.getInstance(this.cState);
-  } 
-
-  getOptions() {
-    return ToolOptions.getInstance(this.cState);
-  }
-
   config() {
     return {
       ...super.config(),
@@ -698,11 +708,14 @@ class MathBox extends TextBox {
     var src = "data:image/svg+xml; charset=utf8, " + 
       encodeURIComponent(mathSVG.replace(/></g, ">\n\r<"));
     this.svg.src = src;
+    this.svg.onload = repaint;
   }
 
+  /** MathBox.drawText
+   */
   drawText() {
     this.textEntered();
-    if (! this.editor.hidden)
+    if (! this.editor.hidden) // if currently editing, don't draw image
       return super.drawText();
     if (this.editor.value == "") return;
     if (this.svg && this.x1 && this.y1 && this.width && this.height && this.editor.hidden) {
@@ -750,7 +763,6 @@ class Connector extends FlowchartBox {
    */
   draw() {
     super.draw();
-    this.configureOptions();
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -793,417 +805,6 @@ class Connector extends FlowchartBox {
   }
 }
 
-/** Arrow class for drawing arcs on canvas.
- *  Composed with ArrowHead which can 
- *  vary independently of Arrow attributes
- *
- *  Can be curved or composed of several
- *  straight segments with anchor points.
- */
-class Arrow extends CanvasObject {
-
-  constructor(canvasState, x1, y1, x2, y2, locked=null) {
-    super(canvasState, x1, y1, x2, y2);
-
-    this.x1 = x1;
-    this.y1 = y1;
-    this.x2 = x2;
-    this.y2 = y2;
-
-    // default options
-    this.thickness = 2;
-    this.strokeColor = "#000";
-    this.dashed = false;
-
-    // default dash pattern
-    this.lineDash = [10, 10];
-
-    // default hit thickness
-    this.hitThickness = 8;
-
-    // head options
-    this.hollow = true;
-    this.headFill = "#fff";
-    this.headWidth = 10;
-    this.headHeight = 10;
-
-    // arrow may be 'locked' into place by parents
-    if (locked) {
-      // this.lockedFrom = locked.from;
-      // this.lockedTo = locked.to;
-      this.locked = locked.from.getParent();
-    }
-
-    this.startPoint = new DragPoint(this.cState, this, this.x1, this.y1);
-  }
-
-  propNames() {
-    return {
-      "thickness": "thickness",
-      "st": "thickness",
-      "color": "strokeColor",
-      "sc": "strokeColor",
-      "dash": "dashed",
-      "headFill": "headFill",
-      "hc": "headFill",
-      "hf": "headFill",
-      "hollow": "hollow",
-      "hw": "headWidth",
-      "hh": "headHeight",
-    };
-  }
-
-  static defaultCoordinates(cState) {
-    var center = cState.getCenter();
-    var w = 200;
-    return {
-      x1: center.x,
-      y1: center.y,
-      x2: center.x + w,
-      y2: center.y,
-    };
-  }
-
-  /** Arrow.config
-   */
-  config() {
-    return {
-      thickness: this.thickness,
-      dashed: this.dashed,
-      hollow: this.hollow,
-      headFill: this.headFill,
-      headWidth: this.headWidth,
-      headHeight: this.headHeight,
-      label: this.label,
-    };
-  }
-
-  getToolbar() {
-    return FlowchartToolbar.getInstance(this.cState);
-  }
-
-  getOptions() {
-    return ArrowOptions.getInstance(this.cState);
-  }
-
-  getStartCoordinates() {
-    return {x: this.x1, y: this.y1};
-  }
-}
-
-
-/** CurvedArrow
- *    draws curved arc with 2 control points
- */
-class CurvedArrow extends Arrow {
-  constructor(canvasState, x1, y1, x2, y2, locked=null) {
-    super(canvasState, x1, y1, x2, y2, locked);
-
-    // initialize control points at
-    // start and end points
-    var midX = Math.floor((this.x1 + this.x2) / 2);
-    var midY = Math.floor((this.y1 + this.y2) / 2);
-    
-    this.cp1 = new ControlPoint(this.cState, this, midX, midY);
-    this.cp2 = new ControlPoint(this.cState, this, midX, midY);
-
-    // this.activePoint = this.cp1;
-
-    this.head = new ArrowHead(canvasState, this);
-  }
-
-  /** CurvedArrow.clone
-   */
-  clone() {
-    var copy = super.clone();
-    
-    // set control points
-    copy.cp1.x = this.cp1.x;
-    copy.cp1.y = this.cp1.y;
-    copy.cp2.x = this.cp2.x;
-    copy.cp2.y = this.cp2.y;
-    
-    return copy;  
-  }
-
-  /** CurvedArrow.configureOptions
-   *    set drawing options and update endpoints
-   *    if locked to parent
-   */
-  configureOptions() {
-    this.ctx.lineWidth = this.thickness;
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.strokeColor;
-
-    if (this.dashed)
-      this.ctx.setLineDash(this.lineDash);
-
-    this.hitCtx.strokeStyle = this.hashColor;
-    this.hitCtx.lineWidth = this.hitThickness;
-
-    // allow parent objects to position arrow endpoints
-    // when locked
-    // if (this.locked) {
-    //   this.lockedFrom.lockArrow(this, "from");
-    //   this.lockedTo.lockArrow(this, "to");
-    // }
-  }
-
-
-  /** CurvedArrow.draw
-   */
-  draw() {
-    super.draw();
-    this.configureOptions();
-
-    var ctx = this.cState.ctx;
-    var hitCtx = this.cState.hitCtx;
-
-    ctx.beginPath();
-    ctx.moveTo(this.x1, this.y1);
-    ctx.bezierCurveTo(
-      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.x2, this.y2
-    );
-    ctx.stroke();
-
-    // undo linedash
-    if (this.dashed)
-      this.ctx.setLineDash([]);      
-
-    hitCtx.beginPath();
-    hitCtx.moveTo(this.x1, this.y1);
-    hitCtx.bezierCurveTo(
-      this.cp1.x, this.cp1.y, this.cp2.x, this.cp2.y, this.x2, this.y2
-    );
-    hitCtx.stroke();
-
-    // draw starting point to hit canvas
-    this.startPoint.draw();
-
-    // draw control points if active
-    if (this === this.cState.activeParent()) {
-      this.cp1.draw();
-      this.cp2.draw(); 
-    }
-
-    // draw head so it appears on top
-    this.head.draw();
-  }
-
-  /** CurvedArrow.outline
-   */
-  static outline(ctx, x1, y1, x2, y2) {
-    ctx.strokeStyle = "#000";
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
-  /** CurvedArrow.endingAngle
-   *    return ending angle from 2nd control point to end point
-   *    in radians
-   */
-  endingAngle() {
-    var dx = this.x2 - this.cp2.x;
-    var dy = this.y2 - this.cp2.y;
-    
-    if (this.cp2.x == this.x2 && this.cp2.y == this.y2) {
-      dx = this.x2 - this.x1;
-      dy = this.y2 - this.y1;
-    }
-      
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
-  }
-
-  /** CurvedArrow.startingAngle
-   *    return angle from start point to first control point
-   */
-  startingAngle() {
-    var dx = this.x1 - this.cp1.x;
-    var dy = this.y1 - this.cp1.y;
-    
-    if (this.cp1.x == this.x1 && this.cp1.y == this.y1) {
-      dx = this.x1 - this.x1;
-      dy = this.y1 - this.y1;
-    }
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
-  }
-
-  /** CurvedArrow.straighten
-   *    set control points to midpoint
-   */
-  straighten() {
-    var mx = (this.x2 + this.x1) / 2 | 0;
-    var my = (this.y2 + this.y1) / 2 | 0;
-    this.cp1.x = mx;
-    this.cp2.x = mx;
-    this.cp1.y = my;
-    this.cp2.y = my;
-  }
-
-  /** CurvedArrow.move
-   *    translate entire arrow by deltaX, deltaY
-   *
-   *    if arrow is locked to parent (e.g. array)
-   *    don't allow user to move arrow directly
-   */
-  move(deltaX, deltaY, fromParent=false) {
-    if (! this.locked || fromParent) {
-      super.move(deltaX, deltaY);
-      this.cp1.x += deltaX;
-      this.cp2.x += deltaX;
-      this.cp1.y += deltaY;
-      this.cp2.y += deltaY;
-
-      this.startPoint.x += deltaX;
-      this.startPoint.y += deltaY;
-    }
-  }
-
-  /** CurvedArrow.destroy
-   *    destroy self and also remove from parent mapping
-   *
-   *    locked.deleteArrow also stores the mapping key 
-   *    in this arrow object
-   */
-  destroy() {
-    super.destroy();
-    if (this.locked) 
-      this.locked.deleteArrow(this);
-  }
-
-  /** CurvedArrow.restore
-   *    only add to canvas if
-   *    not being handled by locker object 
-   */
-  restore() {
-    VariableEnvironment.setVar(this.label, this);
-    if (this.locked) {
-      if (this.keyRestore) this.locked.restoreArrow(this);
-    }
-    else 
-      this.cState.addCanvasObj(this);
-  }
-}
-
-/** Handles drawing of arrow head using
- *  rotation and translation
- */
-class ArrowHead extends CanvasChildObject {
-  constructor(canvasState, parentArrow) {
-    super(canvasState);
-
-    this.parentArrow = parentArrow;
-
-    this.hollow = true;
-    this.fill = "#fff";
-
-    this.width = 10;
-    this.height = 10;
-  }
-
-  get x() {
-    return this.getParent().x2;
-  }
-
-  get y() {
-    return this.getParent().y2;
-  }
-
-  getParent() {
-    return this.parentArrow.getParent();
-  }
-
-  getStartCoordinates() {
-    return {x: this.parentArrow.x2, y: this.parentArrow.y2};
-  }
- 
-  /** ArrowHead.configureOptions
-   */
-  configureOptions() {
-    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.parentArrow.strokeColor;
-    this.ctx.fillStyle = this.getParent().headFill;
-    this.hitCtx.fillStyle = this.hashColor;
-
-    this.width = this.getParent().headWidth;
-    this.height = this.getParent().headHeight;
-  }
-
-  /** ArrowHead.draw
-   */
-  draw() {
-    this.configureOptions();
-
-    var arrow = this.getParent();
-  
-    this.ctx.save();
-    this.ctx.beginPath();
-    this.ctx.translate(arrow.x2, arrow.y2);
-    this.ctx.rotate(arrow.endingAngle());
-
-    var hw = Math.floor(this.width / 2);
-    
-    if (arrow.hollow) {
-      this.ctx.moveTo(-this.height, -hw);
-      this.ctx.lineTo(0, 0);
-      this.ctx.lineTo(-this.height, hw);
-    }
-    else {
-      this.ctx.moveTo(0, 0);
-      this.ctx.lineTo(-this.height, -hw);
-      this.ctx.lineTo(-this.height, hw);
-      this.ctx.lineTo(0, 0);
-      this.ctx.fill();
-      this.ctx.closePath();
-    }
-    
-    this.ctx.stroke();
-    this.ctx.restore();
-
-    this.hitCtx.save();
-    this.hitCtx.beginPath();
-    this.hitCtx.translate(arrow.x2, arrow.y2);
-    this.hitCtx.rotate(arrow.endingAngle());
-
-    // draw twice as big as actual arrow head
-    this.hitCtx.moveTo(0, 0);
-    this.hitCtx.lineTo(-2 * this.height, -this.width);
-    this.hitCtx.lineTo(-2 * this.height, this.width);
-
-    this.hitCtx.fill();
-    this.hitCtx.restore();
-  }
-
-  /** ArrowHead.drag
-   *    shift arrow end point by deltaX, deltaY
-   */
-  drag(deltaX, deltaY, fromParent=false) {
-    if (this.parentArrow.locked && ! fromParent) return;
-
-    // just move end point to new location
-    this.parentArrow.x2 += deltaX;
-    this.parentArrow.y2 += deltaY;
-  }
-
-  shiftDrag(deltaX, deltaY, fromParent) {
-    if (this.parentArrow.locked && ! fromParent) return;
-    // holding shift will lock arrow into horizontal or vertical orientation.
-    // snap along more displaced (by drag) axis
-    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
-    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
-    if (dx > dy) { // lock in horizontal orientation
-      this.parentArrow.y2 = this.parentArrow.y1;
-      this.parentArrow.x2 += deltaX;
-    }
-    else {
-      this.parentArrow.x2 = this.parentArrow.x1;
-      this.parentArrow.y2 += deltaY;
-    }
-    // snap straight
-    this.parentArrow.straighten();
-  }
-}
-
 /**
  *  TODO: generalize this to cover resize point and
  *        controlpoint by passing in onDrag function
@@ -1231,6 +832,7 @@ class ResizePoint extends CanvasChildObject {
   /** ResizePoint.draw
    */
   draw() {
+    super.draw();
     // only draw to hit detect canvas
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.beginPath();
@@ -1254,100 +856,4 @@ class ResizePoint extends CanvasChildObject {
   }
 }
 
-class DragPoint extends CanvasChildObject {
-  constructor(canvasState, parentObj, x, y) {
-    super(canvasState);
-    this.parentObj = parentObj;
 
-    this.x = x;
-    this.y = y;
-
-    this.radius = 15;
-  }
-
-  getParent() {
-    return this.parentObj;
-  }
-
-  /** DragPoint.draw 
-   *    only draw to hit detect canvas
-   */
-  draw() {
-    // don't draw if locked to parent
-    if (! this.getParent().locked) {
-      this.hitCtx.fillStyle = this.hashColor;
-      this.hitCtx.beginPath();
-      this.hitCtx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-      this.hitCtx.fill();
-    }
-  }
-
-  /** DragPoint.drag
-   *    Move (x1, y1) of parent (move arrow start position)
-   */
-  drag(deltaX, deltaY) {
-    if (! this.getParent().locked) {
-      this.x += deltaX;
-      this.y += deltaY;
-      this.parentObj.x1 += deltaX;
-      this.parentObj.y1 += deltaY;
-    }
-  }
-}
-
-/** ControlPoint
- *    used to define curvature of CurvedArrow (bezier curve)
- */
-class ControlPoint extends CanvasChildObject {
-  constructor(canvasState, parentArrow, x, y) {
-    super(canvasState);
-    
-    this.parentArrow = parentArrow;
-
-    this.x = x;
-    this.y = y;
-
-    // default radius 
-    this.radius = 10;
-
-    // default fill
-    this.fill = "#00f8";
-  }
-
-  getParent() {
-    return this.parentArrow.getParent();
-  }
-  
-  getStartCoordinates() {
-    return {x: this.x, y: this.y}; 
-  }
-
-  /** ControlPoint.configureOptions
-   */ 
-  configureOptions() {
-    this.ctx.fillStyle = this.fill;
-    this.hitCtx.fillStyle = this.hashColor;
-  }
-
-  /** ControlPoint.draw
-   */
-  draw() {
-    this.configureOptions();
-    
-    this.ctx.beginPath();
-    this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
-    this.ctx.fill();
-
-    this.hitCtx.beginPath();
-    this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    this.hitCtx.fill();
-  }
-
-  /** ControlPoint.drag
-   */
-  drag(deltaX, deltaY) {
-    this.x += deltaX;
-    this.y += deltaY;
-  }
-
-}

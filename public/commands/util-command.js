@@ -177,9 +177,10 @@ class DeleteClipCommand extends VideoCommand {
 }
 
 class SleepCommand extends UtilCommand {
-  //TODO make synchronous
+  //TODO make asynchronous
   execute() {
     var start = new Date().getTime();
     while (new Date().getTime() - start < 2000) {}
   }
 }
+
