@@ -40,7 +40,18 @@ class Arrow extends CanvasObject {
       };
     }
 
+    // subscribe to anchor objects so they can
+    // update my references when they are cloned
+    if (fromAnchor) {
+      fromAnchor.setAnchor(this, "from");
+    }
+
+    if (toAnchor) {
+      toAnchor.setAnchor(this, "to");
+    }
+
     this.fromAnchorAlive = () => this.locked && this.locked.from && ! this.locked.from.dead;
+
     this.toAnchorAlive = () => this.locked && this.locked.to && ! this.locked.to.dead;
 
     this.startPoint = new DragPoint(this.cState, this, this.x1, this.y1);
@@ -332,7 +343,7 @@ class ChildArrow extends CanvasChildObject {
   /** ChildArrow.draw
    */
   draw() {
-    super.draw();
+    
 
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
@@ -356,16 +367,16 @@ class ChildArrow extends CanvasChildObject {
     hitCtx.stroke();
 
     // draw starting point to hit canvas
-    this.startPoint.draw();
+    this.startPoint.configAndDraw();
 
     // draw control points if active
     if (this.active()) {
-      this.cp1.draw();
-      this.cp2.draw(); 
+      this.cp1.configAndDraw();
+      this.cp2.configAndDraw(); 
     }
 
-    // draw head so it appears on top
-    this.head.draw();
+    // configAndDraw head so it appears on top
+    this.head.configAndDraw();
   }
 
   /** ChildArrow.endingAngle
@@ -458,15 +469,12 @@ class CurvedArrow extends Arrow {
         to: this.locked.to._cloneRef,
       };
     }
-    
-    this._cloneRef = copy; return copy;  
+    return copy;
   }
 
   /** CurvedArrow.draw
    */
   draw() {
-    super.draw();
-
     var ctx = this.cState.ctx;
     var hitCtx = this.cState.hitCtx;
 
@@ -489,16 +497,16 @@ class CurvedArrow extends Arrow {
     hitCtx.stroke();
 
     // draw starting point to hit canvas
-    this.startPoint.draw();
+    this.startPoint.configAndDraw();
 
-    // draw control points if active
+    // configAndDraw control points if active
     if (this.active()) {
-      this.cp1.draw();
-      this.cp2.draw(); 
+      this.cp1.configAndDraw();
+      this.cp2.configAndDraw(); 
     }
 
-    // draw head so it appears on top
-    this.head.draw();
+    // configAndDraw head so it appears on top
+    this.head.configAndDraw();
   }
 }
 
@@ -547,7 +555,7 @@ class ArrowHead extends CanvasChildObject {
   /** ArrowHead.draw
    */
   draw() {
-    super.draw();
+    
     var arrow = this.parentArrow;
   
     this.ctx.save();
@@ -637,7 +645,7 @@ class DragPoint extends CanvasChildObject {
    *    only draw to hit detect canvas
    */
   draw() {
-    super.draw();
+    
     // don't draw if locked to parent
     if (this.getParent().fromAnchorAlive()) return;
 
@@ -697,7 +705,7 @@ class ControlPoint extends CanvasChildObject {
   /** ControlPoint.draw
    */
   draw() {
-    super.draw();
+    
     
     this.ctx.beginPath();
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
