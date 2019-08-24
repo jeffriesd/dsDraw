@@ -548,7 +548,7 @@ class BSTCanvasObject extends LinearCanvasObject {
       copy.ids.set(node.index, cnode);
     });
 
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
 
@@ -575,12 +575,12 @@ class BSTCanvasObject extends LinearCanvasObject {
   }
 
   draw() {
-    super.draw();
-
     // TODO only render when needed
     // TODO move ancestor collapsed to render
     renderBST(this, this.bst);
 
+    // TODO make this a recursive preorder 
+    // so collapsed subtrees can be skipped
     this.preorder().forEach(node => {
       if (node.ancestorHas("collapsed")) return;
       if (node.collapsed) return node.drawTriangle();
@@ -589,7 +589,6 @@ class BSTCanvasObject extends LinearCanvasObject {
       var y = node.y;
       
       // draw black edges with stroke = 1
-      this.ctx.strokeStyle = "black";
       this.ctx.lineWidth = node.borderThickness;
       this.ctx.beginPath();
       this.ctx.moveTo(x, y);
@@ -601,7 +600,7 @@ class BSTCanvasObject extends LinearCanvasObject {
       this.ctx.stroke();
 
       // draw node overtop of edges
-      node.draw();
+      node.configAndDraw();
     });
 
     // super.drawArrows();
@@ -674,8 +673,9 @@ class BSTNodeCanvasObject extends NodeObject {
 
   // currently only used for collapsed
   ancestorHas(prop) {
-    if (this.parNode == null) return this[prop];
-    return this.parNode[prop] || this.parNode.ancestorHas(prop);
+    var parNode = this.getParNode();
+    if (parNode == null) return this[prop];
+    return parNode[prop] || parNode.ancestorHas(prop);
   }
 
   internalToCanvasNode(node) {
@@ -713,23 +713,6 @@ class BSTNodeCanvasObject extends NodeObject {
 
   /** END WRAPPER METHODS FOR ACCESSING BST */
 
-  /** BSTNodeCanvasObject.deepCopy
-   *    perform deep copy of root node
-   *    for cloning. nodes still need
-   *    reference to parent BST 
-   *    (taken care of in BST.clone)
-   *
-   *    update parentNode references 
-   *    as part of traversal
-   */
-  // deepCopy(par) {
-  //   var copy = this.clone();
-  //   if (this.left) copy.left = this.left.deepCopy(copy);
-  //   if (this.right) copy.right = this.right.deepCopy(copy);
-  //   copy.parNode = par;
-  //   this._cloneRef = copy; return copy;
-  // }
-
   /** BSTNodeCanvasObject.drawValue
    *    draw in circle (vs square)
    */
@@ -749,29 +732,8 @@ class BSTNodeCanvasObject extends NodeObject {
     this.ctx.fillText(valStr, this.x, this.y);
   }
 
-  /** BSTNodeCanvasObject.draw
-   *    draw node with center at x, y and 
-   *    node value
-   */
-  draw() {
-    super.draw();
-    this.ctx.beginPath();  
-    this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    this.ctx.stroke();
-    this.ctx.fill();
-
-    if (this.showValues && this.getParent().showValues) 
-      this.drawValue();
-
-    if (this.showIndices && this.getParent().showIndices) 
-      this.drawIndex(this.index);
-
-    this.hitCtx.beginPath();
-    this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    this.hitCtx.fill();
-  }
-
   drawTriangle() {
+    
     this.ctx.beginPath();
     this.ctx.moveTo(this.x - this.radius, this.y + this.radius);
     this.ctx.lineTo(this.x, this.y - this.cellSize);
