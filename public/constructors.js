@@ -345,10 +345,6 @@ class GraphConstructor extends CanvasObjectConstructor {
   // graph 'initializer' object is an adjacency list.
   // example:
   // g = graph({ 1: [2, 3], 2: [1], 3: [] })
-  constructor(cState, ...args) {
-    super(cState, ...args);
-    this.canvasClass = Graph;
-  }
 
   executeChildren() {
     super.executeChildren();
@@ -356,53 +352,110 @@ class GraphConstructor extends CanvasObjectConstructor {
     this.styleOptions = this.args[1];
   }
 
-  // helper method to build complete graph
+  /** buildComplete
+   *    build complete graph (only 1 directed edge per 
+   *    pair if using directed) 
+   */
   buildComplete(size) {
-    var values = randomArray(size, Graph.randomSeed);
-    var adj = new Map();
-    values.forEach(v => adj.set(v, values.slice()));
-    return adj;
+    // keep track of nodes by value since addEdge requires ids
+    var nodesByValue = new Map();
+
+    var values = randomArray(size, this.canvasClass.randomSeed);
+
+    values.forEach(v => {
+      var newNode = this.newObj.addNode(v);
+      nodesByValue.set(v, newNode);
+    })
+
+    for (var i = 0; i < size; i++) {
+      for (var j = i+1; j < size; j++) {
+        var fromNode = nodesByValue.get(values[i]);
+        var toNode = nodesByValue.get(values[j]);
+        this.newObj.addEdge(fromNode.index, toNode.index);
+      }
+    }
+  }
+
+  buildFromMap() {
+    // keep track of nodes by value since addEdge requires ids
+    var nodesByValue = new Map();
+
+    // add all the nodes first
+    Array.from(this.initializer.keys()).forEach(nodeVal => {
+      var newNode = this.newObj.addNode(nodeVal);
+      nodesByValue.set(nodeVal, newNode);
+    });
+
+    this.initializer.forEach((neighborVals, v) => {
+      var i1 = nodesByValue.get(v).index;
+      var i2;
+      neighborVals.forEach(nv => {
+        i2 = nodesByValue.get(nv).index;
+        if (i1 == i2) return;
+        this.newObj.addEdge(i1, i2);
+      });
+    });
   }
 
   createObject() {
-    this.coords = this.coords || Graph.defaultCoordinates(this.cState);
-    this.newObj = new Graph(
+    this.coords = this.coords || this.canvasClass.defaultCoordinates(this.cState);
+    this.newObj = new this.canvasClass(
       this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
     
     // no parameters
-    if (this.initializer == undefined) this.initializer = this.buildComplete(10);
-
-    if (this.initializer instanceof Map) { // use adjacency list
-      // keep track of nodes by value since addEdge requires ids
-      var nodesByValue = new Map();
-
-      // add all the nodes first
-      Array.from(this.initializer.keys()).forEach(nodeVal => {
-        var newNode = this.newObj.addNode(nodeVal);
-        nodesByValue.set(nodeVal, newNode);
-      });
-
-      this.initializer.forEach((neighborVals, v) => {
-        var i1 = nodesByValue.get(v).index;
-        var i2;
-        neighborVals.forEach(nv => {
-          i2 = nodesByValue.get(nv).index;
-          if (i1 == i2) return;
-          this.newObj.addEdge(i1, i2);
-        });
-      });
+    if (this.initializer == undefined) this.buildComplete(this.canvasClass.defaultSize);
+    else if (this.initializer instanceof Map) { // use adjacency list
+      this.buildFromMap();
     }
     else
       this.argsError("Invalid initializer");
 
     // render graph at construction 
-    renderGraph(this.newObj);
+    this.newObj.render();
   }
-
-  // helper method to build complete graph
 
   usage() {
     return "graph(adjList, styleOptions)";
+  }
+}
+
+class DiGraphConstructor extends GraphConstructor {
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    this.canvasClass = DiGraphCanvasObject;
+  }
+}
+
+class UDGraphConstructor extends GraphConstructor {
+  constructor(cState, ...args) {
+    super(cState, ...args);
+    this.canvasClass = UDGraphCanvasObject;
+  }
+
+  /** UDGraphConstructor.buildFromMap
+   *    build an undirected graph from an adjacency list
+   *    -- check that edges are not added twice
+   */
+  buildFromMap() {
+    // keep track of nodes by value since addEdge requires ids
+    var nodesByValue = new Map();
+
+    // add all the nodes first
+    Array.from(this.initializer.keys()).forEach(nodeVal => {
+      var newNode = this.newObj.addNode(nodeVal);
+      nodesByValue.set(nodeVal, newNode);
+    });
+
+    this.initializer.forEach((neighborVals, v) => {
+      var i1 = nodesByValue.get(v).index;
+      var i2;
+      neighborVals.forEach(nv => {
+        i2 = nodesByValue.get(nv).index;
+        if (i1 == i2) return;
+        if (this.newObj.hasEdge(i1, i2)) return; 
+        this.newObj.addEdge(i1, i2);
+      });
+    });
   }
 }
 
