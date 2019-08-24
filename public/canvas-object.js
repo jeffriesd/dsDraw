@@ -288,13 +288,10 @@ class CanvasObject {
   }
 
 
-  /** CanvasObject.draw
-   *    all CanvasObjects call this
-   *    to draw label
-   */
-  draw() {
+  configAndDraw() {
     this.configureOptions();
     if (this.active()) this.drawLabel();
+    this.draw();
   }
 
   configureOptions() {
@@ -397,13 +394,33 @@ class CanvasObject {
 }
 
 class CanvasChildObject {
-  constructor(canvasState) {
+  constructor(canvasState, parentObject) {
     this.cState = canvasState;
+    this.parentObject = parentObject;
+
     this.ctx = canvasState.ctx;
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
 
+    // list of objects that are locked to this
+    // e.g. arrows locked to array cells
+    this.anchorsFrom = []; // this object is a source anchor
+    this.anchorsTo = [];  // this object is a sink anchor
+
     this.cState.registerCanvasObj(this);
+  }
+
+  /** CanvasChildObject.setAnchor
+   *    keep track of objects which use me as an anchor
+   *    so I can update their reference(s) if necessary
+   * 
+   *    TODO use this instead of clone ref
+   */
+  setAnchor(lockedObj, dir) {
+    if (dir == "from") 
+      this.anchorsFrom.push(lockedObj);
+    if (dir == "to")
+      this.anchorsTo.push(lockedObj);
   }
 
   clone() {
@@ -412,7 +429,9 @@ class CanvasChildObject {
 
     var copy = 
       new this.constructor(this.cState);
+
     Object.assign(copy, this.config());
+
     this._cloneRef = copy; return copy;
   }
 
@@ -459,8 +478,10 @@ class CanvasChildObject {
     this.hitCtx.strokeStyle = this.hashColor;
   }
 
-  draw() {
+
+  configAndDraw() {
     this.configureOptions();
+    this.draw();
   }
 
   click(event) {

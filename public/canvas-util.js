@@ -327,7 +327,7 @@ class CanvasState {
       toolClass.outline(this.ctx, x1, y1, x2, y2);
     }
 
-    this.objects.forEach((obj) => obj.draw());
+    this.objects.forEach((obj) => obj.configAndDraw());
 
     // dispatch mouseMove event even when mouse is stationary 
     // for hover actions
