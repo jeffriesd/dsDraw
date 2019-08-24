@@ -86,7 +86,7 @@ class FlowchartBox extends CanvasObject {
 
     // set text in clone
     copy.editor.value = this.editor.value;
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
   /**createEditor
@@ -366,7 +366,7 @@ class RectBox extends FlowchartBox {
    *    and hitCanvas and draws wrapped words
    */
   draw() {
-    super.draw();
+    
 
     this.ctx.beginPath();
     this.ctx.rect(this.x1, this.y1, this.width, this.height);
@@ -381,7 +381,7 @@ class RectBox extends FlowchartBox {
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
 }
@@ -397,7 +397,7 @@ class RoundBox extends FlowchartBox {
   /** RoundBox.draw
    */
   draw() {
-    super.draw();
+    
 
     // draw rounded box
     this.ctx.beginPath();
@@ -423,7 +423,7 @@ class RoundBox extends FlowchartBox {
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
   /** RoundBox.outline
@@ -475,7 +475,7 @@ class DiamondBox extends FlowchartBox {
    *    circumscribes box drawn by mouse
    */
   draw() {
-    super.draw();
+    
 
     this.ctx.beginPath();
 
@@ -503,7 +503,7 @@ class DiamondBox extends FlowchartBox {
     this.hitCtx.stroke();
     this.hitCtx.fill();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
   /** DiamondBox.outline
@@ -550,7 +550,7 @@ class ParallelogramBox extends FlowchartBox {
   /** ParallelogramBox.draw
    */
   draw() {
-    super.draw();
+    
 
     this.ctx.beginPath();
     this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
@@ -573,7 +573,7 @@ class ParallelogramBox extends FlowchartBox {
     this.hitCtx.stroke();
     this.hitCtx.fill();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
   /** ParallelogramBox.outline
@@ -652,7 +652,7 @@ class TextBox extends FlowchartBox {
    *    but no border in recording
    */
   draw() {
-    super.draw();
+    
 
     this.ctx.editCtx.beginPath();
     this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
@@ -666,7 +666,7 @@ class TextBox extends FlowchartBox {
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
 
     // undo lineDash
     this.ctx.setLineDash([]);
@@ -762,7 +762,7 @@ class Connector extends FlowchartBox {
   /**  Connector.draw
    */
   draw() {
-    super.draw();
+    
 
     this.ctx.beginPath();
     this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
@@ -776,7 +776,7 @@ class Connector extends FlowchartBox {
     this.hitCtx.stroke();
     this.hitCtx.fill();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
   resize(deltaX, deltaY) {
@@ -832,7 +832,7 @@ class ResizePoint extends CanvasChildObject {
   /** ResizePoint.draw
    */
   draw() {
-    super.draw();
+    
     // only draw to hit detect canvas
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.beginPath();
