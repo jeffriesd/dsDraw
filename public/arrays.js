@@ -94,34 +94,12 @@ class Array1D extends LinearCanvasObject {
     copyArr.forEach(node => node.parentObject = copy);
     copy.array = copyArr;
 
-    // default array size is 8, so truncate copy if needed
-    copy.array = copy.array.slice(0, this.length);
-
-    // copy arrows
-    this.arrows.forEach((arr, index) => {
-      var cparrow = arr.clone();
-      
-      // index is [a, b]
-      var i1 = index[0];
-      var i2 = index[1];
-  
-      // copy anchors
-      cparrow.locked = {
-        from: copy.array[i1],
-        to: copy.array[i2]
-      };
-
-      copy.arrows.set(index, cparrow);
-    });
-
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
   draw() {
-    super.draw();
-
     this.nodes.forEach((node, idx) => {
-      node.draw(idx);
+      node.configAndDraw(idx);
       idx++;
     });
 
@@ -241,7 +219,7 @@ class ArrayNode extends NodeObject {
   /** ArrayNode.draw
    */
   draw(idx) {
-    super.draw();
+    
 
     this.x = (idx * this.cellSize) + this.getParent().x1;
     this.y = this.getParent().y1;
