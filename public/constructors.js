@@ -264,7 +264,7 @@ class LinkedListConstructor extends CanvasObjectConstructor {
 class BSTConstructor extends CanvasObjectConstructor {
   constructor(cState, ...args) {
     super(cState, ...args);
-    this.canvasClass = BST;
+    this.canvasClass = BSTCanvasObject;
   }
 
   executeChildren() {
@@ -282,18 +282,18 @@ class BSTConstructor extends CanvasObjectConstructor {
   }
 
   createObject() {
-    this.coords = this.coords || BST.defaultCoordinates(this.cState);
-    this.newObj = new BST(
+    this.coords = this.coords || BSTCanvasObject.defaultCoordinates(this.cState);
+    this.newObj = new BSTCanvasObject(
       this.cState, this.coords.x1, this.coords.y1, this.coords.x2, this.coords.y2);
 
     // default parameters
     if (this.initializer == undefined) this.initializer = "random";
 
-    var len = BST.defaultSize;
+    var len = BSTCanvasObject.defaultSize;
     if (this.initializer == "random")
-      randomArray(len, BST.randomSeed).forEach(x => this.newObj.insert(x));
+      randomArray(len, BSTCanvasObject.randomSeed).forEach(x => this.newObj.insert(x));
     else if (this.initializer == "complete") {
-      var vals = randomArray(len, BST.randomSeed).sort((a, b) => a > b);
+      var vals = randomArray(len, BSTCanvasObject.randomSeed).sort((a, b) => a > b);
       this.buildComplete(this.newObj, vals, 0, len - 1);
     }
     else if (this.initializer instanceof Array)
