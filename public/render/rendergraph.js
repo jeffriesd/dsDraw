@@ -65,7 +65,7 @@ function moveNodes(g, nodes, temperature) {
     ax = 0;
     ay = 0;
     
-    var neighbors = g.adjacency.get(v.index);
+    var neighbors = g.graph.adjacency.get(v.index);
     neighbors.forEach(nid => {
       var u = g.ids.get(nid);
       var fa = attraction(u, v);

@@ -1,19 +1,114 @@
-// undirected graph class
+ /**  DiGraph
+  *     represent adjacency list as 
+  *     map from nodeIndex -> Set(neighborIds)
+  */
+class DiGraph {
+  constructor() {
+    this.adjacency = new Map();
+  }
+
+  /** DiGraph.setAdjacency
+   *    update state using deepcopy of other adjacency list 
+   */
+  setAdjacency(otherAdj) {
+    this.adjacency = new Map();
+    otherAdj.forEach((neighbors, id) => {
+      this.adjacency.set(id, new Set(neighbors));
+    });
+  }
+
+  insertNode(nodeIndex) {
+    this.adjacency.set(nodeIndex, new Set());    
+  }
+
+  hasEdge(fi, ti) {
+    if (this.adjacency.has(fi))
+      return this.adjacency.get(fi).has(ti);
+    return false;
+  }
+
+  /** UDGraph.insertEdge
+   * @param fi - index of outgoing end
+   * @param ti - index of incoming end
+   */
+  insertEdge(fi, ti) {
+    if (fi == ti) 
+      throw "Self edges are not allowed"; 
+
+    var neighbors = this.adjacency.get(fi);
+    var node2 = this.adjacency.get(ti);
+
+    if (neighbors == undefined || node2 == undefined) 
+      throw "Node ids don't refer to existing nodes";
+    
+    // if edge already exists
+    if (neighbors.has(ti))
+      throw `Edge ${fi}, ${ti} already exists.`;
+    
+    neighbors.add(ti);
+  }
+
+  deleteNode(nodeIndex) {
+    if (this.adjacency.has(nodeIndex)) {
+      this.adjacency.delete(nodeIndex);
+      this.adjacency.forEach((neighbors, _nid) => {
+        neighbors.delete(nodeIndex);
+      });
+      return;
+    }    
+    throw `Node ${nodeIndex} does not exist.`;
+  }
+
+  deleteEdge(fi, ti) {
+    if (this.adjacency.has(fi)) {
+      if (this.adjacency.get(fi).has(ti)) {
+        this.adjacency.get(fi).delete(ti);
+        return;
+      }
+    }
+    throw `Edge ${fi}, ${ti} doesn't exist`
+  }
+
+}
+
+/** UDGraph -- undirected graph structure 
+ *    same implementation as DiGraph but 
+ *    edges are sorted before each operation
+ */
+class UDGraph extends DiGraph{
+  insertEdge(fi, ti) {
+    var is = [fi, ti].sort(); 
+    fi = is[0], ti = is[1];
+    super.insertEdge(fi, ti);
+  }
+
+  deleteEdge(fi, ti) {
+    var is = [fi, ti].sort(); 
+    fi = is[0], ti = is[1];
+    super.deleteEdge(fi, ti);
+  }
+
+  hasEdge(fi, ti) {
+    var is = [fi, ti].sort(); 
+    fi = is[0], ti = is[1];
+    super.hasEdge(fi, ti);
+  }
+}
+
+
+// Graph Canvas object class
 // adjacency list is upper edge matrix
 // so each entry is
 // i: [ ids > i]
-class Graph extends LinearCanvasObject {
+class GraphCanvasObject extends LinearCanvasObject {
   constructor(canvasState, x1, y1, x2, y2) {
     super(canvasState, x1, y1, x2, y2);
     this.ids = new Map();
 
-    // adjacency maps id -> [id]
-    this.adjacency = new Map();
-
     this.bboxStroke = "#aaaa";
     this.bboxThickness = 2;
     
-    Graph.defaultSize = 15;
+    GraphCanvasObject.defaultSize = 15;
 
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
@@ -61,7 +156,6 @@ class Graph extends LinearCanvasObject {
       "delNode": GraphDeleteNodeCommand,
       "render": GraphRenderCommand,
       "delEdge": GraphDeleteEdgeCommand,
-      // "layout": GraphLayoutCommand,
     };
   }
 
@@ -78,13 +172,11 @@ class Graph extends LinearCanvasObject {
   }
 
   /** Graph.setAdjacency
-   *    update state using deepcopy of other adjacency list 
+   *    wrapper for DIGraph.setAdjacency
+   *    - update state using deepcopy of other adjacency list 
    */
-  setAdjacency(otherAdj) {
-    this.adjacency = new Map();
-    otherAdj.forEach((neighbors, id) => {
-      this.adjacency.set(id, new Set(neighbors));
-    });
+  setAdjacency(otherGraph) {
+    this.graph.setAdjacency(otherGraph.adjacency);
   }
 
   /** Graph.clone
@@ -93,24 +185,28 @@ class Graph extends LinearCanvasObject {
   clone() {
     var copy = super.clone();
 
-    var copyNodes = this.nodes.map(node => { 
+    copy.ids = new Map();
+    this.nodes.forEach(node => { 
+      // copy node config and coordinates
       var c = node.clone();
       c.x = node.x;
       c.y = node.y;
-      return c;
+
+      // also set parent reference, 
+      // update copy id map and
+      // set copied node index
+      c.parentObject = copy;
+      c.index = node.index;
+      copy.ids.set(node.index, c);
     });
-    copyNodes.forEach(node => node.parentObject = copy);
-    copy.ids = new Map();
-    copyNodes.forEach(node => copy.ids.set(node.index, node));
-
     // do deep copy of adjacency list because values are arrays
-    copy.setAdjacency(this.adjacency);
+    copy.setAdjacency(this.graph);
 
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
   get nodes() {
-    return Array.from(this.adjacency.keys()).map(i => this.ids.get(i));
+    return Array.from(this.graph.adjacency.keys()).map(i => this.ids.get(i));
   }
 
   /** Graph.getChildren
@@ -139,22 +235,26 @@ class Graph extends LinearCanvasObject {
     this.ctx.font = font;
   }
 
+  render() {
+    renderGraph(this);
+  }
+
   draw() {
-    super.draw();
+    
     this.ctx.beginPath();
 
     // TODO only render when needed
     // renderGraph(this);
 
     // draw edges first
-    this.adjacency.forEach((neighbors, i1) => {
+    this.graph.adjacency.forEach((neighbors, i1) => {
       var node1 = this.ids.get(i1);
       var node2;
       neighbors.forEach(i2 => { 
         node2 = this.ids.get(i2);
 
         // skip deleted nodes
-        if (! this.adjacency.has(i2)) return;
+        if (! this.graph.adjacency.has(i2)) return;
 
         this.ctx.moveTo(node1.x, node1.y);
         this.ctx.lineTo(node2.x, node2.y);
@@ -163,7 +263,7 @@ class Graph extends LinearCanvasObject {
     this.ctx.stroke();
 
     // draw node overtop of edges
-    this.nodes.forEach(node => node.draw());
+    this.nodes.forEach(node => node.configAndDraw());
 
     // draw bbox
     if (this.active()) {
@@ -175,41 +275,34 @@ class Graph extends LinearCanvasObject {
     }
 
     this.ctx.beginPath();
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
+
+  /** BEGIN WRAPPER FUNCTIONS FOR GRAPHS  */
+
   /** Graph.addNode
-   *    create a new node and add it to adjacency list
+   *    create a new node, assign unique id, and add it to adjacency list
    */
   addNode(value) {
-    var newNode = new GraphNode(this.cState, this, value);
     var id = this.newIndex();
-    newNode.index = id;
+    var newNode = new GraphNode(this.cState, this, value, id);
     this.ids.set(id, newNode);
 
-    // adjacency maps GraphNode -> [id]
-    this.adjacency.set(id, new Set());
+    // adjacency maps nodeId-> {neighborIds}
+    this.graph.insertNode(id);
     return newNode;
+  }
+
+  hasEdge(i1, i2) {
+    return this.graph.hasEdge(i1, i2);
   }
 
   /** Graph.addEdge
    *    create an edge between two nodes with indices
    */
   addEdge(i1, i2) {
-    if (i1 == i2) 
-      throw "Self edges are not allowed"; 
-
-    var neighbors = this.adjacency.get(i1);
-    var node2 = this.ids.get(i2);
-
-    if (neighbors == undefined || node2 == undefined) 
-      throw "Node ids don't refer to existing nodes";
-    
-    // if edge already exists
-    if (neighbors.has(i2))
-      throw `Edge ${i1}, ${i2} already exists.`;
-    
-    neighbors.add(i2);
+    this.graph.insertEdge(i1, i2);
   }
 
 /**   Graph.deleteEdge
@@ -219,13 +312,7 @@ class Graph extends LinearCanvasObject {
    *    @param {Int} i2 -- edge goes to i2
    */
   deleteEdge(i1, i2) {
-    if (this.adjacency.has(i1)) {
-      if (this.adjacency.get(i1).has(i2)) {
-        this.adjacency.get(i1).delete(i2);
-        return;
-      }
-    }
-    throw `Edge ${x}, ${y} doesn't exist`
+    this.graph.deleteEdge(i1, i2);
   }
 
   snapBoundingBox() {
@@ -264,9 +351,26 @@ class Graph extends LinearCanvasObject {
   }
 }
 
+// graph canvas object subclasses for undirected
+// and directed graphs
+class DiGraphCanvasObject extends GraphCanvasObject {
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
+    this.graph = new DiGraph();
+  }
+}
+
+class UDGraphCanvasObject extends GraphCanvasObject {
+  constructor(canvasState, x1, y1, x2, y2) {
+    super(canvasState, x1, y1, x2, y2);
+    this.graph = new UDGraph();
+  }
+}
+
+
 class GraphNode extends NodeObject {
-  constructor(canvasState, parentGraph, value) {
-    super(canvasState, parentGraph, value);
+  constructor(canvasState, parentGraph, value, index) {
+    super(canvasState, parentGraph, value, index);
     // coordinate is somewhat random at first
     this._x = undefined;
     this._y = undefined;
@@ -279,14 +383,18 @@ class GraphNode extends NodeObject {
   // (when graph is cloned parent reference is updated
   // after call to constructor)
   get x() {
-    if (this._x == undefined) 
-      this.x = this.getParent().x1 + Math.random() * 100;
+    if (this._x == undefined) {
+      var graph = this.getParent();
+      this.x = graph.x1 + Math.random() * (graph.x2 - graph.x1);
+    }
     return this._x;
   }
 
   get y() {
-    if (this._y == undefined)
-      this.y = this.getParent().y1 + Math.random() * 100;
+    if (this._y == undefined) {
+      var graph = this.getParent();
+      this.y = graph.y1 + Math.random() * (graph.y2 - graph.y1);
+    }
     return this._y;
   }
 
@@ -332,10 +440,10 @@ class GraphNode extends NodeObject {
    *    draw node with center at x, y and 
    *    node value
    * 
-   *  TODO -- generalize -- same method as BSTNode.draw
+   *  TODO -- generalize -- same method as BSTNodeCanvasObject.draw
    */
   draw() {
-    super.draw();
+    
     this.ctx.beginPath();  
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     this.ctx.stroke();
