@@ -81,8 +81,8 @@ class FlowchartBox extends CanvasObject {
     };
   }
 
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
 
     // set text in clone
     copy.editor.value = this.editor.value;

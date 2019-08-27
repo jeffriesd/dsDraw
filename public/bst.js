@@ -264,9 +264,6 @@ class BST {
     return copy;
   }
 
-  claimChildren(root) {
-  }
-
   /** BST.addNode
    *    register new BST node with unique id 
    *    in both this class (underlying data structure)
@@ -536,14 +533,14 @@ class BSTCanvasObject extends LinearCanvasObject {
    *    do recursive clone of tree 
    *    and update parentObj reference
    */
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
     copy.bst = this.bst.clone();
     copy.bst.bstCanvasObject = copy;
 
     // clone canvas nodes and set ids
     this.nodes.forEach(node => {
-      var cnode = node.clone();
+      var cnode = node.clone(cloneHandle);
       cnode.parentObject = copy;
       copy.ids.set(node.index, cnode);
     });

@@ -65,19 +65,21 @@ class LinkedList extends LinearCanvasObject {
     };
   }
 
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
 
     // copy config of each node
     // for (var idx in this.list) {
     this.list.forEach((node, idx) => {
-      copy.list.set(idx, new ListNode(this.cState, copy, 
-        node.value, node.index, node.x, node.y));
-      copy.ids.set(idx, copy.list.get(idx));
-      Object.assign(copy.list.get(idx), node.config()); 
+      var copyNode = node.clone(cloneHandle);
+      copyNode.x = node.x;
+      copyNode.y = node.y;
+      copyNode.parentObject = copy;
+      copy.list.set(idx, copyNode);
+      copy.ids.set(idx, copyNode);
     });
 
-    console.log(`${copy._label}: `, Array.from((copy.ids).keys()), `${this._label}: `, Array.from((this.ids).keys()));
+    // console.log(`${copy._label}: `, Array.from((copy.ids).keys()), `${this._label}: `, Array.from((this.ids).keys()));
 
     this.arrows.forEach((arr, index) => {
       var i1 = index[0];
@@ -88,7 +90,7 @@ class LinkedList extends LinearCanvasObject {
 
       // var cparrow = new ChildArrow(this.cState, copy, 
       //   from.x, from.y, to.x, to.y);
-      var cparrow = arr.clone();
+      var cparrow = arr.clone(cloneHandle);
       cparrow.parentObject = copy; 
       cparrow.x1 = from.x;
       cparrow.y1 = from.y;
@@ -106,7 +108,7 @@ class LinkedList extends LinearCanvasObject {
     // copy head of list
     copy.head = copy.list.get(this.head.index);
 
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
   /** LinkedList.getChildren
@@ -124,15 +126,35 @@ class LinkedList extends LinearCanvasObject {
   }
 
   draw() {
-    super.draw();
-
     this.nodes.forEach((node, idx) => {
-      node.draw(idx);
+      node.configAndDraw(idx);
       idx++;
     });
 
     this.drawArrows();
   }
+
+  /** LinkedList.drawArrows
+   *    for each arrow in map, extract start
+   *    end ending indices (which nodes are
+   *    each arc anchored to?) and use
+   *    getChild to get node objects. If either
+   *    index is missing, don't draw anything.
+   *    
+   *    otherwise lock its endpoints and call
+   *    arrow.draw()
+   */
+  drawArrows() {
+    this.arrows.forEach((arrow, idx) => { 
+      var from = this.getChild(idx[0]);
+      var to = this.getChild(idx[1]);
+      if (from == null || to == null) return;
+      from.lockArrow(arrow, "from");
+      to.lockArrow(arrow, "to");
+      arrow.configAndDraw();
+    });
+  }
+
 
   /** LinekdList.newIndex
    *    create a unique index by taking max of current indices + 1
@@ -242,11 +264,10 @@ class LinkedList extends LinearCanvasObject {
 
 class ListNode extends NodeObject {
   constructor(canvasState, parentObject, value, index, x, y) {
-    super(canvasState, parentObject, value);
+    super(canvasState, parentObject, value, index);
 
     this.borderThickness = 2;
 
-    this.index = index;
     this.x = x;
     this.y = y;
   }
@@ -258,41 +279,6 @@ class ListNode extends NodeObject {
   configureOptions() {
     super.configureOptions();
     this.nodeStyle = this.getParent().nodeStyle;
-  }
-
-  /** ListNode.draw
-   */
-  draw() {
-    super.draw();
-    // list uses unique (i.e. not positional like array)
-    // indices
-    var idx = this.index;
-
-    this.ctx.beginPath();
-    this.hitCtx.beginPath();
-
-    if (this.nodeStyle == "circle") {
-      this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    }
-    if (this.nodeStyle == "square") {
-      var h = Math.floor(this.cellSize / 2);
-      this.ctx.rect(this.x - h, this.y - h, this.cellSize, this.cellSize);
-      this.ctx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
-      this.hitCtx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
-    }
-
-    this.ctx.stroke();
-    this.ctx.fill();
-
-    this.hitCtx.fill();
-
-    // leave node blank if value is null
-    if (this.getParent().showValues && this.showValues && this.value !== null)
-      this.drawValue();
-
-    if (this.getParent().showIndices && this.showIndices)
-      this.drawIndex(idx);
   }
 
   /** ListNode.drawValue

@@ -86,11 +86,11 @@ class Array1D extends LinearCanvasObject {
     };
   }
 
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
 
     // copy config of array cells
-    var copyArr = this.array.map(node => node.clone());
+    var copyArr = this.array.map(node => node.clone(cloneHandle));
     copyArr.forEach(node => node.parentObject = copy);
     copy.array = copyArr;
 
@@ -102,8 +102,6 @@ class Array1D extends LinearCanvasObject {
       node.configAndDraw(idx);
       idx++;
     });
-
-    this.drawArrows();
   }
 
   getStartCoordinates() {

@@ -58,7 +58,7 @@ class CanvasObject {
     return this.constructor.name;
   }
 
-  clone() {
+  clone(cloneHandle) {
     if (this.config === null)
       throw `No configurable options for ${this.constructor.name}`;
 
@@ -66,7 +66,9 @@ class CanvasObject {
       new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
 
     Object.assign(copy, this.config());
-    this._cloneRef = copy; return copy;
+    this._cloneRef = copy; 
+    copy.cloneHandle = cloneHandle;
+    return copy;
   }
 
   set label(value) {
@@ -423,7 +425,7 @@ class CanvasChildObject {
       this.anchorsTo.push(lockedObj);
   }
 
-  clone() {
+  clone(cloneHandle) {
     if (this.config === null)
       throw `No configurable options for ${this.constructor.name}`;
 
@@ -432,6 +434,7 @@ class CanvasChildObject {
 
     Object.assign(copy, this.config());
 
+    copy.cloneHandle = cloneHandle;
     this._cloneRef = copy; return copy;
   }
 
@@ -479,9 +482,15 @@ class CanvasChildObject {
   }
 
 
-  configAndDraw() {
+  /** CanvasChildObject.configAndDraw
+   *    configure canvas options and draw object.
+   *    may need to pass arguments such as index
+   *    to draw method
+   * @param  {...any} drawArgs 
+   */
+  configAndDraw(...drawArgs) {
     this.configureOptions();
-    this.draw();
+    this.draw(...drawArgs);
   }
 
   click(event) {

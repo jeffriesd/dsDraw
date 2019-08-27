@@ -1,3 +1,4 @@
+
 class BinaryHeap extends LinearCanvasObject {
   /** BinaryHeap.constructor
    *    BinaryHeap extends linear canvas object for
@@ -83,12 +84,12 @@ class BinaryHeap extends LinearCanvasObject {
   /** BinaryHeap.clone
    *    clone heap array
    */
-  clone() {
-    var copy = super.clone();
-    var copyArr = this.heapArray.map(node => node.clone());
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
+    var copyArr = this.heapArray.map(node => node.clone(cloneHandle));
     copyArr.forEach(node => node.parentObject = copy);
     copy.heapArray = copyArr;
-    this._cloneRef = copy; return copy;
+    return copy;
   }
 
   get root() {
@@ -141,8 +142,8 @@ class BinaryHeap extends LinearCanvasObject {
   insert(value) {
     if (typeof value !== "number")
       throw "BinaryHeap only supports numeric values.";
-    var newNode = new BinaryHeapNode(this.cState, this, null, value);
-    newNode.index = this.newIndex();
+    var index = this.newIndex();
+    var newNode = new BinaryHeapNode(this.cState, this, null, value, index);
     this.ids.set(newNode.index, newNode);
 
     if (this.root == null) 
@@ -286,9 +287,9 @@ class BinaryHeap extends LinearCanvasObject {
   }
 
   draw() {
-    super.draw();
+    
     // TODO only render when needed
-    renderBST(this);
+    renderHeap(this);
 
     this.preorder().forEach(node => {
       // determine absolute coordinates
@@ -310,19 +311,14 @@ class BinaryHeap extends LinearCanvasObject {
       this.ctx.stroke();
 
       // draw node overtop of edges
-      node.draw();
+      node.configAndDraw();
     });
-
-    this.hitCtx.beginPath();
-    this.hitCtx.fillRect(this.x1, this.y1, this.x2 - this.x1, this.y2 - this.y1);
-    super.draw();
   }
-  
 }
 
 class BinaryHeapNode extends NodeObject {
-  constructor(canvasState, parentBinaryHeap, parNode, value) {
-    super(canvasState, parentBinaryHeap, value);
+  constructor(canvasState, parentBinaryHeap, parNode, value, index) {
+    super(canvasState, parentBinaryHeap, value, index);
 
     this.parNode = parNode;
 
@@ -468,7 +464,7 @@ class BinaryHeapNode extends NodeObject {
    *    node value
    */
   draw() {
-    super.draw();
+    
     this.ctx.beginPath();  
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     this.ctx.stroke();
@@ -485,7 +481,8 @@ class BinaryHeapNode extends NodeObject {
     this.hitCtx.fill();
   }
 
-  /** BinaryHeapNode.drawIndex
+  /** BinaryHeap
+   * Node.drawIndex
    *    draw node index at top left 
    */
   drawIndex(idx) {

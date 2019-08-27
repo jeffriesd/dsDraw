@@ -7,6 +7,14 @@ class DiGraph {
     this.adjacency = new Map();
   }
 
+  copyAdjacency() {
+    var adjacency = new Map();
+    this.adjacency.forEach((neighbors, nid) => {
+      adjacency.set(nid, new Set(neighbors));
+    });
+    return adjacency;
+  }
+
   /** DiGraph.setAdjacency
    *    update state using deepcopy of other adjacency list 
    */
@@ -108,13 +116,17 @@ class GraphCanvasObject extends LinearCanvasObject {
     this.bboxStroke = "#aaaa";
     this.bboxThickness = 2;
     
-    GraphCanvasObject.defaultSize = 15;
+    GraphCanvasObject.defaultSize = 10;
 
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
 
   static defaultCoordinates(cState) {
     var center = cState.getCenter();
+    center = {
+      x : 100,
+      y : 100
+    }
 
     var w = 600;
     var h = 600;
@@ -147,7 +159,7 @@ class GraphCanvasObject extends LinearCanvasObject {
     };
   }
   
-  /** Graph.methodNames
+  /** GraphCanvasObject.methodNames
    */
   methodNames() {
     return {
@@ -171,7 +183,11 @@ class GraphCanvasObject extends LinearCanvasObject {
     return [this.resizePoint, ...this.nodes];
   }
 
-  /** Graph.setAdjacency
+  copyAdjacency() {
+    return this.graph.copyAdjacency();
+  }
+
+  /** GraphCanvasObject.setAdjacency
    *    wrapper for DIGraph.setAdjacency
    *    - update state using deepcopy of other adjacency list 
    */
@@ -179,16 +195,16 @@ class GraphCanvasObject extends LinearCanvasObject {
     this.graph.setAdjacency(otherGraph.adjacency);
   }
 
-  /** Graph.clone
+  /** GraphCanvasObject.clone
    *    clone nodes and update their parent references
    */
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
 
     copy.ids = new Map();
     this.nodes.forEach(node => { 
       // copy node config and coordinates
-      var c = node.clone();
+      var c = node.clone(cloneHandle);
       c.x = node.x;
       c.y = node.y;
 
@@ -209,7 +225,7 @@ class GraphCanvasObject extends LinearCanvasObject {
     return Array.from(this.graph.adjacency.keys()).map(i => this.ids.get(i));
   }
 
-  /** Graph.getChildren
+  /** GraphCanvasObject.getChildren
    *    return nodes with indices 
    *    in the [low, high)
    */
@@ -292,6 +308,10 @@ class GraphCanvasObject extends LinearCanvasObject {
     // adjacency maps nodeId-> {neighborIds}
     this.graph.insertNode(id);
     return newNode;
+  }
+
+  deleteNode(nodeId) {
+    this.graph.deleteNode(nodeId);
   }
 
   hasEdge(i1, i2) {

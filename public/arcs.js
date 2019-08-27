@@ -454,21 +454,14 @@ class CurvedArrow extends Arrow {
 
   /** CurvedArrow.clone
    */
-  clone() {
-    var copy = super.clone();
+  clone(cloneHandle) {
+    var copy = super.clone(cloneHandle);
     
     // set control points
     copy.cp1.x = this.cp1.x;
     copy.cp1.y = this.cp1.y;
     copy.cp2.x = this.cp2.x;
     copy.cp2.y = this.cp2.y;
-
-    if (this.locked) {
-      copy.locked = {
-        from: this.locked.from._cloneRef,
-        to: this.locked.to._cloneRef,
-      };
-    }
     return copy;
   }
 
