@@ -1,6 +1,25 @@
 
-class Dictionary {
+class LanguageObject {
+
+  propNames() {
+    return {};
+  }
+
+  methodNames() {
+    return {};
+  }
+
+  propMethodNames() {
+    return {
+      ...this.propNames(),
+      ...this.methodNames(),
+    };
+  }
+}
+
+class Dictionary extends LanguageObject {
   constructor(keyValueList) {
+    super();
     keyValueList.forEach(([k, v]) => {
       this.set(k, v);
     });
@@ -9,15 +28,36 @@ class Dictionary {
     this.map = new Map();
   }
 
-  set(key, value) {
+
+  methodNames() {
+    return {
+      "keys" : DictionaryKeysCommand,
+      "values": DictionaryValuesCommand,
+      "delete": DictionaryDeleteCommand
+    }
+  }
+
+  checkKeyValue(key) {
     if (! (typeof key == "number" || typeof key == "string"))
       throw `Dictionary keys must be string or number: ${key}.`;
-    // this[key] =  value;
+  }
+
+  has(key) {
+    return this.map.has(key);
+  }
+
+  set(key, value) {
+    this.checkKeyValue(key);
     this.map.set(key, value);
   }
 
+  delete(key) {
+    this.checkKeyValue(key);
+    if (this.has(key))
+      this.map.delete(key);
+  }
+
   get(key) { 
-    // return this[key];
     return this.map.get(key);
   }
 
