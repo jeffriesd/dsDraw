@@ -36,7 +36,10 @@ const constructors = {
   "bst":      BSTConstructor,
   "bheap":    BinaryHeapConstructor,
   "plot":     PlotlyPlotConstructor,
-  "graph":    GraphConstructor,
+  "ugraph":   UDGraphConstructor,
+  "udgraph":  UDGraphConstructor,
+  "dgraph":   DiGraphConstructor, 
+  "digraph":  DiGraphConstructor,
 };
 
 /** createFunctionCommand 
