@@ -1,5 +1,3 @@
-
-
 // TODO
 // organize command classes into separate files
 
@@ -165,26 +163,58 @@ class CloneCommand extends DrawCommand {
     else
       this.group = [this.receiver];
 
-    // don't clone objects that are 'locked' -- they get cloned 
-    // by parent object
-    // this.group = this.group.filter(r => ! r.getParent().locked);
 
     // clone arrows last so their anchors get cloned first
     // (false comes first in sorting)
-    const isArrow = x => x instanceof Arrow;
-    this.group = this.group.sort(isArrow);
+    this.group = this.group.sort(x => x instanceof Arrow);
 
     this.newPos = this.group.map(r => {
       return { x: r.x + deltaX, y: r.y + deltaY };
     });
 
-    this.clones = this.group.map(r => r.clone());
+    // use a unique object to identify
+    // when anchored objects were
+    // cloned by the same command
+    // as the arrow/lockable objects
+    var cloneHandle = {};
+
+    this.clones = this.group.map(r => { 
+      var clone = r.clone(cloneHandle);
+
+      // re-anchor arrows whose anchors
+      // were also cloned by this same command
+      // 
+      // check for cloneHandle object to 
+      // see if the anchor was cloned by this same command 
+      // (and not previously)
+      if (r.locked) {
+        clone.locked = {
+          from: r.locked.from && r.locked.from._cloneRef.cloneHandle === cloneHandle ?   
+                r.locked.from._cloneRef : null,
+          to:   r.locked.to   && r.locked.to._cloneRef.cloneHandle === cloneHandle ? 
+                r.locked.to._cloneRef   : null,
+        }
+      }
+
+      return clone;
+    });
+
+    // destroy _cloneRef so they don't get
+    // picked up accidentally by future 
+    // clonings
+    this.group.forEach(r => {
+      r._cloneRef = null;
+      console.log("setting ", r._label, "cr to", r, r._cloneRef)
+    });
+
+    this.group.forEach(r => {
+      console.log("post del", r._cloneRef)
+    });
   }
  
   /** CloneCommand.execute
-   *    Clone all objects in selection except those
-   *    objects which are 'locked' to a parent,
-   *    e.g. an arc that is attached to an array
+   *    Clone all objects in selection 
+   *    and translate by dx, dy
    */  
   execute() {
     this.clones.forEach((cl, i) => {
@@ -671,6 +701,7 @@ class GetChildCommand extends ConsoleCommand {
   }
 
   checkArguments() {
+    if (this.receiver instanceof Dictionary) return;
     if (this.receiver instanceof Array)
       if (this.key < 0 || this.key >= this.receiver.length)
         throw "Array index out of bounds: " + this.key;
@@ -686,15 +717,14 @@ class GetChildCommand extends ConsoleCommand {
   executeSelf() {
     if (this.receiver instanceof Array) 
       return this.receiver[this.key];
+    if (this.receiver instanceof Dictionary)
+      return this.receiver.get(this.key);
 
     if (this.receiver instanceof CanvasObject) {
       if (this.receiver.getChildren == undefined)
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.key, this.key+1)[0];
     }
-
-    if (this.receiver.constructor == Object) 
-      return this.receiver[this.key];
 
     throw `Cannot perform access on '${this.receiver.constructor.name}'.`;
   }
@@ -831,6 +861,10 @@ class AssignListElementCommand extends ConsoleCommand {
   }
 
   executeSelf() {
+    if (this.list instanceof Dictionary) {
+      this.list.set(this.index, this.rValue);
+      return;
+    }
     this.oldValue = this.list[this.index];
     this.list[this.index] = this.rValue;
   }
@@ -868,732 +902,6 @@ class CanvasObjectMethod extends ConsoleCommand {
     throw errMessage;
   }
 }
-
-
-class Array1DCommand extends CanvasObjectMethod {
-
-  checkIndices(...indices) {
-    var len = this.receiver.array.length;
-    
-    indices.forEach(i => {
-      if (i >= len || i < 0 || isNaN(Number(i)))
-        this.argsError(`Invalid index: '${i}'`);
-    });
-  }
-}
-
-class Array1DLengthCommand extends Array1DCommand {
-  executeSelf() {
-    return this.receiver.array.length; 
-  }
-
-  undo() {}
-}
-
-/** Array1DResizeCommand
- *    resize array to new length. Length must be > 0.
- *    Previous array is saved for undo method.
- *    If array is lengthened, random values are inserted.
- *
- *    When array is truncated, check to see if any arcs should 
- *    also be destroyed.
- */
-class Array1DResizeCommand extends Array1DCommand {
-  constructor(receiver, newLength) {
-    super(receiver, newLength);
-    // save old array for undo
-    this.prevArray = this.receiver.array.slice();
-    this.prevArrows = new Map();
-
-    this.newValues = null;
-  }
-  
-  executeChildren() {
-    super.executeChildren();
-    this.newLength = this.args[0];
-
-    if (typeof this.newLength != "number")
-      this.argsError("Array.resize argument must be number");
-  }
-
-  checkArguments() {
-    if (this.newLength < 1)
-      this.argsError(`Invalid array length: ${this.newLength}`);
-  }
-
-  executeSelf() {
-    var startLength = this.receiver.array.length;
-
-    var newValues = [];
-    for (var i = startLength; i < this.newLength; i++) {
-      // save values for redo
-      if (this.newValues == null)
-        newValues.push(this.receiver.append("random"));
-      else 
-        this.receiver.append(this.newValues[i - startLength]);
-    }
-    if (newValues.length) this.newValues = newValues;
-
-    // make array smaller
-    if (this.newLength < startLength) {
-      this.receiver.array = this.receiver.array.slice(0, this.newLength); 
-       
-      this.receiver.arrows.forEach((arrow, aidx) => {
-        var start = aidx[0];
-        var end = aidx[1];
-        if (start >= this.newLength || end >= this.newLength) {
-          this.prevArrows.set(aidx, arrow);
-          this.receiver.arrows.deleteEquiv(aidx);
-          arrow.destroy();
-        }
-      });
-    }
-  }
-
-  undo() {
-    this.receiver.array = this.prevArray.slice();
-
-    // add back any removed arrows
-    this.receiver.arrows = new Map(this.prevArrows);
-  }
-}
-
-class Array1DSwapCommand extends Array1DCommand {
-
-  executeChildren() {
-    super.executeChildren();
-    this.i1 = this.args[0];
-    this.i2 = this.args[1]; 
-  }
-
-  checkArguments() {
-    this.checkIndices(this.i1, this.i2);
-  }
-
-  executeSelf() {
-    var t = this.receiver.array[this.i1];
-    this.receiver.array[this.i1] = this.receiver.array[this.i2];
-    this.receiver.array[this.i2] = t;
-  }
-
-  undo() {
-    this.executeSelf();
-  }
-
-  usage() {
-    return "array.swap [index1] [index2]";
-  }
-}
-
-class Array1DArrowCommand extends Array1DCommand {
-  constructor(receiver, index1, index2) {
-    super(receiver, index1, index2);
-    this.arrow = null;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.i1 = this.args[0];
-    this.i2 = this.args[1];
-  }
-
-  checkArguments() {
-    this.checkIndices(this.i1, this.i2);
-  }
-
-  /** Array1DArrowCommand.execute
-   *    add an arc from i1 to i2
-   */
-  executeSelf() {
-    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) return;
-    var fromAnchor = this.receiver.array[this.i1];
-    var toAnchor = this.receiver.array[this.i2];
-
-    if (this.arrow == null) {
-      var cs = this.receiver.cellSize;
-      var x1 = (this.i1 * cs) + this.receiver.x1;
-      var x2 = (this.i2 * cs) + this.receiver.x1;
-      
-      // anchor to center of cells
-      x1 += Math.floor(cs / 2);
-      x2 += Math.floor(cs / 2);
-    
-      var y = this.receiver.y1;
-      
-      this.arrow = 
-        new CurvedArrow(this.receiver.cState, x1, y, x2, y, fromAnchor, toAnchor);
-      this.arrow.keyRestore = [this.i1, this.i2];
-
-      // set control points so arc goes above by default
-      var mid = Math.floor((x1 + x2) / 2);
-      this.arrow.cp1.x = Math.floor((x1 + mid) / 2);
-      this.arrow.cp2.x = Math.floor((mid + x2) / 2);
-      this.arrow.cp1.y = y - cs;
-      this.arrow.cp2.y = y - cs;
-    } 
-    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
-  }
-
-  /** Array1DArrowCommand.undo
-   *    remove arrow if it exists 
-   */
-  undo() {
-    if (this.arrow != null) {
-      this.arrow.destroy();
-      this.receiver.arrows.deleteEquiv([this.i1, this.i2]);
-    }
-  }
-
-  usage() {
-    return "array.arc(fromIndex, toIndex)";
-  }
-}
-
-/** Array1DCopyCommand
- *    copy contents (values) of this array to another
- *
- *    syntax:
- *
- *    arr.copy [label of dest array] [num elements] [source index] [dest index]
- *
- *    defaults:
- *    numCopy - length of src array
- *    srcIndex - 0 
- *    destIndex - 0
- *
- */
-class Array1DCopyCommand extends Array1DCommand {
-  constructor(receiver, destArr, numCopy, srcIndex, destIndex) {
-    super(receiver, destArr, numCopy, srcIndex, destIndex);
-    // save values for undo
-    this.savedValues = null;
-  }
-  
-  executeChildren() {
-    super.executeChildren();
-    this.destArr = this.args[0];
-    this.numCopy = this.args[1];
-    this.srcStart = this.args[2];
-    this.destStart = this.args[3];
-
-    // default parameters
-    if (this.numCopy == undefined)
-      this.numCopy = this.receiver.array.length;
-    if (this.srcStart == undefined)
-      this.srcStart = 0;
-    else this.srcStart = this.srcStart;
-    if (this.destStart == undefined)
-      this.destStart = 0;
-    else this.destStart = this.destStart;
-  }
-
-  checkArguments() {
-    if (! (this.destArr instanceof Array1D))
-      this.argsError(`'${this.argNodes[0]}' is not an array.`);
-    if (this.destStart < 0 || this.destStart >= this.destArr.array.length)
-      this.argsError(`Invalid index: ${this.destStart}`);
-
-    // calculate upper bounds
-    this.srcEnd =
-      Math.min(this.srcStart + this.numCopy - 1, this.receiver.array.length - 1);
-    this.destEnd = 
-      Math.min(this.destStart + this.numCopy - 1, this.destArr.array.length - 1);
-
-    this.checkIndices(this.srcStart, this.srcEnd);
-  }
-
-  /** Array1DCopyCommand.execute
-   *    iterate through each array and copy values
-   *    as long as both arrays have remaining elements
-   */
-  executeSelf() {
-    if (this.savedValues == null) {
-      this.savedValues = 
-        this.destArr.getChildren(this.srcStart, this.srcEnd).map((x) => x.value);
-    }
-
-    var si = this.srcStart, di = this.destStart;
-    for (; si <= this.srcEnd && di <= this.destEnd; si++, di++)
-      this.destArr.array[di].value = this.receiver.array[si].value; 
-  }
-
-  /** Array1DCopyCommand.undo
-   *    restore contents of dest array
-   */
-  undo() {
-    this.savedValues.forEach((v, idx) => {
-      this.destArr.array[this.destStart + idx].value = v;
-    });
-  }
-
-  usage() {
-    return "array.copy [destArr] [[numCopy]] [[srcIndex]] [[dstIndex]]";
-  }
-
-}
-
-class Array1DSortCommand extends Array1DCommand {
-  constructor(receiver) {
-    super(receiver);
-    // save state for undo 
-    this.savedArray = this.receiver.array.slice(); 
-  }
-
-  executeSelf() {
-    this.receiver.array = this.receiver.array.sort(
-      (a, b) => a.value > b.value
-    );
-  }
-
-  undo() {
-    this.receiver.array = this.savedArray.slice();
-  }
-}
-
-/** LinkedList commands
- */
-
-class LinkedListCommand extends CanvasObjectMethod {
-  checkIndices(...indices) {
-    indices.forEach(i => {
-      if (! (this.receiver.list.hasEquiv(i))) {
-        console.log(i, "not in ", this.receiver.list);
-        this.argsError(`Invalid index: ${i}.`);
-      }
-    });
-  }
-}
-
-class LinkedListInsertCommand extends LinkedListCommand {
-
-  executeChildren() {
-    super.executeChildren();
-    this.fromIndex = this.args[0];
-    this.value = this.args[1];
-  }
-
-  checkArguments() {
-    this.checkIndices(this.fromIndex);
-    if (isNaN(Number(this.value)))
-      this.argsError("Invalid value for linked list:" + this.value);
-  }
-
-  executeSelf() {
-    this.fromNode = this.receiver.list.get(this.fromIndex);
-    // addNode creates new node and new edge
-    this.newNode = this.receiver.addNode(this.fromNode, this.value);
-  }
-
-  undo() {
-    // remove node and newly created edge
-    this.receiver.removeNode(this.newNode);
-  }
-}
-
-class LinkedListLinkCommand extends LinkedListCommand {
-
-  executeChildren() {
-    super.executeChildren();
-    this.fromIndex = this.args[0];
-    this.toIndex = this.args[1];
-  }
-
-  checkArguments() {
-    this.checkIndices(this.fromIndex, this.toIndex);
-  }
-
-  executeSelf() {
-    this.fromNode = this.receiver.list.get(this.fromIndex);
-    this.toNode = this.receiver.list.get(this.toIndex);
-    this.receiver.addEdge(this.fromNode, this.toNode);
-  }
-
-  undo() {
-    this.receiver.removeEdge(this.fromNode, this.toNode);
-  }
-}
-
-class LinkedListCutCommand extends LinkedListCommand {
-
-  executeChildren() {
-    super.executeChildren();
-    this.fromIndex = this.args[0];
-    this.toIndex = this.args[1];
-
-    // // save arrow object for undo
-    // this.edge = null;
-  }
-
-  checkArguments() {
-    this.checkIndices(this.fromIndex, this.toIndex);
-  }
-
-  executeSelf() {
-    this.fromNode = this.receiver.list.get(this.fromIndex);
-    this.toNode = this.receiver.list.get(this.toIndex);
-    this.edge = this.receiver.removeEdge(this.fromNode, this.toNode);
-  }
-
-  /** LinkedListCutCommand.undo 
-   *    restore cut edge (it will add itself back
-   *    to parent map in its restore method)
-   */
-  undo() {
-    // this.edge.restore();
-    this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
-  }
-}
-
-class LinkedListRemoveCommand extends LinkedListCommand {
-  constructor(receiver, removeIdx) {
-    super(receiver, removeIdx);
-
-    this.node = null;
-    this.removedArrows = [];
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.removeIndex = this.args[0];
-  }
-
-  checkArguments() {
-    this.checkIndices(this.removeIndex);
-  }
-
-  executeSelf() {
-    if (this.node == null) {
-      this.node = this.receiver.list.get(this.removeIndex);
-      // this.receiver.arrows.forEach((arr, idx) => {
-      //   if (idx.includes(this.removeIndex))
-      //     this.removedArrows.push(arr);
-      // });
-
-      // TODO implement arrow save/restore
-      this.oldArrows = new Map();
-      this.receiver.arrows.forEach((v, k) => {
-        this.oldArrows.set(k, v);
-      });
-    }
-    this.receiver.list.delete(this.removeIndex);
-
-    // deprecated bc of child arrow class
-    // this.removedArrows.forEach(arr => arr.destroy());
-  }
-
-  undo() {
-    this.receiver.list.set(this.removeIndex, this.node);
-
-    // deprecated bc of child arrow class
-    // this.removedArrows.forEach(arr => arr.restore());
-  }
-}
-
-class BSTCommand extends CanvasObjectMethod {
-}
-
-class BSTArrowCommand extends BSTCommand {
-  constructor(receiver, index1, index2) {
-    super(receiver, index1, index2);
-    this.arrow = null;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.i1 = this.args[0];
-    this.i2 = this.args[1];
-  }
-
-  checkArguments() {
-    if (this.receiver.getChild(this.i1) == null)
-      throw "Invalid index: " + this.i1;
-    if (this.receiver.getChild(this.i2) == null)
-      throw "Invalid index: " + this.i2;
-  }
-
-  /** BSTArrowCommand.execute
-   *    add an arc from node with index i1 to 
-   *    node with index i2
-   */
-  executeSelf() {
-    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) return;
-    var fromAnchor = this.receiver.getChild(this.i1);
-    var toAnchor = this.receiver.getChild(this.i2);
-
-    if (this.arrow == null) {
-      // create new locked arrow
-      var anchors = {from: fromAnchor, to: toAnchor};
-      this.arrow = 
-        new CurvedArrow(this.receiver.cState, 
-          fromAnchor.x, fromAnchor.y, toAnchor.x, toAnchor.y, anchors);
-      this.arrow.keyRestore = [this.i1, this.i2];
-    } 
-    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
-    this.arrow.restore();
-  }
-
-  /** Array1DArrowCommand.undo
-   *    remove arrow if it exists 
-   */
-  undo() {
-    if (this.arrow != null) {
-      this.arrow.destroy();
-      this.receiver.arrows.deleteEquiv([this.i1, this.i2]);
-    }
-  }
-
-  usage() {
-    return "array.arc(fromIndex, toIndex)";
-  }
-}
-
-
-class BSTInsertCommand extends BSTCommand {
-  constructor(receiver, valueNode) {
-    super(receiver, valueNode);
-    if (this.receiver.root == null)
-      this.oldTree = null
-    else
-      this.oldTree = this.receiver.root.deepCopy();
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.value = this.args[0];
-  }
-
-  checkArguments() {
-    if (typeof this.value !== "number")
-      throw "BST only supports numeric values";
-  }
-
-  executeSelf() {
-    if (this.newTree == undefined) {
-      this.receiver.insert(this.value);
-      this.newTree = this.receiver.root.deepCopy();
-    }
-    this.receiver.root = this.newTree.deepCopy();
-    this.receiver.claimChildren(this.receiver.root);
-  }
-
-  /** BSTInsertCommand.undo
-   *    remove inserted node
-   */
-  undo() {
-    if (this.oldTree == null)
-      this.receiver.root = null;
-    else
-      this.receiver.root = this.oldTree.deepCopy();
-    this.receiver.claimChildren(this.receiver.root);
-  }
-}
-
-class BSTRemoveCommand extends BSTCommand {
-  constructor(receiver, valueNode) {
-    super(receiver, valueNode);
-    this.oldTree = this.receiver.root.deepCopy();
-  }
-  executeChildren() {
-    super.executeChildren();
-    this.value = this.args[0];
-  }
-
-  checkArguments() {
-    if (typeof this.value !== "number")
-      throw "BST only supports numeric values";
-    if (this.receiver.find(this.value) == null)
-      throw `Cannot remove '${this.value}': not present in tree.`;
-  }
-
-  executeSelf() {
-    if (this.newTree == undefined) {
-      this.receiver.remove(this.value);
-      this.newTree = this.receiver.root.deepCopy();
-    }
-    this.receiver.root = this.newTree.deepCopy();
-    this.receiver.claimChildren(this.receiver.root);
-  }
-
-  undo() {
-    this.receiver.root = this.oldTree.deepCopy();
-    this.receiver.claimChildren(this.receiver.root);
-  }
-
-}
-
-
-class BSTFindCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.value = this.args[0];
-  }
-
-  checkArguments() {
-    if (typeof this.value !== "number")
-      throw "BST only supports numeric values";
-  }
-
-  executeSelf() {
-    return this.receiver.find(this.value);
-  }
-
-  undo() {
-  }
-}
-
-class BSTRangeCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.low = this.args[0];
-    this.high = this.args[1];
-    if (this.low == undefined) this.low = this.receiver.root.getMin().value;
-    if (this.high == undefined) this.low = this.receiver.root.getMax().value + 1;
-  }
-  checkArguments() {
-    if (typeof this.low !== "number")
-      throw "Invalid lower bound: " + this.low;
-    if (typeof this.high !== "number")
-      throw "Invalid upper bound: " + this.high;
-  }
-  executeSelf() {
-    return this.receiver.inorder()
-      .filter(node => node.value >= this.low && node.value < this.high);
-  }
-}
-
-/**
- * returns list of BSTNodes
- */
-class BSTInorderCommand extends BSTCommand {
-  executeSelf() {
-    return this.receiver.inorder();
-  }
-
-  undo() {}
-}
-
-/**
- * returns list of BSTNodes
- */
-class BSTPreorderCommand extends BSTCommand {
-  executeSelf() {
-    return this.receiver.preorder();
-  }
-
-  undo() {}
-}
-
-
-/**
- * returns list of BSTNodes
- */
-class BSTPostorderCommand extends BSTCommand {
-  executeSelf() {
-    return this.receiver.postorder();
-  }
-
-  undo() {}
-}
-
-/** BSTMinCommand
- *    returns reference to min value node
- */
-class BSTMinCommand extends BSTCommand {
-  executeSelf() {
-    if (this.receiver.root == null) return null;
-    return this.receiver.root.getMin();
-  }
-}
-
-/** BSTMaxCommand
- *    returns reference to max value node
- */
-class BSTMaxCommand extends BSTCommand {
-  executeSelf() {
-    if (this.receiver.root == null) return null;
-    return this.receiver.root.getMax();
-  }
-}
-
-
-/** BSTRootCommand
- *    returns reference to root node
- */
-class BSTRootCommand extends BSTCommand {
-  executeSelf() {
-    if (this.receiver.root == null) return null;
-    return this.receiver.root;
-  }
-}
-
-/**
- * BSTNode methods
- */
-class BSTNodeCommand extends CanvasObjectMethod {
-}
-
-class BSTNodeRotateCommand extends BSTNodeCommand {
-  // rotate self with parent
-  executeSelf() {
-    if (this.receiver.parNode == null) {
-      this.undoDir = "none";
-    }
-
-    if (this.receiver.isLeftChild()) {
-      this.undoDir = "left";
-      this.receiver.rotateRight();
-    }
-
-    else {
-      this.undoDir = "right";
-      this.receiver.rotateLeft();
-    }
-  }
-
-  undo() {
-    if (this.undoDir == "left" && this.receiver.rightChild())
-      this.receiver.rightChild().rotateLeft();
-    else if (this.undoDir == "right" && this.receiver.leftChild())
-      this.receiver.leftChild().rotateRight();
-  }
-}
-
-class BSTNodeLeftCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.leftChild();
-  }
-}
-
-class BSTNodeRightCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.rightChild();
-  }
-}
-
-class BSTNodeParentCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.parNode;
-  }
-}
-
-class BSTNodePredecessorCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.pred();
-  }
-}
-
-class BSTNodeSuccessorCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.succ();
-  }
-}
-
-class BSTNodeValueCommand extends BSTNodeCommand {
-  executeSelf() {
-    return this.receiver.value;
-  }
-}
-
 /**
  * Heap methods
  */
