@@ -23,7 +23,8 @@ canvasObjectConstructors = {
   "MathBox": MathBoxConstructor,
   "BST": BSTConstructor,
   "BinaryHeap": BinaryHeapConstructor,
-  "Graph": GraphConstructor,
+  "UDGraph": UDGraphConstructor,
+  "DiGraph": DiGraphConstructor,
 };
 
 /** randInt
@@ -415,6 +416,17 @@ class CanvasEventHandler {
       // if click starts on another object
       this.cState.clickedBare = false;
 
+
+      // set offset for dragging
+      this.dragOffsetX = event.clientX;
+      this.dragOffsetY = event.clientY;
+
+
+      // set start state (hotkeys and click coordinates)
+      // for whatever DrawCommand 
+      // is about to occur 
+      this.cState.setCommandStartState();
+
       //  deactivate previously active object 
       //  (e.g. end editing of textbox if another box is clicked)
       if (this.cState.activeObj && this.cState.activeObj !== canvasObj)
@@ -433,18 +445,6 @@ class CanvasEventHandler {
       canvasObj.dcTimer = setTimeout(() => {
         canvasObj.dcTimer = null;
       }, doubleClickTime);
-
-      // set offset for dragging
-      this.dragOffsetX = event.clientX;
-      this.dragOffsetY = event.clientY;
-
-      // set start state for whatever DrawCommand 
-      // is about to occur 
-      this.cState.setCommandStartState();
-
-      // only clear selection if clicking on unselected element
-      if (! this.cState.selectGroup.has(canvasObj.getParent()))
-        this.cState.selectGroup.clear();
 
     } 
     else {
@@ -529,24 +529,38 @@ class CanvasEventHandler {
       // clone clicked object
       else if (this.cState.activeObj && hotkeys[ALT])
         this.cState.activeCommandType = "clone";
-    }
 
+
+      // create DrawCommand object and push onto undo stack
+      // -- only happens when mouseUp != mouseDown
+      this.cState.executeDrawCommand();
+    }
     // mouse release happens same place as press
     else if (this.cState.mouseUp.x == this.cState.mouseDown.x
         && this.cState.mouseUp.y == this.cState.mouseDown.y) {
-
       // get clicked object from colorHash map
       var canvasObj = this.cState.getClickedObject(this.cState.mouseUp.x, this.cState.mouseUp.y);
-      if (canvasObj && noHotkeys())  // clicked with no modifiers
-        canvasObj.click(event);
+      if (canvasObj) {
+        if (noHotkeys())  // clicked with no modifiers
+          canvasObj.click(event);
+        // if ctrl-click, add canvas object to 
+        // select group (and previous activeObject if it exists)
+        if (hotkeys[CTRL]) {
+          if (! this.cState.selectGroup.has(canvasObj))
+            this.cState.selectGroup.add(canvasObj.getParent());
+          if (this.cState.activeObj != undefined 
+            && ! this.cState.selectGroup.has(this.cState.activeObj.getParent())) 
+            this.cState.selectGroup.add(this.cState.activeObj.getParent());
+          return;
+        }
+        else { 
+          // only clear selection if clicking on unselected element
+          if (! this.cState.selectGroup.has(canvasObj.getParent()))
+            this.cState.selectGroup.clear();
+        }
+      }
     }
 
-    // release active object
-    if (this.cState.activeObj) 
-      this.cState.activeObj.release();
-
-    // create DrawCommand object and push onto undo stack
-    this.cState.executeDrawCommand();
     this.cState.activeCommandType = "";
 
     // send update to show X for group selection
