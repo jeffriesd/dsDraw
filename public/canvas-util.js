@@ -432,6 +432,7 @@ class CanvasEventHandler {
       if (this.cState.activeObj && this.cState.activeObj !== canvasObj)
         this.cState.activeObj.deactivate();
 
+      this.prevActive = this.cState.activeObj;
       this.cState.activeObj = canvasObj;
 
       // mouse down event for some objects
@@ -548,9 +549,9 @@ class CanvasEventHandler {
         if (hotkeys[CTRL]) {
           if (! this.cState.selectGroup.has(canvasObj))
             this.cState.selectGroup.add(canvasObj.getParent());
-          if (this.cState.activeObj != undefined 
-            && ! this.cState.selectGroup.has(this.cState.activeObj.getParent())) 
-            this.cState.selectGroup.add(this.cState.activeObj.getParent());
+          if (this.prevActive 
+            && ! this.cState.selectGroup.has(this.prevActive.getParent())) 
+            this.cState.selectGroup.add(this.prevActive.getParent());
           return;
         }
         else { 
