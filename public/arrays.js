@@ -184,6 +184,10 @@ class Array1D extends LinearCanvasObject {
  */
 class ArrayNode extends NodeObject {
 
+  get dead() {
+    return this.getParent().dead || ! this.getParent().array.includes(this);
+  }
+
   toString() {
     return `ArrayNode(${this.value})`;
   }
@@ -204,9 +208,6 @@ class ArrayNode extends NodeObject {
     if (dir == "from") {
       arrow.x1 = midX;
       arrow.y1 = topY;
-
-      arrow.startPoint.x = midX;
-      arrow.startPoint.y = topY;
     }
     else {
       arrow.x2 = midX;
