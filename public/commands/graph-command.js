@@ -2,7 +2,7 @@
 class GraphCommand extends CanvasObjectMethod {
   constructor(receiver, ...args) {
     super(receiver, ...args);
-    this.oldAdj = this.saveAdj();
+    this.oldAdj = this.receiver.copyAdjacency();
     this.oldCoords = this.saveCoords();
   }
 
@@ -10,7 +10,7 @@ class GraphCommand extends CanvasObjectMethod {
    *    by default, restore adjacency list and coordinates
    */
   undo() {
-    this.restoreAdj(this.oldAdj);
+    this.receiver.setAdjacency(this.oldAdj);
     this.restoreCoords(this.oldCoords);
   }
 
@@ -34,27 +34,6 @@ class GraphCommand extends CanvasObjectMethod {
       node.x = c.x;
       node.y = c.y;
     });
-    this.receiver.snapBoundingBox();
-  }
-
-
-  /** saveAdj
-   *    deepcopy current adjacency list
-   *    @returns Map {nodeId : Int -> [nodeId] : [Int]}
-   */
-  saveAdj() {
-    var savedAdj = new Map();
-    this.receiver.adjacency.forEach((neighbors, nid) => {
-      savedAdj.set(nid, new Set(neighbors));
-    });
-    return savedAdj;
-  }
-
-  restoreAdj(adj) {
-    this.receiver.adjacency = new Map();
-    adj.forEach((neighbors, nid) => {
-      this.receiver.adjacency.set(nid, new Set(neighbors));
-    });
   }
 
   /** GraphCommand.maybeUpdateAdj
@@ -66,22 +45,22 @@ class GraphCommand extends CanvasObjectMethod {
   maybeUpdateAdj(cb) {
     if (this.newAdj == undefined) {
       cb();
-      this.newAdj = this.saveAdj();
+      this.newAdj = this.receiver.copyAdjacency();
     }
     else
-      this.restoreAdj(this.newAdj);
+      this.receiver.setAdjacency(this.newAdj);
   }
 
   maybeRender() {
     if (this.newCoords == undefined) {
-      renderGraph(this.receiver);
+      this.receiver.render();
       this.newCoords = this.saveCoords();
     }
     this.restoreCoords(this.newCoords);
   }
 
   checkNodeId(nid) {
-    if (! this.receiver.adjacency.has(nid)) 
+    if (! this.receiver.graph.adjacency.has(nid)) 
       this.argsError(`No node with id ${nid}`);
   }
 }
@@ -138,10 +117,7 @@ class GraphDeleteNodeCommand extends GraphCommand {
 
   executeSelf() {
     this.maybeUpdateAdj(() => {
-      this.receiver.adjacency.delete(this.nodeId);
-      this.receiver.adjacency.forEach((neighbors, id) => {
-        neighbors.delete(this.nodeId);
-      });
+      this.receiver.deleteNode(this.nodeId);
     });
 
     // save coords from render first time
@@ -180,18 +156,11 @@ class GraphAddEdgeCommand extends GraphCommand {
   }
 
   /** GraphAddEdgeCommand
-   *    use upper triangular edge-order for undirected graph
    */
   executeChildren() {
     super.executeChildren();
     this.fromId = this.args[0];
     this.toId = this.args[1];
-
-    if (this.fromId > this.toId) {
-      var t = this.fromId;
-      this.fromId = this.toId;
-      this.toId = t;
-    }
   }
 
   checkArguments() {
@@ -204,8 +173,7 @@ class GraphAddEdgeCommand extends GraphCommand {
     this.checkNodeId(this.toId);
 
     // check that edge doesn't exist already
-    var fromAdj = this.receiver.adjacency.get(this.fromId);
-    if (fromAdj.has(this.toId))
+    if (this.receiver.hasEdge(this.fromId, this.toId))
       this.argsError(`Edge (${this.fromId}, ${this.toId}) already exists"`);
   }
 
@@ -215,7 +183,6 @@ class GraphAddEdgeCommand extends GraphCommand {
     });
     this.maybeRender();
   }
-
 }
 
 class GraphDeleteEdgeCommand extends GraphCommand {
@@ -231,12 +198,6 @@ class GraphDeleteEdgeCommand extends GraphCommand {
     super.executeChildren();
     this.fromId = this.args[0];
     this.toId = this.args[1];
-
-    if (this.fromId > this.toId) {
-      var t = this.fromId;
-      this.fromId = this.toId;
-      this.toId = t;
-    }
   }
 
   checkArguments() {
@@ -249,8 +210,7 @@ class GraphDeleteEdgeCommand extends GraphCommand {
     this.checkNodeId(this.toId);
 
     // check that edge doesn't exist already
-    var fromAdj = this.receiver.adjacency.get(this.fromId);
-    if (! fromAdj.has(this.toId))
+    if (this.receiver.hasEdge(this.fromId, this.toId))
       this.argsError(`Edge (${this.fromId}, ${this.toId}) doesn't exist`);
   }
 

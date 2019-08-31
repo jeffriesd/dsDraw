@@ -376,17 +376,17 @@ class GraphConstructor extends CanvasObjectConstructor {
     }
   }
 
-  buildFromMap() {
+  buildFromMap(m) {
     // keep track of nodes by value since addEdge requires ids
     var nodesByValue = new Map();
 
     // add all the nodes first
-    Array.from(this.initializer.keys()).forEach(nodeVal => {
+    Array.from(m.keys()).forEach(nodeVal => {
       var newNode = this.newObj.addNode(nodeVal);
       nodesByValue.set(nodeVal, newNode);
     });
 
-    this.initializer.forEach((neighborVals, v) => {
+    m.forEach((neighborVals, v) => {
       var i1 = nodesByValue.get(v).index;
       var i2;
       neighborVals.forEach(nv => {
@@ -404,8 +404,8 @@ class GraphConstructor extends CanvasObjectConstructor {
     
     // no parameters
     if (this.initializer == undefined) this.buildComplete(this.canvasClass.defaultSize);
-    else if (this.initializer instanceof Map) { // use adjacency list
-      this.buildFromMap();
+    else if (this.initializer instanceof Dictionary) { // use adjacency list
+      this.buildFromMap(this.initializer);
     }
     else
       this.argsError("Invalid initializer");
@@ -436,17 +436,30 @@ class UDGraphConstructor extends GraphConstructor {
    *    build an undirected graph from an adjacency list
    *    -- check that edges are not added twice
    */
-  buildFromMap() {
+  buildFromMap(m) {
+
     // keep track of nodes by value since addEdge requires ids
     var nodesByValue = new Map();
 
     // add all the nodes first
-    Array.from(this.initializer.keys()).forEach(nodeVal => {
+    Array.from(m.keys()).forEach(nodeVal => {
       var newNode = this.newObj.addNode(nodeVal);
       nodesByValue.set(nodeVal, newNode);
     });
 
-    this.initializer.forEach((neighborVals, v) => {
+    // in case dict is just {1: [2, 3]}, etc.
+    // ensure all values have an entry
+    m.forEach((neighborVals, _v) => {
+      neighborVals.forEach(nv => {
+        if (! nodesByValue.has(nv)) {
+          var newNode = this.newObj.addNode(nv);
+          nodesByValue.set(nv, newNode);
+        }
+      });
+    });
+    console.log(nodesByValue)
+
+    m.forEach((neighborVals, v) => {
       var i1 = nodesByValue.get(v).index;
       var i2;
       neighborVals.forEach(nv => {

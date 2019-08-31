@@ -64,7 +64,7 @@ class PlotlyPlot extends CanvasObject {
   }
 
   draw() {
-    super.draw();
+    
     if (this.plotImg) {
       try {
         this.ctx.drawImage(this.plotImg, this.x1, this.y1, this.width, this.height);
@@ -81,7 +81,7 @@ class PlotlyPlot extends CanvasObject {
     this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
     this.hitCtx.stroke();
 
-    this.resizePoint.draw();
+    this.resizePoint.configAndDraw();
   }
 
   /** PlotlyPlot.resize

@@ -54,6 +54,16 @@ function renderBST(bstCanvasObject, bst) {
   })
 }
 
+function renderHeap(heap) {
+  var root = heap.root;
+  if (root == null) return;
+  updateChildDepths(root, 0);
+  updateExtremesBottomUp(root);
+
+  setupTR(root, 0, root.xleft, root.xright, heap.minSep);
+  petrifyTR(heap, root, 0);
+}
+
 function setupTR(root, depth, rmost, lmost, minSep) {
   var L = null;
   var R = null;

@@ -116,7 +116,7 @@ class GraphCanvasObject extends LinearCanvasObject {
     this.bboxStroke = "#aaaa";
     this.bboxThickness = 2;
     
-    GraphCanvasObject.defaultSize = 10;
+    GraphCanvasObject.defaultSize = 20;
 
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
@@ -349,11 +349,14 @@ class GraphCanvasObject extends LinearCanvasObject {
 
     });
 
-    // move resize point 
-    this.x1 = minX;
-    this.x2 = maxX;
-    this.y1 = minY;
-    this.y2 = maxY;
+    this.resizeBBox(minX, minY, maxX, maxY);
+  }
+
+  resizeBBox(x1, y1, x2, y2) {
+    this.x1 = x1;
+    this.y1 = y1;
+    this.x2 = x2;
+    this.y2 = y2;
     this.resizePoint.x = this.x2;
     this.resizePoint.y = this.y2;
   }
@@ -394,6 +397,9 @@ class GraphNode extends NodeObject {
     // coordinate is somewhat random at first
     this._x = undefined;
     this._y = undefined;
+
+    this.relX = this.x;
+    this.relY = this.y;
   }
 
   // use getter because 
@@ -403,18 +409,14 @@ class GraphNode extends NodeObject {
   // (when graph is cloned parent reference is updated
   // after call to constructor)
   get x() {
-    if (this._x == undefined) {
-      var graph = this.getParent();
-      this.x = graph.x1 + Math.random() * (graph.x2 - graph.x1);
-    }
+    if (this._x == undefined) 
+      this.x = Math.random();
     return this._x;
   }
 
   get y() {
-    if (this._y == undefined) {
-      var graph = this.getParent();
-      this.y = graph.y1 + Math.random() * (graph.y2 - graph.y1);
-    }
+    if (this._y == undefined) 
+      this.y = Math.random();
     return this._y;
   }
 
@@ -463,7 +465,6 @@ class GraphNode extends NodeObject {
    *  TODO -- generalize -- same method as BSTNodeCanvasObject.draw
    */
   draw() {
-    
     this.ctx.beginPath();  
     this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     this.ctx.stroke();
