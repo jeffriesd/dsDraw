@@ -164,52 +164,11 @@ class CloneCommand extends DrawCommand {
       this.group = [this.receiver];
 
 
-    // clone arrows last so their anchors get cloned first
-    // (false comes first in sorting)
-    this.group = this.group.sort(x => x instanceof Arrow);
-
     this.newPos = this.group.map(r => {
       return { x: r.x + deltaX, y: r.y + deltaY };
     });
 
-    // use a unique object to identify
-    // when anchored objects were
-    // cloned by the same command
-    // as the arrow/lockable objects
-    var cloneHandle = {};
-
-    this.clones = this.group.map(r => { 
-      var clone = r.clone(cloneHandle);
-
-      // re-anchor arrows whose anchors
-      // were also cloned by this same command
-      // 
-      // check for cloneHandle object to 
-      // see if the anchor was cloned by this same command 
-      // (and not previously)
-      if (r.locked) {
-        clone.locked = {
-          from: r.locked.from && r.locked.from._cloneRef.cloneHandle === cloneHandle ?   
-                r.locked.from._cloneRef : null,
-          to:   r.locked.to   && r.locked.to._cloneRef.cloneHandle === cloneHandle ? 
-                r.locked.to._cloneRef   : null,
-        }
-      }
-
-      return clone;
-    });
-
-    // destroy _cloneRef so they don't get
-    // picked up accidentally by future 
-    // clonings
-    this.group.forEach(r => {
-      r._cloneRef = null;
-      console.log("setting ", r._label, "cr to", r, r._cloneRef)
-    });
-
-    this.group.forEach(r => {
-      console.log("post del", r._cloneRef)
-    });
+    this.clones = cloneObjectsMaintainAnchors(this.group);
   }
  
   /** CloneCommand.execute
@@ -338,21 +297,55 @@ class RelabelCommand {
 }
 
 
+/** cloneObjectsMaintainAnchors
+ *    function to clone every object in an array
+ *    and maintain connections between arrows
+ *    and their anchors
+ *    @param {*} objects - array of objects
+ */
+function cloneObjectsMaintainAnchors(objects) {
+  // clone arrows last so their anchors get cloned first
+  // (false comes first in sorting)
+  objects = objects.sort(x => x instanceof Arrow);
+
+  // use a unique object to identify
+  // when anchored objects were
+  // cloned by the same command
+  // as the arrow/lockable objects
+  var cloneHandle = {};
+
+  return objects.map(r => {
+      var clone = r.clone(cloneHandle);
+
+      // re-anchor arrows whose anchors
+      // were also cloned by this same command
+      // 
+      // check for cloneHandle object to 
+      // see if the anchor was cloned by this same command 
+      // (and not previously)
+      if (r.locked) {
+        var rlf = r.locked.from;
+        var rlt = r.locked.to;
+        clone.locked = {
+          from: rlf && rlf._cloneRef && rlf._cloneRef.cloneHandle === cloneHandle ? 
+                rlf._cloneRef : null,
+          to:   rlt && rlt._cloneRef && rlt._cloneRef.cloneHandle === cloneHandle ? 
+                rlt._cloneRef : null,
+        };
+      }
+
+      return clone;
+  });
+}
+
 class CloneCanvasCommand {
   constructor(cState) {
     this.cState = cState;
     this.originals = this.cState.objects.slice();
   }
 
-  /** CloneCanvasCommand.doClone
-   *    helper method to perform cloning
-   *    before execution -- allows object
-   *    labels to be shared across clips
-   */
   doClone() {
-    this.receivers = this.originals
-      // .filter(obj => ! obj.locked)
-      .map(obj => obj.clone());
+    this.receivers = cloneObjectsMaintainAnchors(this.originals);
   }
 
   execute() {
@@ -666,7 +659,6 @@ class GetChildrenCommand extends ConsoleCommand {
    *    otherwise slice the array
    */
   executeSelf() {
-    console.log("childr rec = ", this.receiver.constructor.name);
     if (this.receiver instanceof Array) {
       if (this.low == null) this.low = 0;
       if (this.high == null) this.high = this.receiver.length;
@@ -677,7 +669,7 @@ class GetChildrenCommand extends ConsoleCommand {
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.low, this.high);
     }
-    throw `Cannot perform access on '{this.receiver.constructor.name}'.`;
+    throw `Cannot perform range access on '{this.receiver.constructor.name}'.`;
   }
 
   undo() {}
@@ -772,13 +764,14 @@ class GetPropertyCommand extends ConsoleCommand {
       this.property = this.propName;
     }
     else if (this.receiver instanceof CanvasObject 
-        || this.receiver instanceof CanvasChildObject) {
+        || this.receiver instanceof CanvasChildObject
+        || this.receiver instanceof LanguageObject) {
       this.property = this.receiver.propMethodNames()[this.propName];
       if (this.property == undefined)
         throw `Undefined property '${this.propName}' for ${this.receiver.constructor.name}.`;
     }
     else
-      throw `Cannot perform access on '${this.receiver.constructor.name}'.`;
+      throw `Cannot perform property access on '${this.receiver.constructor.name}'.`;
   }
 
   /** GetPropertyCommand.executeSelf
