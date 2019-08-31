@@ -183,11 +183,6 @@ class Array1D extends LinearCanvasObject {
  *      - value
  */
 class ArrayNode extends NodeObject {
-
-  get dead() {
-    return this.getParent().dead || ! this.getParent().array.includes(this);
-  }
-
   toString() {
     return `ArrayNode(${this.value})`;
   }
