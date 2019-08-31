@@ -165,7 +165,7 @@ class Arrow extends CanvasObject {
     ctx.stroke();
   }
 
-  /** Arrow.angleFromCP
+  /** Arrow.angleToCP
    *    compute the angle from one control point to 
    *    an arbitrary coordinate
    *  
@@ -173,11 +173,11 @@ class Arrow extends CanvasObject {
    *    param x - x value of other coordinate
    *    param y - y value of other coordinate 
    */
-  angleFromCP(cpn, x, y) {
+  angleToCP(cpn, x, y) {
     var cp;
     if (cpn == 1) cp = this.cp1; else if (cpn == 2) cp = this.cp2; 
     else throw `Invalid control point number ${cpn}`;
-    var dx = x - cp.x;
+    var dx = cp.x - x;
     var dy = y - cp.y;
     var a = Math.atan2(dy, dx);
     if (isNaN(a)) {
@@ -192,14 +192,7 @@ class Arrow extends CanvasObject {
    *    in radians
    */
   endingAngle() {
-    return this.angleFromCP(2, this.x2, this.y2);
-  }
-
-  /** Arrow.startingAngle
-   *    return angle from start point to first control point
-   */
-  startingAngle() {
-    return 2 * Math.PI - this.angleFromCP(1, this.x1, this.y1);
+    return Math.PI - this.angleToCP(2, this.x2, this.y2);
   }
 
   /** Arrow.straighten
@@ -390,7 +383,7 @@ class ChildArrow extends CanvasChildObject {
     this.head.configAndDraw();
   }
 
-  /** Arrow.angleFromCP
+  /** Arrow.angleToCP
    *    compute the angle from one control point to 
    *    an arbitrary coordinate
    *  
@@ -398,7 +391,7 @@ class ChildArrow extends CanvasChildObject {
    *    param x - x value of other coordinate
    *    param y - y value of other coordinate 
    */
-  angleFromCP(cpn, x, y) {
+  angleToCP(cpn, x, y) {
     var cp;
     if (cpn == 1) cp = this.cp1; else if (cpn == 2) cp = this.cp2; 
     else throw `Invalid control point number ${cpn}`;
@@ -413,14 +406,14 @@ class ChildArrow extends CanvasChildObject {
   }
 
   endingAngle() {
-    return this.angleFromCP(2, this.x2, this.y2);
+    return this.angleToCP(2, this.x2, this.y2);
   }
 
   /** Arrow.startingAngle
    *    return angle from start point to first control point
    */
   startingAngle() {
-    return 2 * Math.PI - this.angleFromCP(1, this.x1, this.y1);
+    return 2 * Math.PI - this.angleToCP(1, this.x1, this.y1);
   }
 
   /** ChildArrow.straighten
