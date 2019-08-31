@@ -123,37 +123,16 @@ class LinearCanvasObject extends CanvasObject {
     this.ctx.textAlign = "left";
   }
   
-  /** LinearCanvasObject.drawArrows
-   *    for each arrow in map, extract start
-   *    end ending indices (which nodes are
-   *    each arc anchored to?) and use
-   *    getChild to get node objects. If either
-   *    index is missing, don't draw anything.
-   *    
-   *    otherwise lock its endpoints and call
-   *    arrow.draw()
-   */
-  drawArrows() {
-    this.arrows.forEach((arrow, idx) => { 
-      var from = this.getChild(idx[0]);
-      var to = this.getChild(idx[1]);
-      if (from == null || to == null) return;
-      from.lockArrow(arrow, "from");
-      to.lockArrow(arrow, "to");
-      arrow.draw();
-    });
-  }
-
   get floatingChildren() {
     return this.nodes;
   }
 }
 
 class NodeObject extends CanvasChildObject {
-  constructor(canvasState, parentObject, value) {
-    super(canvasState);
+  constructor(canvasState, parentObject, value, index) {
+    super(canvasState, parentObject);
 
-    this.parentObject = parentObject;
+    this.index = index;
 
     // drawing options
     this.fill = "#fff";
@@ -162,8 +141,14 @@ class NodeObject extends CanvasChildObject {
     this.value = value;
     this.borderThickness = 1;
 
+    this.nodeStyle = "circle";
+
     this.showIndices = true;
     this.showValues = true;
+  }
+
+  get dead() {
+    return this.getParent().dead || ! this.getParent().nodes.includes(this);
   }
 
   getParent() {
@@ -213,13 +198,48 @@ class NodeObject extends CanvasChildObject {
     };
   }
 
+  /** NodeObject.configureOptions
+   */
   configureOptions() {
     super.configureOptions();
     this.ctx.fillStyle = this.fill;
-    this.ctx.strokeStyle = this.strokeColor;
     this.ctx.lineWidth = this.borderThickness;
 
     this.cellSize = this.getParent().cellSize;
+  }
+
+  /** NodeObject.draw
+   *    most generic node drawing -- circular nodes
+   *    with border and possibly indices or values
+   */
+  draw() {
+    
+
+    this.ctx.beginPath();
+    this.hitCtx.beginPath();
+
+    if (this.nodeStyle == "circle") {
+      this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      this.hitCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    }
+    if (this.nodeStyle == "square") {
+      var h = Math.floor(this.cellSize / 2);
+      this.ctx.rect(this.x - h, this.y - h, this.cellSize, this.cellSize);
+      this.ctx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
+      this.hitCtx.fillRect(this.x - h, this.y - h, this.cellSize, this.cellSize);
+    }
+
+    this.ctx.stroke();
+    this.ctx.fill();
+
+    this.hitCtx.stroke();
+    this.hitCtx.fill()
+
+    if (this.showValues && this.getParent().showValues) 
+      this.drawValue();
+
+    if (this.showIndices && this.getParent().showIndices) 
+      this.drawIndex(this.index);
   }
 
   drawValue() {
@@ -285,8 +305,9 @@ class NodeObject extends CanvasChildObject {
    *    (visual glitch that occurs when control point is inside node)
    */
   lockArrow(arrow, dir) {
-    var endAngle = arrow.endingAngle();
-    var startAngle = arrow.startingAngle();
+    var center = this.objectCenter();
+    var startAngle = arrow.angleFromCP(1, center.x, center.y);
+    var endAngle = arrow.angleFromCP(2, center.x, center.y)
 
     // determine offsets from 
     // node center 
@@ -303,8 +324,6 @@ class NodeObject extends CanvasChildObject {
 
       arrow.x1 = this.x - offX;
       arrow.y1 = this.y - offY;
-      arrow.startPoint.x = arrow.x1;
-      arrow.startPoint.y = arrow.y1;
 
       // fix angle to avoid oscillation
       if (inside(this, arrow.cp1)) {
