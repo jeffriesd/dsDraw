@@ -7,6 +7,18 @@ const functionPattern = /^[a-zA-Z]+\(/;
 const stringLiteralPattern = /^"[a-zA-Z0-9]+"$/;
 const mathCharsPattern = /^[0-9\.\(\)\*\/\-\+\^\s]+$/;
 
+/** linMap
+ *    map x from (a, b) to (c, d)
+ * @param a - lower bound 1
+ * @param b - upper bound 1
+ * @param c - lower bound 2
+ * @param d - upper bound 2
+ * @param x - value in range (a, b)
+ */
+function linMap(a, b, c, d, x) {
+  return ((x - a) / (b - a)) * (d - c) + c;
+}
+
 Object.defineProperty(Array.prototype, "peek", {
   value: function() {
     return this.length ? this[this.length - 1] : null;
@@ -118,8 +130,12 @@ function stringify(object) {
     return String(object);
   if (object instanceof Array) // 'list' object
     return "[" + object.map(stringify) + "]";
-  if (object instanceof Dictionary)
-    return `{${Object.entries(object).map(([k, v]) => k + ": "  + v).join(", ")}}`;
+  if (object instanceof Dictionary) {
+    return `{${
+      Array.from(object.entries())
+      .map(([k, v]) => `${stringify(k)} : ${stringify(v)}`)
+      .join(", ")}}`;
+  }
   if (object.funcName) return "function " + object.funcName;
   if (object.methodClass) return "method";
   // console.log("Unknown string representation for:", object);
