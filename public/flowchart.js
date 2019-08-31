@@ -358,6 +358,70 @@ class FlowchartBox extends CanvasObject {
 
     return wrappedText;
   }
+
+  /** FlowchartBox.angleToPosition
+   *    map the angle of an outgoing arrow
+   *    (incoming = angleToPosition(2pi - theta))
+   *    to a position along the perimeter of this box
+   * 
+   *    a - angle in radians
+   */
+  angleToPosition(a) {
+    var pi = Math.PI;
+    while (a < 0) a += 2*pi;
+    a %= 2*pi;
+
+    const inRange = (x, y) => a >= x && a <= y
+    var x, y;
+    if (inRange(7*pi/4, 2*pi) || inRange(0, pi/4)) { // right
+      // need to map angle from strictly increasing interval
+      if (a >= 0 && a <= pi/4) 
+        a = 2*pi + a;
+      x = this.x2;
+      y = -linMap(7*pi/4, 9*pi/4, -this.y2, -this.y1, a);
+    }
+    else if (inRange(pi/4, 3*pi/4)) { // top
+      y = this.y1;
+      x = -linMap(pi/4, 3*pi/4, -this.x2, -this.x1, a);
+    }
+    else if (inRange(3*pi/4, 5*pi/4)) { // right
+      x = this.x1;
+      y = linMap(3*pi/4, 5*pi/4, this.y1, this.y2, a);
+    }
+    else if (inRange(5*pi/4, 7*pi/4)) { // bottom
+      y = this.y2;
+      x = linMap(5*pi/4, 7*pi/4, this.x1, this.x2, a);
+    }
+    return { x : x, y : y};
+  }
+
+  /** FlowchartBox.lockArrow
+   *    put tip of arrow on edge of box and use
+   *    angle to determine position and side
+   * 
+   *    angleToPosition function maps the angle
+   *    of an outgoing arrow 
+   *
+   *    move control point as well to avoid oscillation
+   *    between two different angles 
+   *    (visual glitch that occurs when control point is inside node)
+   */
+  lockArrow(arrow, dir) {
+    var myCenter = this.objectCenter();
+    var startAngle = arrow.angleToCP(1, myCenter.x, myCenter.y);
+    var endAngle = arrow.angleToCP(2, myCenter.x, myCenter.y);
+
+    if (dir == "from") {
+      var anchorPos = this.angleToPosition(startAngle);
+      arrow.x1 = anchorPos.x;
+      arrow.y1 = anchorPos.y;
+    }
+    else if (dir == "to") {
+      var anchorPos = this.angleToPosition(endAngle);
+      arrow.x2 = anchorPos.x;
+      arrow.y2 = anchorPos.y;
+    }
+  }
 }
 
 class RectBox extends FlowchartBox {
@@ -460,16 +524,24 @@ class DiamondBox extends FlowchartBox {
 
     var hw = Math.floor(this.width / 2);
     var hh = Math.floor(this.height / 2);
-    
-    this.leftX = this.x1 - hw;
-    this.rightX = this.x2 + hw;
-    this.midX = this.x1 + hw;
-    this.topY = this.y1 - hh;
-    this.bottomY = this.y2 + hh;
-    this.midY = this.y1 + hh;
   }
 
-  
+  get hw() { return Math.floor(this.width / 2); }
+
+  get hh() { return Math.floor(this.height / 2); }
+
+  get leftX() { return this.x1 - this.hw; }
+
+  get rightX() { return this.x2 + this.hw; } 
+
+  get midX() { return this.x1 + this.hw; } 
+
+  get topY() { return this.y1 - this.hh; } 
+
+  get bottomY() { return this.y2 + this.hh; }
+
+  get midY() { return this.y1 + this.hh; }
+
   /** DiamondBox.draw
    *    currently creates diamond that
    *    circumscribes box drawn by mouse
@@ -522,8 +594,41 @@ class DiamondBox extends FlowchartBox {
     
     ctx.stroke();
   }
-}
 
+  /** DiamondBox.angleToPosition
+   *    maps angles to points along the perimeter
+   *    of this diamond
+   * @param {*} a - angle of outgoing/incoming arrow
+   *              i.e. angle from center of anchor 
+   *                   object to control point
+   */
+  angleToPosition(a) {
+    var pi = Math.PI;
+    while (a < 0) a += 2*pi;
+    a %= 2*pi;
+
+    const inRange = (x, y) => a >= x && a <= y
+    var x, y;
+    if (inRange(0, pi/2)) { // upper right side
+      x = -linMap(0, pi/2, -this.rightX, -this.midX, a);
+      y = -linMap(0, pi/2, -this.midY, -this.topY, a);
+    }
+    else if (inRange(pi/2, pi)) { // upper left side
+      x = -linMap(pi/2, pi, -this.midX, -this.leftX, a);
+      y = linMap(pi/2, pi, this.topY, this.midY, a);
+    }
+    else if (inRange(pi, 3*pi/2)) { // lower left side
+      x = linMap(pi, 3*pi/2, this.leftX, this.midX, a);
+      y = linMap(pi, 3*pi/2, this.midY, this.bottomY, a);
+    }
+    else { // lower right side
+      while (a < 0) a += 2*pi;
+      x = linMap(3*pi/2, 2*pi, this.midX, this.rightX, a);
+      y = -linMap(3*pi/2, 2*pi, -this.bottomY, -this.midY, a);
+    }
+    return { x : x, y : y};
+  }
+}
 
 class ParallelogramBox extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
@@ -532,19 +637,20 @@ class ParallelogramBox extends FlowchartBox {
     this.skewSlope = 3;
   } 
 
-  configureOptions() {
-    super.configureOptions();
+  get outerRight() {
+    return this.x2 + Math.floor(this.height / this.skewSlope);
+  }
 
+  get innerRight() {
+    return this.x2;
+  }
 
-    this.bottomLeft = {
-      x: this.x1 - Math.floor((this.y2 - this.y1) / this.skewSlope),
-      y: this.y2,
-    };
+  get outerLeft() {
+    return this.x1 - Math.floor(this.height / this.skewSlope);
+  }
 
-    this.topRight = {
-      x: this.x2 - Math.floor((this.y2 - this.y1) / -this.skewSlope),
-      y: this.y1,
-    };
+  get innerLeft() {
+    return this.x1;
   }
 
   /** ParallelogramBox.draw
@@ -553,22 +659,22 @@ class ParallelogramBox extends FlowchartBox {
     
 
     this.ctx.beginPath();
-    this.ctx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.ctx.moveTo(this.outerLeft, this.y2);
     this.ctx.lineTo(this.x1, this.y1);
-    this.ctx.lineTo(this.topRight.x, this.topRight.y);
+    this.ctx.lineTo(this.outerRight, this.y1);
     this.ctx.lineTo(this.x2, this.y2);
-    this.ctx.lineTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.ctx.lineTo(this.outerLeft, this.y2);
     this.ctx.stroke();
     this.ctx.fill();
 
     this.drawText();
 
     this.hitCtx.beginPath();
-    this.hitCtx.moveTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.hitCtx.moveTo(this.outerLeft, this.y2);
     this.hitCtx.lineTo(this.x1, this.y1);
-    this.hitCtx.lineTo(this.topRight.x, this.topRight.y);
+    this.hitCtx.lineTo(this.outerRight, this.y1);
     this.hitCtx.lineTo(this.x2, this.y2);
-    this.hitCtx.lineTo(this.bottomLeft.x, this.bottomLeft.y);
+    this.hitCtx.lineTo(this.outerLeft, this.y2);
     this.hitCtx.stroke();
     this.hitCtx.stroke();
     this.hitCtx.fill();
@@ -599,6 +705,43 @@ class ParallelogramBox extends FlowchartBox {
     ctx.lineTo(bottomLeft.x, bottomLeft.y);
     ctx.stroke();
   }
+
+  /** ParallelogramBox.angleToPosition
+   *    maps angles to points along the perimeter
+   *    of this paralellogram
+   * @param {*} a - angle of outgoing/incoming arrow
+   *              i.e. angle from center of anchor 
+   *                   object to control point
+   */
+  angleToPosition(a) {
+    var pi = Math.PI;
+    while (a < 0) a += 2*pi;
+    a %= 2*pi;
+
+    const inRange = (x, y) => a >= x && a <= y
+    var x, y;
+    if (inRange(7*pi/4, 2*pi) || inRange(0, pi/4)) { // right
+      // need to map angle from strictly increasing interval
+      if (a >= 0 && a <= pi/4) 
+        a = 2*pi + a;
+      x = linMap(7*pi/4, 9*pi/4, this.innerRight, this.outerRight, a);
+      y = -linMap(7*pi/4, 9*pi/4, -this.y2, -this.y1, a);
+    }
+    else if (inRange(pi/4, 3*pi/4)) { // top
+      y = this.y1;
+      x = -linMap(pi/4, 3*pi/4, -this.outerRight, -this.x1, a);
+    }
+    else if (inRange(3*pi/4, 5*pi/4)) { // left
+      x = linMap(3*pi/4, 5*pi/4, this.innerLeft, this.outerLeft, a);
+      y = linMap(3*pi/4, 5*pi/4, this.y1, this.y2, a);
+    }
+    else if (inRange(5*pi/4, 7*pi/4)) { // bottom
+      y = this.y2;
+      x = linMap(5*pi/4, 7*pi/4, this.outerLeft, this.x2, a);
+    }
+    return { x : x, y : y};
+  }
+
 }
 
 class TextBox extends FlowchartBox {
@@ -745,34 +888,26 @@ class Connector extends FlowchartBox {
     super(canvasState, x1, y1, x2, y2);
   }
 
-  configureOptions() {
-    super.configureOptions();
-
-    var dx = Math.pow(this.x2 - this.x1, 2);
-    var dy = Math.pow(this.y2 - this.y1, 2);
-    this.radius = Math.floor(Math.sqrt(dx + dy) / 2);
-    var r2 = Math.floor(this.radius / Math.sqrt(2));
-    this.centerX = this.x1  + r2;
-    this.centerY = this.y1 + r2;
-
-    this.hitCtx.fillStyle = this.hashColor;
-    this.hitCtx.strokeStyle = this.hashColor;
+  get radius() {
+    var dx = Math.pow(this.width, 2);
+    var dy = Math.pow(this.height, 2);
+    return Math.floor(Math.sqrt(dx + dy) / 2);
   }
 
   /**  Connector.draw
    */
   draw() {
-    
+    var center = this.objectCenter();
 
     this.ctx.beginPath();
-    this.ctx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
+    this.ctx.arc(center.x, center.y, this.radius, 0, Math.PI * 2);
     this.ctx.stroke();
     this.ctx.fill();
 
     this.drawText();
 
     this.hitCtx.beginPath();
-    this.hitCtx.arc(this.centerX, this.centerY, this.radius, 0, Math.PI * 2);
+    this.hitCtx.arc(center.x, center.y, this.radius, 0, Math.PI * 2);
     this.hitCtx.stroke();
     this.hitCtx.fill();
 
@@ -783,7 +918,6 @@ class Connector extends FlowchartBox {
     var delta = Math.max(deltaX, deltaY);
     super.resize(delta, delta);
   }
-
 
   /** Connector.outline
    */
@@ -802,6 +936,15 @@ class Connector extends FlowchartBox {
     ctx.beginPath();
     ctx.arc(cX, cY, radius, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+
+  angleToPosition(a) {
+    var center = this.objectCenter();
+    return { 
+      x: center.x + this.radius * Math.cos(a),
+      y: center.y - this.radius * Math.sin(a),
+    }
   }
 }
 
