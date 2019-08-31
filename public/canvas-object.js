@@ -151,6 +151,16 @@ class CanvasObject {
     return this.y1;
   }
 
+  /** CanvasObject.objectCenter
+   *    return center of object 
+   */
+  objectCenter() {
+    return {
+      x : (this.x1 + this.x2) / 2,
+      y : (this.y1 + this.y2) / 2,
+    };
+  }
+
   // mapping from property to expected type
   propTypes() {
     return {};
@@ -382,9 +392,6 @@ class CanvasObject {
     window.reactEditor.setState({ showOptionMenu : true });
   }
 
-  release() {
-  }
-
   static outline(ctx, x1, y1, x2, y2) {
     ctx.lineWidth = 1;
     ctx.strokeStyle = "#000";
@@ -403,26 +410,17 @@ class CanvasChildObject {
     this.ctx = canvasState.ctx;
     this.hitCtx = canvasState.hitCtx;
     this.hashColor = null;
-
-    // list of objects that are locked to this
-    // e.g. arrows locked to array cells
-    this.anchorsFrom = []; // this object is a source anchor
-    this.anchorsTo = [];  // this object is a sink anchor
-
     this.cState.registerCanvasObj(this);
   }
 
-  /** CanvasChildObject.setAnchor
-   *    keep track of objects which use me as an anchor
-   *    so I can update their reference(s) if necessary
-   * 
-   *    TODO use this instead of clone ref
+  /** CanvasObject.objectCenter
+   *    return center of object 
    */
-  setAnchor(lockedObj, dir) {
-    if (dir == "from") 
-      this.anchorsFrom.push(lockedObj);
-    if (dir == "to")
-      this.anchorsTo.push(lockedObj);
+  objectCenter() {
+    return {
+      x : this.x,
+      y : this.y,
+    };
   }
 
   clone(cloneHandle) {
@@ -531,9 +529,6 @@ class CanvasChildObject {
 
   doubleClick() {
     this.getParent().doubleClick();
-  }
-
-  release() {
   }
 
   restore() {
