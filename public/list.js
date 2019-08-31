@@ -272,6 +272,10 @@ class ListNode extends NodeObject {
     this.y = y;
   }
 
+  get dead() {
+    return this.getParent().dead || ! this.getParent().list.has(this.index);
+  }
+
   toString() {
     return `ListNode(${this.value})`;
   }
