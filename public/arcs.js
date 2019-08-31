@@ -40,16 +40,6 @@ class Arrow extends CanvasObject {
       };
     }
 
-    // subscribe to anchor objects so they can
-    // update my references when they are cloned
-    if (fromAnchor) {
-      fromAnchor.setAnchor(this, "from");
-    }
-
-    if (toAnchor) {
-      toAnchor.setAnchor(this, "to");
-    }
-
     this.fromAnchorAlive = () => this.locked && this.locked.from && ! this.locked.from.dead;
 
     this.toAnchorAlive = () => this.locked && this.locked.to && ! this.locked.to.dead;
@@ -65,6 +55,29 @@ class Arrow extends CanvasObject {
     this.cp2 = new ControlPoint(this.cState, this, midX, midY);
 
     this.head = new ArrowHead(canvasState, this);
+  }
+
+  /** 
+   *  moving arrow x1, y1 should move startPoint as well
+   */
+  get x1() {
+    return this._x1;
+  }
+   
+  set x1(newX) {
+    this._x1 = newX;
+    if (this.startPoint)
+      this.startPoint.x = newX;
+  }
+
+  get y1() {
+    return this._y1;
+  }
+
+  set y1(newY) {
+    this._y1 = newY;
+    if (this.startPoint)
+      this.startPoint.y = newY;
   }
 
   propTypes() {
@@ -152,34 +165,41 @@ class Arrow extends CanvasObject {
     ctx.stroke();
   }
 
+  /** Arrow.angleFromCP
+   *    compute the angle from one control point to 
+   *    an arbitrary coordinate
+   *  
+   *    param cpn - integer (1 or 2) deciding which control point to measure angle from 
+   *    param x - x value of other coordinate
+   *    param y - y value of other coordinate 
+   */
+  angleFromCP(cpn, x, y) {
+    var cp;
+    if (cpn == 1) cp = this.cp1; else if (cpn == 2) cp = this.cp2; 
+    else throw `Invalid control point number ${cpn}`;
+    var dx = x - cp.x;
+    var dy = y - cp.y;
+    var a = Math.atan2(dy, dx);
+    if (isNaN(a)) {
+      if (dy >= 0) return Math.PI/2;
+      return 3*Math.PI/2;
+    }
+    return a;
+  }
+
   /** Arrow.endingAngle
    *    return ending angle from 2nd control point to end point
    *    in radians
    */
   endingAngle() {
-    var dx = this.x2 - this.cp2.x;
-    var dy = this.y2 - this.cp2.y;
-    
-    if (this.cp2.x == this.x2 && this.cp2.y == this.y2) {
-      dx = this.x2 - this.x1;
-      dy = this.y2 - this.y1;
-    }
-      
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
+    return this.angleFromCP(2, this.x2, this.y2);
   }
 
   /** Arrow.startingAngle
    *    return angle from start point to first control point
    */
   startingAngle() {
-    var dx = this.x1 - this.cp1.x;
-    var dy = this.y1 - this.cp1.y;
-    
-    if (this.cp1.x == this.x1 && this.cp1.y == this.y1) {
-      dx = this.x1 - this.x1;
-      dy = this.y1 - this.y1;
-    }
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
+    return 2 * Math.PI - this.angleFromCP(1, this.x1, this.y1);
   }
 
   /** Arrow.straighten
@@ -196,23 +216,14 @@ class Arrow extends CanvasObject {
 
   /** Arrow.move
    *    translate entire arrow by deltaX, deltaY
-   *
-   *    if arrow is locked to parent (e.g. array)
-   *    don't allow user to move arrow directly
    */
   move(deltaX, deltaY) {
-    if (! (this.fromAnchorAlive() || this.toAnchorAlive())) {
-      super.move(deltaX, deltaY);
-      this.startPoint.x += deltaX;
-      this.startPoint.y += deltaY;
-    }
+    super.move(deltaX, deltaY);
     this.cp1.x += deltaX;
     this.cp2.x += deltaX;
     this.cp1.y += deltaY;
     this.cp2.y += deltaY;
-
   }
-
 }
 
 
@@ -379,34 +390,37 @@ class ChildArrow extends CanvasChildObject {
     this.head.configAndDraw();
   }
 
-  /** ChildArrow.endingAngle
-   *    return ending angle from 2nd control point to end point
-   *    in radians
+  /** Arrow.angleFromCP
+   *    compute the angle from one control point to 
+   *    an arbitrary coordinate
+   *  
+   *    param cpn - integer (1 or 2) deciding which control point to measure angle from 
+   *    param x - x value of other coordinate
+   *    param y - y value of other coordinate 
    */
-  endingAngle() {
-    var dx = this.x2 - this.cp2.x;
-    var dy = this.y2 - this.cp2.y;
-    
-    if (this.cp2.x == this.x2 && this.cp2.y == this.y2) {
-      dx = this.x2 - this.x1;
-      dy = this.y2 - this.y1;
+  angleFromCP(cpn, x, y) {
+    var cp;
+    if (cpn == 1) cp = this.cp1; else if (cpn == 2) cp = this.cp2; 
+    else throw `Invalid control point number ${cpn}`;
+    var dx = x - cp.x;
+    var dy = y - cp.y;
+    var a = Math.atan2(dy, dx);
+    if (isNaN(a)) {
+      if (dy >= 0) return Math.PI/2;
+      return 3*Math.PI/2;
     }
-      
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
+    return a;
   }
 
-  /** ChildArrow.startingAngle
+  endingAngle() {
+    return this.angleFromCP(2, this.x2, this.y2);
+  }
+
+  /** Arrow.startingAngle
    *    return angle from start point to first control point
    */
   startingAngle() {
-    var dx = this.x1 - this.cp1.x;
-    var dy = this.y1 - this.cp1.y;
-    
-    if (this.cp1.x == this.x1 && this.cp1.y == this.y1) {
-      dx = this.x1 - this.x1;
-      dy = this.y1 - this.y1;
-    }
-    return -Math.atan2(dx, dy) + 0.5*Math.PI;
+    return 2 * Math.PI - this.angleFromCP(1, this.x1, this.y1);
   }
 
   /** ChildArrow.straighten
@@ -641,6 +655,11 @@ class DragPoint extends CanvasChildObject {
     
     // don't draw if locked to parent
     if (this.getParent().fromAnchorAlive()) return;
+
+    this.ctx.fillStyle = this.hashColor;
+    this.ctx.beginPath();
+    this.ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+    this.ctx.fill();
 
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.beginPath();
