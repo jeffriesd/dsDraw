@@ -306,8 +306,8 @@ class NodeObject extends CanvasChildObject {
    */
   lockArrow(arrow, dir) {
     var center = this.objectCenter();
-    var startAngle = arrow.angleFromCP(1, center.x, center.y);
-    var endAngle = arrow.angleFromCP(2, center.x, center.y)
+    var startAngle = arrow.angleToCP(1, center.x, center.y);
+    var endAngle = arrow.angleToCP(2, center.x, center.y)
 
     // determine offsets from 
     // node center 
@@ -319,7 +319,7 @@ class NodeObject extends CanvasChildObject {
 
     // center is this.x, this.y
     if (dir == "from") {
-      offX = this.radius * Math.cos(startAngle);
+      offX = this.radius * -Math.cos(startAngle);
       offY = this.radius * Math.sin(startAngle);
 
       arrow.x1 = this.x - offX;
@@ -332,7 +332,7 @@ class NodeObject extends CanvasChildObject {
       }
     }
     else {
-      offX = this.radius * Math.cos(endAngle);
+      offX = this.radius * -Math.cos(endAngle);
       offY = this.radius * Math.sin(endAngle);
 
       arrow.x2 = this.x - offX;
