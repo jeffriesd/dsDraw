@@ -269,36 +269,8 @@ class CanvasObject {
     this.floatingChildren.forEach(x => x.move(deltaX, deltaY, true));
   }
 
-  shiftMove(deltaX, deltaY) {
-    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
-    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
-    if (dx > dy) { // lock in horizontal orientation
-      this.move(deltaX, 0);
-    }
-    else {
-      this.move(0, deltaY);
-    }
-  }
-
   drag(deltaX, deltaY) {
   }
-
-  /** CanvasObject.shiftDrag
-   *    default behavior 
-   *    is to ignore hotkey
-   */
-  // shiftDrag(deltaX, deltaY) {
-  //   this.drag(deltaX, deltaY);
-  // }
-  shiftDrag(deltaX, deltaY) {
-    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
-    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
-    if (dx > dy) 
-      this.drag(deltaX, 0);
-    else 
-      this.drag(0, deltaY);
-  }
-
 
   configAndDraw() {
     this.configureOptions();
@@ -504,22 +476,8 @@ class CanvasChildObject {
       this.getParent().move(deltaX, deltaY);
   }
 
-  shiftMove(deltaX, deltaY, fromParent) {
-    this.getParent().shiftMove(deltaX, deltaY);
-  }
-
   drag(deltaX, deltaY) {
   }
-
-  shiftDrag(deltaX, deltaY) {
-    var dx = Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x);
-    var dy = Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y);
-    if (dx > dy) 
-      this.drag(deltaX, 0);
-    else 
-      this.drag(0, deltaY);
-  }
-
 
   /** Event when click begins
    */
