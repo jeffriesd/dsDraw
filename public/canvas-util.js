@@ -274,6 +274,7 @@ class CanvasState {
    */
   executeDrawCommand() {
     var drawCommand = createDrawCommand(this);
+    console.log("ac = ", this.activeCommandType, " ;  created dc = ", drawCommand)
     if (drawCommand) executeCommand(drawCommand);
   }
 
@@ -469,28 +470,34 @@ class CanvasEventHandler {
     if (this.cState.mouseDown && !this.cState.mouseUp) {
       var deltaX = event.clientX - this.dragOffsetX;
       var deltaY = event.clientY - this.dragOffsetY;
-
+      var oldDx = deltaX; // save dx, dy in case one is removed by shift
+      var oldDy = deltaY;
 
       // draw commands happen here
       if (this.cState.activeObj) {
-        if (hotkeys[CTRL] && hotkeys[SHIFT]) {
-          this.cState.activeObj.shiftMove(deltaX, deltaY);
+        if (hotkeys[SHIFT]) {
+          // if holding shift, perpendicular paths
+          // are enforced
+          // -- TODO -- somehow check if majority of path
+          // -- has been L/R even if dragged back near origin where 
+          // displacement almost == 0 
+          if (Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x) 
+              > Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y)) 
+            deltaY = 0;
+          else 
+            deltaX = 0;
         }
-        else if (hotkeys[CTRL]) {
+
+        if (hotkeys[CTRL]) {
           this.cState.activeObj.move(deltaX, deltaY);
-          // Group select move
+          this.cState.activeCommandType = "move";
+
           if (this.cState.selectGroup.has(this.cState.activeParent())) {
             this.cState.selectGroup.forEach((obj) => {
               if (this.cState.activeParent() !== obj)
                 obj.move(deltaX, deltaY);
             });
           }
-
-          this.cState.activeCommandType = "move";
-        }
-        else if (hotkeys[SHIFT]) {
-          this.cState.activeObj.shiftDrag(deltaX, deltaY);
-          this.cState.activeCommandType = "shiftDrag";
         }
         else {
           this.cState.activeObj.drag(deltaX, deltaY);
@@ -498,8 +505,8 @@ class CanvasEventHandler {
         }
 
         // reset dragOffset
-        this.dragOffsetX += deltaX;
-        this.dragOffsetY += deltaY;
+        this.dragOffsetX += oldDx;
+        this.dragOffsetY += oldDy;
       }
     }
     // just moving mouse (not during click)
@@ -522,7 +529,7 @@ class CanvasEventHandler {
     if (this.cState.mouseUp.x !== this.cState.mouseDown.x
         || this.cState.mouseDown.y !== this.cState.mouseUp.y) {
 
-      // create new object
+      // create new object and record the command
       if (this.cState.clickedBare) {
         this.cState.activeObj = this.cState.objectFactory.createCanvasObject();
       }
