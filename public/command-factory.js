@@ -148,8 +148,6 @@ function createDrawCommand(cState) {
       return new MoveCommand(cState, cState.activeObj);
     case "drag":
       return new DragCommand(cState, cState.activeObj);
-    case "shiftDrag":
-      return new ShiftDragCommand(cState, cState.activeObj);
     case "clone":
       return new CloneCommand(cState, cState.activeParent());
   }

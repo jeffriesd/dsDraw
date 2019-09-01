@@ -125,32 +125,6 @@ class DragCommand extends DrawCommand {
 }
 
 
-class ShiftDragCommand extends DrawCommand {
-  constructor(cState, receiver) {
-    super(cState, receiver);
-
-    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
-
-    this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
-    this.newPos = {x: this.receiver.x, y: this.receiver.y };
-  }
-
-  execute() {
-    var dx = this.newPos.x - this.receiver.x;
-    var dy = this.newPos.y - this.receiver.y;
-    this.receiver.shiftDrag(dx, dy);
-  }
-
-  undo() {
-    var dx = this.oldPos.x - this.receiver.x;
-    var dy = this.oldPos.y - this.receiver.y;
-    // drag back to initial point
-    this.receiver.shiftDrag(dx, dy);
-  }
-}
-
-
 class CloneCommand extends DrawCommand {
   constructor(cState, receiver) {
     super(cState, receiver);
@@ -445,6 +419,9 @@ class ConsoleCommand {
   undo() {}
 }
 
+/**
+ * Just calls destroy on first argument
+ */
 class ConsoleDestroyCommand extends ConsoleCommand {
   constructor(cState, receiver) {
     super(receiver);
