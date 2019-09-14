@@ -199,8 +199,8 @@ class CanvasObject {
   destroy() {
     this.hide();
 
-    if (VariableEnvironment.hasVar(removeObj.label))
-      VariableEnvironment.deleteVar(removeObj.label);
+    if (VariableEnvironment.hasVar(this.label))
+      VariableEnvironment.deleteVar(this.label);
   }
 
   hide() {
