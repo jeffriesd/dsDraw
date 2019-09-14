@@ -21,14 +21,18 @@ class CanvasObjectConstructor extends ConsoleCommand {
   applyStyle() {
     if (this.styleOptions == undefined) return;
     if (this.newObj.propNames == undefined) return;
-    var validOptions = this.newObj.propNames();
-    if (Array.from(this.styleOptions.keys())
-      .every(x => validOptions.hasOwnProperty(x))) {
-      // if all properties are valid, apply them
-      this.styleOptions.forEach((v, k) => this.newObj[validOptions[k]] = v);
+
+    // style options argument must be a dictionary
+    if (this.styleOptions instanceof Dictionary) {
+      var validOptions = this.newObj.propNames();
+      if (Array.from(this.styleOptions.keys())
+        .every(x => validOptions.hasOwnProperty(x))) {
+        // if all properties are valid, apply them
+        this.styleOptions.forEach((v, k) => this.newObj[validOptions[k]] = v);
+        return;
+      }
     }
-    else
-      throw "Invalid style options";
+    throw "Invalid style options";
   }
 
   /** CanvasObjectConstructor.executeSelf
@@ -80,6 +84,13 @@ class MathBoxConstructor extends CanvasObjectConstructor {
   constructor(...args) {
     super(...args);
     this.canvasClass = MathBox;
+  }
+}
+
+class ImageBoxConstructor extends CanvasObjectConstructor {
+  constructor(...args) {
+    super(...args);
+    this.canvasClass = ImageBox;
   }
 }
 
