@@ -203,6 +203,8 @@ class NodeObject extends CanvasChildObject {
   /** NodeObject.draw
    *    most generic node drawing -- circular nodes
    *    with border and possibly indices or values
+   * 
+   *    node is drawn with node.x, node.y at center
    */
   draw() {
     
@@ -234,49 +236,40 @@ class NodeObject extends CanvasChildObject {
       this.drawIndex(this.index);
   }
 
+  /** NodeObject.drawValue
+   *    draw in center
+   */
   drawValue() {
     var valStr = this.value.toString();
     var textWidth = this.ctx.measureText(valStr).width;
-    // make sure width doesnt exceed containing cell
+
     if (textWidth > this.cellSize) {
       valStr = "..";
       textWidth = this.ctx.measureText(valStr).width;
     }
-    var textOffX = (this.cellSize - textWidth) / 2;
 
-    var textHeight = this.ctx.measureText("_").width;
-    var textOffY = (this.cellSize - textHeight) / 2;
-    this.ctx.textBaseline = "top";
+    this.ctx.textBaseline = "middle";
+    this.ctx.textAlign = "center";
 
-		this.ctx.fillStyle = this.textColor;
-		this.ctx.fillText(valStr,
-											this.x + textOffX,
-											this.y + textOffY);
+    this.ctx.fillStyle = this.textColor;
+    this.ctx.fillText(valStr, this.x, this.y);
   }
 
   drawIndex(idx) {
-		// set baseline back to default
-		this.ctx.textBaseline = "alphabetic";
-		this.ctx.fillStyle = "black";
+    var yOffset;
+    if (this.getParent().indexPlacement == "above") 
+      yOffset = -this.cellSize;
+    else 
+      yOffset = this.cellSize;
 
-    var textWidth = this.ctx.measureText(idx).width;
-    var textOffX = (this.cellSize - textWidth) / 2;
+    this.ctx.textBaseline = "alphabetic";
+    this.ctx.textAlign = "center";
+    this.ctx.fillStyle = "black";
 
-    var textHeight = this.ctx.measureText("_").width * 2;
-    var yOffset = -(this.cellSize - textHeight) / 2;
-    var textOffY = (this.cellSize - textHeight) / 2;
+    this.ctx.fillText(idx, this.x, this.y + yOffset);
 
-		// draw above or below
-		if (this.getParent().indexPlacement == "below") {
-			yOffset = textOffY + this.cellSize;
-			this.ctx.textBaseline = "top";
-		}
-
-		this.ctx.fillText(idx,
-					this.x + textOffX, this.y + yOffset);
-    
   }
-
+    
   /** NodeObject.click
    *    TODO:
    *    bring up editor
