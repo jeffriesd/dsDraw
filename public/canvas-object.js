@@ -451,6 +451,7 @@ class CanvasChildObject {
 
   configureOptions() {
     this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.strokeColor;
+    this.ctx.fillStyle = this.fill || "transparent";
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.strokeStyle = this.hashColor;
   }
