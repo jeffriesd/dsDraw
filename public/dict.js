@@ -20,14 +20,15 @@ class LanguageObject {
 class Dictionary extends LanguageObject {
   constructor(keyValueList) {
     super();
-    keyValueList.forEach(([k, v]) => {
-      this.set(k, v);
-    });
 
     // store data in map
     this.map = new Map();
-  }
 
+    if (keyValueList)
+      keyValueList.forEach(([k, v]) => {
+        this.set(k, v);
+      });
+  }
 
   methodNames() {
     return {
