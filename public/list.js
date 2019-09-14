@@ -278,42 +278,6 @@ class ListNode extends NodeObject {
     this.nodeStyle = this.getParent().nodeStyle;
   }
 
-  /** ListNode.drawValue
-   */
-  drawValue() {
-    var valStr = this.value.toString();
-    var textWidth = this.ctx.measureText(valStr).width;
-
-    if (textWidth > this.cellSize) {
-      valStr = "..";
-      textWidth = this.ctx.measureText(valStr).width;
-    }
-
-    this.ctx.textBaseline = "middle";
-    this.ctx.textAlign = "center";
-
-    this.ctx.fillStyle = this.textColor;
-    this.ctx.fillText(valStr, this.x, this.y);
-  }
-
-  /** ListNode.drawIndex
-   *    draw index above or below
-   */
-  drawIndex(idx) {
-    var yOffset;
-    if (this.getParent().indexPlacement == "above") 
-      yOffset = -this.cellSize;
-    else 
-      yOffset = this.cellSize;
-
-    this.ctx.textBaseline = "alphabetic";
-    this.ctx.textAlign = "center";
-    this.ctx.fillStyle = "black";
-
-    this.ctx.fillText(idx, this.x, this.y + yOffset);
-
-  }
-    
   /** ListNode.shiftDrag
    *    shift + regular drag moves individual nodes around
    *
