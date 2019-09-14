@@ -796,6 +796,9 @@ class TextBox extends FlowchartBox {
    */
   draw() {
     
+    this.ctx.recCtx.beginPath();
+    this.ctx.recCtx.closePath();
+
 
     this.ctx.editCtx.beginPath();
     this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
@@ -873,6 +876,175 @@ class MathBox extends TextBox {
   }
 }
 
+/** ImageBox 
+ *    draws a scaled image to the canvas. 
+ *    
+ *    upload an image or provide a url
+ */
+class ImageBox extends CanvasObject {
+  constructor(cState, x1, y1, x2, y2) {
+    super(cState, x1, y1, x2, y2); 
+
+    this.fill = "transparent";
+    this.strokeColor = "gray";
+
+    this.lineDash = [1, 2];
+
+    this.img = null;
+    this._url = null;
+
+    // add clickable point for resizing
+    this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
+  }
+
+  get url() {
+    return this._url;
+  }
+
+  set url(u) {
+    this.img = new Image();
+    // disable crossorigin property 
+    this.img.crossOrigin = "";
+    this.img.src = u;
+    // repaint once image loaded
+    this.img.onload = repaint;
+    this._url = u;
+  }
+
+  get floatingChildren() {
+    return [this.resizePoint];
+  }
+
+  config() {
+    return { 
+      url: this.url,
+    };
+  }
+
+  propNames() {
+    return {
+      "url" : "url",
+    };
+  }
+
+  propTypes() {
+    return {
+      "url": "string",
+    }
+  }
+
+  configureOptions() {
+    super.configureOptions();
+    this.ctx.setLineDash(this.lineDash);
+  }
+
+  /** ImageBox.drawImage
+   *    draw image contents to canvas 
+   *    if 
+   */
+  drawImage() {
+    if (this.img) {
+      // url may not be a valid image
+      try {
+        this.ctx.drawImage(this.img, this.x1, this.y1, this.width, this.height);
+      }
+      catch {
+        this.img = null;
+        this.url = "";
+      }
+    }
+  }
+
+  draw() {
+
+    this.ctx.recCtx.beginPath();
+    this.ctx.recCtx.closePath();
+
+
+    this.ctx.editCtx.beginPath();
+    this.ctx.editCtx.rect(this.x1, this.y1, this.width, this.height);
+    this.ctx.editCtx.stroke();
+    
+    this.drawImage();
+
+    // draw to hit detection canvas
+    this.hitCtx.beginPath();
+    this.hitCtx.fillRect(this.x1, this.y1, this.width, this.height);
+    this.hitCtx.stroke();
+
+    this.resizePoint.configAndDraw();
+
+    // undo lineDash
+    this.ctx.setLineDash([]);
+  }
+
+  /** Arrow locking methods borrowed from FlowchartBox */
+
+  /** FlowchartBox.angleToPosition
+   *    map the angle of an outgoing arrow
+   *    (incoming = angleToPosition(2pi - theta))
+   *    to a position along the perimeter of this box
+   * 
+   *    a - angle in radians
+   */
+  angleToPosition(a) {
+    var pi = Math.PI;
+    while (a < 0) a += 2*pi;
+    a %= 2*pi;
+
+    const inRange = (x, y) => a >= x && a <= y
+    var x, y;
+    if (inRange(7*pi/4, 2*pi) || inRange(0, pi/4)) { // right
+      // need to map angle from strictly increasing interval
+      if (a >= 0 && a <= pi/4) 
+        a = 2*pi + a;
+      x = this.x2;
+      y = -linMap(7*pi/4, 9*pi/4, -this.y2, -this.y1, a);
+    }
+    else if (inRange(pi/4, 3*pi/4)) { // top
+      y = this.y1;
+      x = -linMap(pi/4, 3*pi/4, -this.x2, -this.x1, a);
+    }
+    else if (inRange(3*pi/4, 5*pi/4)) { // right
+      x = this.x1;
+      y = linMap(3*pi/4, 5*pi/4, this.y1, this.y2, a);
+    }
+    else if (inRange(5*pi/4, 7*pi/4)) { // bottom
+      y = this.y2;
+      x = linMap(5*pi/4, 7*pi/4, this.x1, this.x2, a);
+    }
+    return { x : x, y : y};
+  }
+
+  /** FlowchartBox.lockArrow
+   *    put tip of arrow on edge of box and use
+   *    angle to determine position and side
+   * 
+   *    angleToPosition function maps the angle
+   *    of an outgoing arrow 
+   *
+   *    move control point as well to avoid oscillation
+   *    between two different angles 
+   *    (visual glitch that occurs when control point is inside node)
+   */
+  lockArrow(arrow, dir) {
+    var myCenter = this.objectCenter();
+    var startAngle = arrow.angleToCP(1, myCenter.x, myCenter.y);
+    var endAngle = arrow.angleToCP(2, myCenter.x, myCenter.y);
+
+    if (dir == "from") {
+      var anchorPos = this.angleToPosition(startAngle);
+      arrow.x1 = anchorPos.x;
+      arrow.y1 = anchorPos.y;
+    }
+    else if (dir == "to") {
+      var anchorPos = this.angleToPosition(endAngle);
+      arrow.x2 = anchorPos.x;
+      arrow.y2 = anchorPos.y;
+    }
+  }
+
+}
 
 class Connector extends FlowchartBox {
   constructor(canvasState, x1, y1, x2, y2) {
