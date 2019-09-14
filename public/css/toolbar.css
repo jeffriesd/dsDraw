@@ -259,6 +259,10 @@ button:focus , button::-moz-focus-inner {
   background-image: url("../images/mathbox.png");
 }
 
+#imageBox {
+  background-image: url("../images/upload_image.png");
+}
+
 
 #bST {
   background-image: url("../images/bst.png");
