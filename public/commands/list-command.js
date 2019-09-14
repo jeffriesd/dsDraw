@@ -67,9 +67,6 @@ class LinkedListCutCommand extends LinkedListCommand {
     super.executeChildren();
     this.fromIndex = this.args[0];
     this.toIndex = this.args[1];
-
-    // // save arrow object for undo
-    // this.edge = null;
   }
 
   checkArguments() {
@@ -83,11 +80,9 @@ class LinkedListCutCommand extends LinkedListCommand {
   }
 
   /** LinkedListCutCommand.undo 
-   *    restore cut edge (it will add itself back
-   *    to parent map in its restore method)
+   *    restore cut edge in arrows map
    */
   undo() {
-    // this.edge.restore();
     this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
   }
 }
@@ -95,9 +90,7 @@ class LinkedListCutCommand extends LinkedListCommand {
 class LinkedListRemoveCommand extends LinkedListCommand {
   constructor(receiver, removeIdx) {
     super(receiver, removeIdx);
-
     this.node = null;
-    this.removedArrows = [];
   }
 
   executeChildren() {
@@ -112,27 +105,11 @@ class LinkedListRemoveCommand extends LinkedListCommand {
   executeSelf() {
     if (this.node == null) {
       this.node = this.receiver.list.get(this.removeIndex);
-      // this.receiver.arrows.forEach((arr, idx) => {
-      //   if (idx.includes(this.removeIndex))
-      //     this.removedArrows.push(arr);
-      // });
-
-      // TODO implement arrow save/restore
-      this.oldArrows = new Map();
-      this.receiver.arrows.forEach((v, k) => {
-        this.oldArrows.set(k, v);
-      });
     }
     this.receiver.list.delete(this.removeIndex);
-
-    // deprecated bc of child arrow class
-    // this.removedArrows.forEach(arr => arr.destroy());
   }
 
   undo() {
     this.receiver.list.set(this.removeIndex, this.node);
-
-    // deprecated bc of child arrow class
-    // this.removedArrows.forEach(arr => arr.restore());
   }
 }
