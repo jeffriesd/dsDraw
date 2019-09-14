@@ -25,6 +25,7 @@ const constructors = {
   "linked":   LinkedListConstructor,
   "text":     TextBoxConstructor,
   "math":     MathBoxConstructor,
+  "image":    ImageBoxConstructor,
   "rectbox":  RectBoxConstructor,
   "rbox":     RectBoxConstructor,
   "roundbox": RoundBoxConstructor,
@@ -148,6 +149,8 @@ function createDrawCommand(cState) {
       return new MoveCommand(cState, cState.activeObj);
     case "drag":
       return new DragCommand(cState, cState.activeObj);
+    // case "shiftDrag":
+    //   return new ShiftDragCommand(cState, cState.activeObj);
     case "clone":
       return new CloneCommand(cState, cState.activeParent());
   }
@@ -166,6 +169,16 @@ function createDrawCommand(cState) {
 function createFunctionDefinition(funcName, argNames, funcStatements) {
   VariableEnvironment.defineFunction(funcName, 
     new FunctionDefinition(funcName, argNames, funcStatements));
+}
+
+/** undoFunctionDefinition
+ *    undo method for function definition because
+ *    otherwise error would be thrown if func def command
+ *    was re-done because it seems like someone is trying
+ *    to overwrite an existing function 
+ */
+function undoFunctionDefinition(funcName) {
+  VariableEnvironment.deleteFunctionDefinition(funcName);
 }
 
 /** FunctionDefinition
