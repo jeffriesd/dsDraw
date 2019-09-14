@@ -4,6 +4,8 @@ const mainCommands = {
   "snap": ExportToImageCommand,
   "sleep": SleepCommand,
   "dir": DirCommand,
+  "show": ShowCommnd,
+  "hide": HideCommand, 
   "truncate": TruncateVideoCommand,
   "export": ExportVideoCommand,
   "rand": RandomFloatCommand,

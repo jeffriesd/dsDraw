@@ -1268,3 +1268,76 @@ class DirCommand extends ConsoleCommand {
     return (propNames.concat(methNames)).map(s => `'${s}'`);
   }
 }
+
+
+/** Show a hidden canvas object
+ */
+class ShowCommnd extends ConsoleCommand {
+  constructor(cState, ...args) {
+    super(...args);
+    this.wasHidden = null;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
+  /** ShowCommand.checkArguments
+   *    receiver should be top-level canvas object
+   */
+  checkArguments() {
+    if (this.receiver instanceof CanvasObject) return;
+    throw "Argument to 'show' must be top-level canvas object";
+  }
+
+  executeSelf() {
+    if (this.wasHidden == undefined) 
+      this.wasHidden = this.receiver.dead;
+
+    if (this.wasHidden) this.receiver.unhide();
+  }
+
+  undo() {
+    if (this.wasHidden) this.receiver.hide();
+  }
+}
+
+class HideCommand extends ConsoleCommand {
+  constructor(cState, ...args) {
+    super(...args);
+    this.wasShown = null;
+  }
+
+  executeChildren() {
+    super.executeChildren();
+    this.receiver = this.args[0];
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
+  /** HideCommand.checkArguments
+   *    receiver should be top-level canvas object
+   */
+  checkArguments() {
+    if (this.receiver instanceof CanvasObject) return;
+    throw "Argument to 'show' must be top-level canvas object";
+  }
+
+  executeSelf() {
+    if (this.wasShown == undefined) 
+      this.wasShown = ! this.receiver.dead;
+
+    if (this.wasShown) this.receiver.hide();
+  }
+
+  undo() {
+    if (this.wasShown) this.receiver.unhide();
+  }
+}
