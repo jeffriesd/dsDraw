@@ -67,23 +67,11 @@ class Array1DResizeCommand extends Array1DCommand {
     if (this.newLength < startLength) {
       this.receiver.array = this.receiver.array.slice(0, this.newLength); 
        
-      this.receiver.arrows.forEach((arrow, aidx) => {
-        var start = aidx[0];
-        var end = aidx[1];
-        if (start >= this.newLength || end >= this.newLength) {
-          this.prevArrows.set(aidx, arrow);
-          this.receiver.arrows.deleteEquiv(aidx);
-          arrow.destroy();
-        }
-      });
     }
   }
 
   undo() {
     this.receiver.array = this.prevArray.slice();
-
-    // add back any removed arrows
-    this.receiver.arrows = new Map(this.prevArrows);
   }
 }
 
