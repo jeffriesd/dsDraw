@@ -212,13 +212,6 @@ class LinkedList extends LinearCanvasObject {
    *    remove node from map
    */
   removeNode(node) {
-    // this.arrows.forEach((arr, index) => {
-    //   var from = this.list.get(index[0]);
-    //   var to = this.list.get(index[1]);
-
-    //   if (from === node || to === node)
-    //     this.removeEdge(from, to);
-    // });
     this.list.delete(node.index);
   }
 
@@ -326,7 +319,7 @@ class ListNode extends NodeObject {
    *
    *    dragging head moves list label
    */
-  shiftDrag(deltaX, deltaY) {
+  drag(deltaX, deltaY) {
     this.x += deltaX;
     this.y += deltaY;
 
