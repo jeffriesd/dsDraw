@@ -87,6 +87,9 @@ class MathBoxConstructor extends CanvasObjectConstructor {
   }
 }
 
+/** ImageBoxConstructor
+ *    url can be passed in as style option
+ */
 class ImageBoxConstructor extends CanvasObjectConstructor {
   constructor(...args) {
     super(...args);
