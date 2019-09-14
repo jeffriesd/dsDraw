@@ -14,6 +14,7 @@ canvasObjectConstructors = {
   "ParallelogramBox": ParallelogramBoxConstructor,
   "TextBox": TextBoxConstructor,
   "MathBox": MathBoxConstructor,
+  "ImageBox": ImageBoxConstructor, 
   "CurvedArrow": CurvedArrowConstructor,
   "Connector": ConnectorConstructor,
   "TextBox": TextBoxConstructor,
@@ -268,16 +269,6 @@ class CanvasState {
     this.startPoint = this.mouseDown;
   }
 
-  /** CanvasState.executeDrawCommand
-   *    call createDrawCommand and push it 
-   *    onto undoStack
-   */
-  executeDrawCommand() {
-    var drawCommand = createDrawCommand(this);
-    console.log("ac = ", this.activeCommandType, " ;  created dc = ", drawCommand)
-    if (drawCommand) executeCommand(drawCommand);
-  }
-
   /** CanvasState.getCenter
    *    return coordinates of canvas center
    */
@@ -347,7 +338,8 @@ class CanvasState {
    *    by the user
    */
   isActive(canvasObj) {
-    return (this.activeParent() === canvasObj && !this.selectGroup.size)
+    return (this.activeObj === canvasObj && !this.selectGroup.size)
+            || this.activeParent() === canvasObj // if child active -> parent active
             || this.selectGroup.has(canvasObj);
   }
 
@@ -374,8 +366,8 @@ class CanvasObjectFactory {
   createCanvasObject() {
     var x1 = cState.mouseDown.x;    
     var y1 = cState.mouseDown.y;
-    var x2 = cState.mouseUp.x;    
-    var y2 = cState.mouseUp.y;    
+    var x2 = cState.mouseMove.x;    
+    var y2 = cState.mouseMove.y;    
 
     var constrClass = canvasObjectConstructors[this.cState.drawMode];
     if (constrClass == undefined) return null;
@@ -433,6 +425,8 @@ class CanvasEventHandler {
       if (this.cState.activeObj && this.cState.activeObj !== canvasObj)
         this.cState.activeObj.deactivate();
 
+      // save previously active object to combine into
+      // selectgroup with new one (if new one is ctrl+clicked)
       this.prevActive = this.cState.activeObj;
       this.cState.activeObj = canvasObj;
 
@@ -473,21 +467,36 @@ class CanvasEventHandler {
       var oldDx = deltaX; // save dx, dy in case one is removed by shift
       var oldDy = deltaY;
 
-      // draw commands happen here
-      if (this.cState.activeObj) {
-        if (hotkeys[SHIFT]) {
-          // if holding shift, perpendicular paths
-          // are enforced
-          // -- TODO -- somehow check if majority of path
-          // -- has been L/R even if dragged back near origin where 
-          // displacement almost == 0 
-          if (Math.abs(this.cState.mouseMove.x - this.cState.mouseDown.x) 
-              > Math.abs(this.cState.mouseMove.y - this.cState.mouseDown.y)) 
-            deltaY = 0;
-          else 
-            deltaX = 0;
+      if (hotkeys[SHIFT]) {
+        // if holding shift, perpendicular paths
+        // are enforced
+
+        // this.shifted is set once at the beginning of a 
+        // shift+drag to enforce one axis (up/down or left/right)
+        if (! this.shifted) { 
+          if (Math.abs(event.clientX - this.cState.mouseDown.x) 
+            > Math.abs(event.clientY - this.cState.mouseDown.y)) {
+          this.shifted = "X";
+          }
+          else {
+            this.shifted = "Y";
+          }
         }
 
+        if (this.shifted == "X") {
+          deltaY = 0;
+          this.cState.mouseMove.y = this.cState.mouseDown.y;
+
+        }
+        else {
+          deltaX = 0;
+          this.cState.mouseMove.x = this.cState.mouseDown.x;
+        }
+
+      }
+
+      // draw commands happen here
+      if (this.cState.activeObj) {
         if (hotkeys[CTRL]) {
           this.cState.activeObj.move(deltaX, deltaY);
           this.cState.activeCommandType = "move";
@@ -498,6 +507,13 @@ class CanvasEventHandler {
                 obj.move(deltaX, deltaY);
             });
           }
+        }
+        // else if (hotkeys[SHIFT]) { -- now use shift for enforcing perpendicular path
+        //   this.cState.activeObj.shiftDrag(deltaX, deltaY);
+        //   this.cState.activeCommandType = "shiftDrag"; 
+        // }
+        else if (hotkeys[ALT]) {
+          this.cState.activeCommandType = "clone";
         }
         else {
           this.cState.activeObj.drag(deltaX, deltaY);
@@ -534,14 +550,10 @@ class CanvasEventHandler {
         this.cState.activeObj = this.cState.objectFactory.createCanvasObject();
       }
 
-      // clone clicked object
-      else if (this.cState.activeObj && hotkeys[ALT])
-        this.cState.activeCommandType = "clone";
-
-
       // create DrawCommand object and push onto undo stack
       // -- only happens when mouseUp != mouseDown
-      this.cState.executeDrawCommand();
+      var drawCommand = createDrawCommand(this.cState);
+      if (drawCommand) executeCommand(drawCommand);
     }
     // mouse release happens same place as press
     else if (this.cState.mouseUp.x == this.cState.mouseDown.x
@@ -570,6 +582,8 @@ class CanvasEventHandler {
     }
 
     this.cState.activeCommandType = "";
+    
+    this.shifted = null;
 
     // send update to show X for group selection
     if (this.cState.selectGroup.size)
