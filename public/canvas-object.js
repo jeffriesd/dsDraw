@@ -194,17 +194,31 @@ class CanvasObject {
   /** CanvasObject.destroy
    *    remove this object from list of 
    *    repaintable objects and also clear
-   *    labeling
+   *    labeling (remove from variable environment)
    */
   destroy() {
+    this.hide();
+
+    if (VariableEnvironment.hasVar(removeObj.label))
+      VariableEnvironment.deleteVar(removeObj.label);
+  }
+
+  hide() {
     this.cState.remove(this);
     this.dead = true;
   }
 
-  restore() {
+  unhide() {
     this.cState.addCanvasObj(this);
-    VariableEnvironment.setVar(this.label, this);
     this.dead = false;
+  }
+
+  /** CanvasObject.restore
+   *    restore to canvas and restore binding
+   */
+  restore() {
+    this.unhide();
+    VariableEnvironment.setVar(this.label, this);
   }
 
   /** CanvasObject.active
