@@ -660,7 +660,8 @@ class GetChildrenCommand extends ConsoleCommand {
   }
 
   /** GetChildrenCommand.executeSelf
-   *    use getChildren method if receiver is a data structure,
+   *    if receiver is a data structure, use getChildren
+   *    if receiver is dictionary, return entries with low <= key < high
    *    otherwise slice the array
    */
   executeSelf() {
@@ -669,12 +670,22 @@ class GetChildrenCommand extends ConsoleCommand {
       if (this.high == null) this.high = this.receiver.length;
       return this.receiver.slice(this.low, this.high)
     }
-    if (this.receiver instanceof CanvasObject) {
+    if (this.receiver instanceof CanvasObject || this.receiver instanceof LanguageObject) {
       if (this.receiver.getChildren == undefined)
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.low, this.high);
     }
-    throw `Cannot perform range access on '{this.receiver.constructor.name}'.`;
+    if (this.receiver instanceof Dictionary) {
+      var inRange = [];
+      if (this.low == null) this.low = Number.NEGATIVE_INFINITY;
+      if (this.high == null) this.high = Number.POSITIVE_INFINITY;
+      this.receiver.forEach((v, k) => {
+        if (typeof k == "number" && k >= this.low && k < this.high)
+          inRange.push(v);
+      });
+      return inRange;
+    }
+    throw `Cannot perform range access on '${this.receiver.constructor.name}'.`;
   }
 
   undo() {}
@@ -698,7 +709,7 @@ class GetChildCommand extends ConsoleCommand {
   }
 
   checkArguments() {
-    if (this.receiver instanceof Dictionary) return;
+    if (this.receiver instanceof LanguageObject) return;
     if (this.receiver instanceof Array)
       if (this.key < 0 || this.key >= this.receiver.length)
         throw "Array index out of bounds: " + this.key;
@@ -717,7 +728,7 @@ class GetChildCommand extends ConsoleCommand {
     if (this.receiver instanceof Dictionary)
       return this.receiver.get(this.key);
 
-    if (this.receiver instanceof CanvasObject) {
+    if (this.receiver instanceof CanvasObject || this.receiver instanceof LanguageObject) {
       if (this.receiver.getChildren == undefined)
         throw `${this.receiver.constructor.name} does not support access by key.`;
       return this.receiver.getChildren(this.key, this.key+1)[0];
