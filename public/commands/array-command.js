@@ -102,69 +102,6 @@ class Array1DSwapCommand extends Array1DCommand {
   }
 }
 
-class Array1DArrowCommand extends Array1DCommand {
-  constructor(receiver, index1, index2) {
-    super(receiver, index1, index2);
-    this.arrow = null;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.i1 = this.args[0];
-    this.i2 = this.args[1];
-  }
-
-  checkArguments() {
-    this.checkIndices(this.i1, this.i2);
-  }
-
-  /** Array1DArrowCommand.execute
-   *    add an arc from i1 to i2
-   */
-  executeSelf() {
-    if (this.receiver.arrows.hasEquiv([this.i1, this.i2])) return;
-    var fromAnchor = this.receiver.array[this.i1];
-    var toAnchor = this.receiver.array[this.i2];
-
-    if (this.arrow == null) {
-      var cs = this.receiver.cellSize;
-      var x1 = (this.i1 * cs) + this.receiver.x1;
-      var x2 = (this.i2 * cs) + this.receiver.x1;
-      
-      // anchor to center of cells
-      x1 += Math.floor(cs / 2);
-      x2 += Math.floor(cs / 2);
-    
-      var y = this.receiver.y1;
-      
-      this.arrow = 
-        new CurvedArrow(this.receiver.cState, x1, y, x2, y, fromAnchor, toAnchor);
-      this.arrow.keyRestore = [this.i1, this.i2];
-
-      // set control points so arc goes above by default
-      var mid = Math.floor((x1 + x2) / 2);
-      this.arrow.cp1.x = Math.floor((x1 + mid) / 2);
-      this.arrow.cp2.x = Math.floor((mid + x2) / 2);
-      this.arrow.cp1.y = y - cs;
-      this.arrow.cp2.y = y - cs;
-    } 
-    this.receiver.arrows.set([this.i1, this.i2], this.arrow);
-  }
-
-  /** Array1DArrowCommand.undo
-   *    remove arrow if it exists 
-   */
-  undo() {
-    if (this.arrow != null) {
-      this.arrow.destroy();
-      this.receiver.arrows.deleteEquiv([this.i1, this.i2]);
-    }
-  }
-
-  usage() {
-    return "array.arc(fromIndex, toIndex)";
-  }
-}
 
 /** Array1DCopyCommand
  *    copy contents (values) of this array to another
@@ -264,5 +201,107 @@ class Array1DSortCommand extends Array1DCommand {
 
   undo() {
     this.receiver.array = this.savedArray.slice();
+  }
+}
+
+
+/** 
+ *  Possible updates to array:
+ *    - values reassigned (copy, swap, sort, etc.)
+ *    - resize (resize, copy, etc.)
+ */
+class Array1DGetTreeCommand extends Array1DCommand {
+  constructor(receiver) {
+    super(receiver);
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
+  /** Array1DTreeCommand
+   *    build a tree bottom up with 
+   *    the array elements as leaves
+   */
+  executeSelf() {
+    return this.receiver.tree;
+    var d = new Dictionary();
+    if (this.receiver.tree == undefined) return d;
+
+    this.receiver.tree.ids.forEach((v, k) => {
+      d.set(k, v);
+    });
+    return d;
+  }
+
+  undo() {
+  }
+}
+
+class ArrayTreeRootCommand extends Array1DCommand {
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() {
+    if (this.receiver.levels.length == 0) return null;
+    return this.receiver.levels[this.receiver.levels.length - 1][0];
+  }
+}
+
+class ArrayTreeNodeLeftCommand extends Array1DCommand {
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() {
+    // next level index
+    var nli = this.receiver.levelNumber - 1;
+    var li = this.receiver.levelIndex * 2;
+
+    // down to leaves
+    if (nli == -1)
+      var nextLevel = this.receiver.getParent().array;
+    else
+      var nextLevel = this.receiver.arrayTree.levels[nli];
+
+    if (nextLevel != undefined) {
+      if (nextLevel[li] != undefined) return nextLevel[li];
+    }
+    return null;
+  }
+}
+
+
+class ArrayTreeNodeRightCommand extends Array1DCommand {
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() {
+    // next level index
+    var nli = this.receiver.levelNumber - 1;
+    var li = this.receiver.levelIndex * 2 + 1;
+
+    if (nli == -1)
+      var nextLevel = this.receiver.getParent().array;
+    else
+      var nextLevel = this.receiver.arrayTree.levels[nli];
+
+
+    if (nextLevel != undefined) {
+      if (nextLevel[li] != undefined) return nextLevel[li];
+    }
+    return null;
+  }
+}
+
+
+class ArrayTreeNodeParentCommand extends Array1DCommand {
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() {
+    // prev level index
+    var pli = this.receiver.levelNumber + 1;
+    var li = this.receiver.levelIndex >> 1;
+
+    var prevLevel = this.receiver.arrayTree.levels[pli];
+
+    if (prevLevel != undefined) {
+      if (prevLevel[li] != undefined) return prevLevel[li];
+    }
+    return null;
+
+
   }
 }
