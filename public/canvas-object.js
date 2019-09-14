@@ -16,7 +16,8 @@ function validPropertyAssignment(value, expectedType) {
     case "font": return validFontString(value);
     case "int": return (typeof value == "number") && ((value | 0) == value);
     case "float": return (typeof value == "number"); 
-    case "number": return (typeof vlaue == "number");
+    case "number": return (typeof value == "number");
+    case "string": return (typeof value == "string");
   }
   throw "Unexpected type constraint: " + expectedType;
 }
@@ -274,8 +275,8 @@ class CanvasObject {
 
   configAndDraw() {
     this.configureOptions();
-    if (this.active()) this.drawLabel();
     this.draw();
+    if (this.active()) this.drawLabel();
   }
 
   configureOptions() {
@@ -333,6 +334,8 @@ class CanvasObject {
     this.ctx.editCtx.stroke();
 
     // draw label bg
+    this.hitCtx.beginPath();
+    this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.fillRect(boxx, boxy, boxw, boxh);
     this.hitCtx.fill();
 
@@ -447,6 +450,7 @@ class CanvasChildObject {
   }
 
   configureOptions() {
+    this.ctx.strokeStyle = this.active() ? this.cState.activeBorder : this.strokeColor;
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.strokeStyle = this.hashColor;
   }
