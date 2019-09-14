@@ -441,24 +441,6 @@ class BinaryHeapNode extends NodeObject {
     return [this.xleft, this.xright];
   }
 
-  /** ListNode.drawValue
-   */
-  drawValue() {
-    var valStr = this.value.toString();
-    var textWidth = this.ctx.measureText(valStr).width;
-
-    if (textWidth > this.cellSize) {
-      valStr = "..";
-      textWidth = this.ctx.measureText(valStr).width;
-    }
-
-    this.ctx.textBaseline = "middle";
-    this.ctx.textAlign = "center";
-
-    this.ctx.fillStyle = this.textColor;
-    this.ctx.fillText(valStr, this.x, this.y);
-  }
-
   /** BinaryHeapNode.draw
    *    draw node with center at x, y and 
    *    node value
@@ -481,20 +463,4 @@ class BinaryHeapNode extends NodeObject {
     this.hitCtx.fill();
   }
 
-  /** BinaryHeap
-   * Node.drawIndex
-   *    draw node index at top left 
-   */
-  drawIndex(idx) {
-    var r = this.radius;
-    var dx = -r;
-    var dy = r;
-    if (this.getParent().indexPlacement == "above") 
-      dy *= -1;
-    this.ctx.textBaseline = "alphabetic";
-    this.ctx.textAlign = "center";
-    this.ctx.fillStyle = "black";
-
-    this.ctx.fillText(idx, this.x + dx, this.y + dy);
-  }
 }

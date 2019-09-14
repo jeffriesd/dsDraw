@@ -642,25 +642,4 @@ class GraphNode extends NodeObject {
     g.y2 = Math.max(g.y2, this.y + r);
   }
 
-  /** GraphNode.drawValue
-   *    draw in circle (vs square)
-   */
-  drawValue() {
-    var valStr = this.value.toString();
-    var textWidth = this.ctx.measureText(valStr).width;
-
-    if (textWidth > this.cellSize) {
-      valStr = "..";
-      textWidth = this.ctx.measureText(valStr).width;
-    }
-
-    this.ctx.textBaseline = "middle";
-    this.ctx.textAlign = "center";
-
-    this.ctx.fillStyle = this.textColor;
-    this.ctx.fillText(valStr, this.x, this.y);
-  }
-
-
-
 }

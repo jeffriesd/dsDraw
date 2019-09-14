@@ -710,25 +710,6 @@ class BSTNodeCanvasObject extends NodeObject {
 
   /** END WRAPPER METHODS FOR ACCESSING BST */
 
-  /** BSTNodeCanvasObject.drawValue
-   *    draw in circle (vs square)
-   */
-  drawValue() {
-    var valStr = this.value.toString();
-    var textWidth = this.ctx.measureText(valStr).width;
-
-    if (textWidth > this.cellSize) {
-      valStr = "..";
-      textWidth = this.ctx.measureText(valStr).width;
-    }
-
-    this.ctx.textBaseline = "middle";
-    this.ctx.textAlign = "center";
-
-    this.ctx.fillStyle = this.textColor;
-    this.ctx.fillText(valStr, this.x, this.y);
-  }
-
   drawTriangle() {
     
     this.ctx.beginPath();
@@ -750,19 +731,4 @@ class BSTNodeCanvasObject extends NodeObject {
     this.hitCtx.fill();
   }
 
-  /** BSTNodeCanvasObject.drawIndex
-   *    draw node index at top left 
-   */
-  drawIndex(idx) {
-    var r = this.radius;
-    var dx = -r;
-    var dy = r;
-    if (this.getParent().indexPlacement == "above") 
-      dy *= -1;
-    this.ctx.textBaseline = "alphabetic";
-    this.ctx.textAlign = "center";
-    this.ctx.fillStyle = "black";
-
-    this.ctx.fillText(idx, this.x + dx, this.y + dy);
-  }
 }
