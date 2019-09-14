@@ -255,8 +255,6 @@ class CanvasState {
       return (item !== removeObj);
     });
 
-    if (VariableEnvironment.hasVar(removeObj.label))
-      VariableEnvironment.deleteVar(removeObj.label);
     removeObj.deactivate();
   }
 
