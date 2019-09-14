@@ -22,7 +22,7 @@ class DrawCommand {
     return {
       hotkeys: this.cState.hotkeyStartState,
       startPoint: this.cState.mouseDown,
-      endPoint: this.cState.mouseUp,
+      endPoint: this.cState.mouseMove,
     };
   }
 
@@ -124,6 +124,32 @@ class DragCommand extends DrawCommand {
   }
 }
 
+// class ShiftDragCommand extends DrawCommand {
+//   constructor(cState, receiver) {
+//     super(cState, receiver);
+// 
+//     var deltaX = this.state.endPoint.x - this.state.startPoint.x;
+//     var deltaY = this.state.endPoint.y - this.state.startPoint.y;
+// 
+//     this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
+//     this.newPos = {x: this.receiver.x, y: this.receiver.y };
+//   }
+// 
+//   execute() {
+//     var dx = this.newPos.x - this.receiver.x;
+//     var dy = this.newPos.y - this.receiver.y;
+//     this.receiver.shiftDrag(dx, dy);
+//   }
+// 
+//   undo() {
+//     var dx = this.oldPos.x - this.receiver.x;
+//     var dy = this.oldPos.y - this.receiver.y;
+//     // drag back to initial point
+//     this.receiver.shiftDrag(dx, dy);
+//   }
+// }
+
+
 
 class CloneCommand extends DrawCommand {
   constructor(cState, receiver) {
@@ -138,11 +164,11 @@ class CloneCommand extends DrawCommand {
       this.group = [this.receiver];
 
 
+    this.clones = cloneObjectsMaintainAnchors(this.group);
+
     this.newPos = this.group.map(r => {
       return { x: r.x + deltaX, y: r.y + deltaY };
     });
-
-    this.clones = cloneObjectsMaintainAnchors(this.group);
   }
  
   /** CloneCommand.execute
@@ -280,7 +306,7 @@ class RelabelCommand {
 function cloneObjectsMaintainAnchors(objects) {
   // clone arrows last so their anchors get cloned first
   // (false comes first in sorting)
-  objects = objects.sort(x => x instanceof Arrow);
+  objects = objects.sort(x => x.locked != null);
 
   // use a unique object to identify
   // when anchored objects were
@@ -397,7 +423,9 @@ class ConsoleCommand {
   executeChildren() {
     this.args = 
       this.argNodes
-      // .filter(node => node != undefined) // shouldn't be necessary
+      .filter(node => node != undefined) 
+      // filter is necessary at least for interpreation of arr[:]
+      // in which argNodes = ["buildVariable", null, null]
       .map(node => node.command.execute());  
   }
   checkArguments() { }
@@ -555,7 +583,7 @@ class ConfigCommand extends ConsoleCommand {
       throw `${this.receiver.constructor.name} has no property '${this.propName}'.`;
     var expectedType = this.receiver.propTypes()[this.property];
     if (! validPropertyAssignment(this.value, expectedType))
-      throw `Invalid value '${this.value}' for property '${this.propName}'. Expected value: ${expectedType}.`;
+      throw `Invalid value '${this.value}' for property '${this.propName}'. Expected type: ${expectedType}.`;
   }
 
   /** ConfigCommand.parseValue
