@@ -927,7 +927,9 @@ function buildFunctionDefinition(operands) {
       execute: function() {
         createFunctionDefinition(funcName, argNames, funcStatements);
       },
-      undo: function() {}
+      undo: function() {
+        undoFunctionDefinition(funcName);
+      }
     },
     clone: function() {
       return buildDict(cloneOperands(operands));
@@ -1187,6 +1189,7 @@ var grammar = {
     {"name": "nonQuote", "symbols": [{"literal":"["}]},
     {"name": "nonQuote", "symbols": [{"literal":"]"}]},
     {"name": "nonQuote", "symbols": [{"literal":";"}]},
+    {"name": "nonQuote", "symbols": [{"literal":":"}]},
     {"name": "nonQuote", "symbols": [(lexer.has("number") ? {type: "number"} : number)]},
     {"name": "nonQuote", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)]},
     {"name": "nonQuote", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)]},

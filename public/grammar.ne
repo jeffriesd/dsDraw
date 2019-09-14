@@ -149,7 +149,7 @@ unaryNeg -> "-" mathTerminal {% buildNegate %}
 
 nonQuote -> " " | "\t" | "-" | "+" | "*" | "/" | "^" | %LESSEQ | %GREATEQ | %EQEQ 
           | %DOT | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "=" | "{" 
-          | "}" | "[" | "]" | ";" 
+          | "}" | "[" | "]" | ";" | ":"
           | %number 
           | %methodName 
           | %varName 
@@ -1088,7 +1088,9 @@ function buildFunctionDefinition(operands) {
       execute: function() {
         createFunctionDefinition(funcName, argNames, funcStatements);
       },
-      undo: function() {}
+      undo: function() {
+        undoFunctionDefinition(funcName);
+      }
     },
     clone: function() {
       return buildDict(cloneOperands(operands));
