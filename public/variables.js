@@ -124,6 +124,16 @@ class VariableEnvironment {
     this.functions.set(funcName, funcDef);
   }
 
+  static deleteFunctionDefinition(funcName) {
+    VariableEnvironment.getInstance().deleteFunctionDefinition(funcName);
+  }
+
+  deleteFunctionDefinition(funcName) {
+    if (! this.functions.has(funcName)) 
+      throw `Cannot undo definition of unknown function ${funcName}.`;
+    this.functions.delete(funcName);
+  }
+
   static getCanvasObj(objLabel) {
     return VariableEnvironment.getInstance().getCanvasObj(objLabel);
   }
