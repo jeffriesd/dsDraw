@@ -3,6 +3,7 @@ class GraphCommand extends CanvasObjectMethod {
   constructor(receiver, ...args) {
     super(receiver, ...args);
     this.oldAdj = this.receiver.copyAdjacency();
+    this.oldArrowCoords = this.saveArrows();
     this.oldCoords = this.saveCoords();
   }
 
@@ -12,11 +13,13 @@ class GraphCommand extends CanvasObjectMethod {
   undo() {
     this.receiver.setAdjacency(this.oldAdj);
     this.restoreCoords(this.oldCoords);
+    this.restoreArrows(this.oldArrowCoords);
   }
 
   /** saveGraphCoords
    *    save graph coordinates for restoring
    *    graph shape pre-render 
+   * 
    *    @returns Map {nodeId : Int -> {x : Float, y : Float}}
    */
   saveCoords() {
@@ -33,6 +36,33 @@ class GraphCommand extends CanvasObjectMethod {
       c = coords.get(node.index);
       node.x = c.x;
       node.y = c.y;
+    });
+  }
+
+  saveArrows() {
+    var arrCoords = new EdgeMatrix();
+    this.receiver.arrows.forEach((i, j, arrow) => {  
+      arrCoords.set(i, j, {
+        cp1: {
+          x: arrow.cp1.x,
+          y: arrow.cp1.y,
+        },
+        cp2: {
+          x: arrow.cp2.x,
+          y: arrow.cp2.y,
+        }
+      });
+    });
+    return arrCoords;
+  }
+
+  restoreArrows(arrCoords) {
+    arrCoords.forEach((i, j, coords) => {
+      var arr = this.receiver.arrows.get(i, j);
+      arr.cp1.x = coords.cp1.x;
+      arr.cp1.y = coords.cp1.y;
+      arr.cp2.x = coords.cp2.x;
+      arr.cp2.y = coords.cp2.y;
     });
   }
 
@@ -55,8 +85,10 @@ class GraphCommand extends CanvasObjectMethod {
     if (this.newCoords == undefined) {
       this.receiver.render();
       this.newCoords = this.saveCoords();
+      this.newArrowCoords = this.saveArrows();
     }
     this.restoreCoords(this.newCoords);
+    this.restoreArrows(this.newArrowCoords);
   }
 
   checkNodeId(nid) {
@@ -92,6 +124,7 @@ class GraphRenderCommand extends GraphCommand {
   // only restore coordinates
   undo() {
     this.restoreCoords(this.oldCoords);
+    this.restoreArrows(this.oldArrowCoords);
   }
 }
 
