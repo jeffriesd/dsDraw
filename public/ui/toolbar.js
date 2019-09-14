@@ -94,6 +94,7 @@ const array1dButton = tbb("array1D");
 const linkedListButton = tbb("linkedList");
 const textBoxButton = tbb("textBox");
 const mathBoxButton = tbb("mathBox");
+const imageBoxButton = tbb("imageBox");
 const bstButton = tbb("bST");
 const binaryHeapButton = tbb("binaryHeap");
 const graphButton = tbb("graph");
@@ -112,7 +113,7 @@ const deleteButton = create(
 const selectButton = tbb("selectTool");
 
 
-const mainButtons = [selectButton, textBoxButton, mathBoxButton, arrowButton];
+const mainButtons = [selectButton, textBoxButton, mathBoxButton, imageBoxButton, arrowButton];
 
 const buttons = {
   "flowchart": [
