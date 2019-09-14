@@ -85,16 +85,6 @@ class LinearCanvasObject extends CanvasObject {
     Object.assign(b, tempNode);
   }
 
-  /** LinearCanvasObject.restore
-   *    restore this object and its arrows
-   */
-  restore() {
-    super.restore();
-    // this.arrows.forEach(arr => {
-    //   arr.restore();
-    // });
-  }
-
   getChild(idx) {
     return this.getChildren(idx, idx+1).pop();
   }
@@ -126,6 +116,8 @@ class LinearCanvasObject extends CanvasObject {
   get floatingChildren() {
     return this.nodes;
   }
+
+
 }
 
 class NodeObject extends CanvasChildObject {
