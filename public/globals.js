@@ -126,7 +126,7 @@ function stringify(object) {
       || typeof object == "number" || typeof object == "boolean") return String(object);
   if (object.command) return "method";
   if (object instanceof CanvasChildObject
-    || object instanceof CanvasObject)
+    || object instanceof CanvasObject || object instanceof LanguageObject)
     return String(object);
   if (object instanceof Array) // 'list' object
     return "[" + object.map(stringify) + "]";
