@@ -1,3 +1,162 @@
+class ArrayTree extends LanguageObject {
+  constructor(arrayCanvasObject) {
+    super();
+    this.arrayCanvasObject = arrayCanvasObject;
+    this.ids = new Map();
+    this.levels = [];
+  }
+
+  toString() {
+    return "ArrayTree";
+  }
+
+  propNames() {
+    return {
+    };
+  }
+
+  propTypes() {
+    return {
+
+    };
+  }
+
+  methodNames() {
+    return {
+      "root": ArrayTreeRootCommand,
+    };
+  }
+
+  /** ArrayTree.nodes
+   *    collect those nodes which are actively being drawn
+   *    (if array is retracted, some ArrayTreeNodes may
+   *      exist in this.ids which are not being drawn)
+   */
+  get nodes() {
+    // loop through from base and check those 
+    // which are currently being drawn
+    var array = this.arrayCanvasObject.array;
+    var curLevel = [];
+    array.forEach((_n, i) => curLevel.push(i));
+    var nextLevel = [];
+
+    var nodes = [];
+
+    var level = 0;
+    while (curLevel.length > 1) {
+      for (var i = 0; i < curLevel.length; i += 2) {
+        nodes.push(this.getNode(level, i >> 1));
+        nextLevel.push(i >> 1);
+      }
+      curLevel = nextLevel;
+      nextLevel = [];
+      level++;
+    }
+    return nodes;
+  }
+  
+  /** ArrayTree.getChildren
+   *    return list of ArrayTreeNodes 
+   *    with low <= index < high
+   *  
+   *    (but only those which are currently active) 
+   */
+  getChildren(low, high) {
+    if (low == undefined) low = Number.NEGATIVE_INFINITY;
+    if (high == undefined) high = Number.POSITIVE_INFINITY;
+
+    return this.nodes.filter(n => n.index >= low  && n.index < high);
+  }
+
+  clone(cloneHandle) {
+    var copy = new ArrayTree();
+    this.levels.forEach(lev => {
+      var newLevel = [];
+      lev.forEach(treeNode => {
+        var cloneNode = treeNode.clone(cloneHandle);
+        copy.ids.set(treeNode.index, cloneNode);
+        cloneNode.arrayTree = copy;
+        newLevel.push(cloneNode);
+      });
+      copy.levels.push(newLevel);
+    });
+    return copy;
+  }
+
+  getNode(level, index) {
+    if (this.levels[level]) {
+      if (this.levels[level][index] != undefined) {
+        return this.levels[level][index];
+      }
+    }
+    return null;
+  }
+
+  /** ArrayTree.newNode
+   *    create new node, set unique id,
+   *    and add it to the correct level
+   */
+  newNode(level) {
+    var newIndex = Array.from(this.ids.keys()).reduce(
+      (acc, val) => Math.max(acc, val), -1) + 1;
+    
+    var newNode = new ArrayTreeNode(
+      this.arrayCanvasObject.cState, this.arrayCanvasObject,
+      0, newIndex);
+
+    this.ids.set(newIndex, newNode);
+
+    // create level if empty
+    if (this.levels[level] == undefined) {
+      this.levels.push([]);
+    }
+
+    // set reference to parent ArrayTree and
+    // set levelNumber & levelIndex so it's easy to 
+    // get parent/left/right from node itself.
+    newNode.arrayTree = this;
+    newNode.levelNumber = level;
+    newNode.levelIndex = this.levels[level].length;
+
+    this.levels[level].push(newNode);
+
+    return newNode;
+  }
+
+  forEach(f) {
+    this.levels.forEach(l => l.forEach(f));
+  }
+}
+
+class ArrayTreeNode extends NodeObject {
+  config() {
+    return {
+      ...super.config(),
+      levelIndex: this.levelIndex,
+      levelNumber: this.levelNumber,
+    }
+  }
+
+  // drawn based on array positions
+  configAndDraw(x, y) {
+    this.x = x;
+    this.y = y;
+    super.configAndDraw();
+  }
+
+  toString() {
+    return `ArrayTreeNode(${this.value})`;
+  }
+
+  methodNames() {
+    return {
+      "left": ArrayTreeNodeLeftCommand,
+      "right": ArrayTreeNodeRightCommand,
+      "parent": ArrayTreeNodeParentCommand,
+    }
+  }
+}
+
 /** Array1D
  *    configurable options:
  *      - number of cells
@@ -25,10 +184,15 @@ class Array1D extends LinearCanvasObject {
     this.maxTowerHeight = 8;
 
     this.displayStyle = "cell";
+    this.nodeStyle = "square";
 
-    // keep track of anchored arrows 
-    // (keyed by start and endpoints)
-    this.arrows = new Map();
+    // arrays can have a binary tree
+    // drawn on top of them 
+    // with the array elements as leaves
+    // -- but default this is empty
+    this.tree = null;
+    this.showTree = false;
+    this.treeVertSep = this.cellSize * 2;
 
     // randomly assign values between 0 and randSeed
     this.randomSeed = 100;
@@ -54,6 +218,8 @@ class Array1D extends LinearCanvasObject {
       "displayStyle": ["tower", "cell"],
       "maxTowerHeight": "int",
       "seed": "int",
+      "showTree": "bool",
+      "treeVertSep": "int",
     }
   }
 
@@ -64,6 +230,9 @@ class Array1D extends LinearCanvasObject {
       "ds": "displayStyle",
       "height": "maxTowerHeight",
       "seed": "randomSeed",
+      "showTree": "showTree",
+      "treeVertSep": "treeVertSep",
+      "tvs": "treeVertSep",
     };
   }
 
@@ -72,9 +241,9 @@ class Array1D extends LinearCanvasObject {
       "length": Array1DLengthCommand,
       "resize": Array1DResizeCommand,
       "swap": Array1DSwapCommand,
-      // "arc": Array1DArrowCommand,
       "copy": Array1DCopyCommand,
       "sort": Array1DSortCommand,
+      "tree": Array1DGetTreeCommand,
     };
   }
 
@@ -83,6 +252,8 @@ class Array1D extends LinearCanvasObject {
       ...super.config(),
       maxTowerHeight: this.maxTowerHeight,
       randomSeed: this.randomSeed,
+      showTree: this.showTree, 
+      treeVertSep: this.treeVertSep,
     };
   }
 
@@ -94,13 +265,107 @@ class Array1D extends LinearCanvasObject {
     copyArr.forEach(node => node.parentObject = copy);
     copy.array = copyArr;
 
+    // copy tree if it exists
+    if (this.tree) {
+      copy.tree = this.tree.clone(cloneHandle);
+      copy.tree.arrayCanvasObject = copy;
+      copy.tree.forEach(node => node.parentObject = copy);
+    }
+
     return copy;
   }
 
   draw() {
+    if (this.showTree) 
+      this.drawTree();
+
     this.nodes.forEach((node, idx) => {
       node.configAndDraw(idx);
-      idx++;
+    });
+  }
+
+  /** Array1D.drawTree
+   *    draw binary tree overtop of array
+   *    with the array elements as leaves
+   *     
+   *    values of tree nodes initially undefined
+   * 
+   *    tree may need to be rebuilt if:
+   *      - tree hasn't been built yet
+   *      - array has been extended 
+   *        (shrinking is ok, the extra nodes are just not drawn)
+   * 
+   */
+  drawTree() {
+    if (this.tree == undefined) this.tree = new ArrayTree(this);
+
+    // continue drawing levels until root is reached
+    var curLevel = this.array.slice();
+    var nextLevel = [];
+
+    var level = 0;
+    var x; 
+    var y = this.y1 + this.cellSize - this.treeVertSep;
+    
+
+    var leftChildX;
+    var rightChildX;
+
+    // draw nodes after edges so
+    // nodes appear on top
+    var drawNodeStack = [];
+
+
+    this.ctx.save();
+    this.ctx.beginPath();
+    while (curLevel.length > 1) {
+
+      for (var i = 0; i < curLevel.length; i += 2) {
+        // if out of bounds
+        if (i + 1 >= curLevel.length) {
+          // parent is directly above
+          x = curLevel[i].x;
+          leftChildX = x;
+          rightChildX = x;
+        } else {
+          // parent centered above children
+          x = Math.floor((curLevel[i].x + curLevel[i+1].x) / 2);
+
+          leftChildX = curLevel[i].x;
+          rightChildX = curLevel[i+1].x;
+        }
+
+        // draw edges
+        this.ctx.strokeStyle = "black";
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(leftChildX, y + this.treeVertSep);
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(rightChildX, y + this.treeVertSep);
+
+        // try and draw this node 
+        // if it exists, just draw
+        // if not, create then draw
+        var node = this.tree.getNode(level, i >> 1);
+        if (node == null) node = this.tree.newNode(level);
+        node.x = x;
+        node.y = y;
+        drawNodeStack.push([level, i >> 1, x, y]);
+
+        nextLevel.push(this.tree.getNode(level, i>>1));
+      }
+
+      curLevel = nextLevel.slice();
+      nextLevel = [];
+      level++;
+      y -= this.treeVertSep;
+    }
+
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // draw nodes
+    drawNodeStack.forEach(([l, i, x, y]) => {
+      this.tree.getNode(l, i).configAndDraw(x, y);
     });
   }
 
@@ -210,18 +475,19 @@ class ArrayNode extends NodeObject {
     }
   }
 
+
   /** ArrayNode.draw
    */
   draw(idx) {
-    
-
     this.x = (idx * this.cellSize) + this.getParent().x1;
-    this.y = this.getParent().y1;
+    this.y = this.cellSize + this.getParent().y1;
 
-    // draw box
     this.ctx.beginPath();
-    
+    this.hitCtx.beginPath();
+
+    var h = Math.floor(this.cellSize / 2);
     if (this.getParent().displayStyle == "tower") {
+      // tower height is negative and needs to be extended downwards
       var yStart = this.y + this.cellSize;
       var height = this.towerHeight;
     }
@@ -229,20 +495,21 @@ class ArrayNode extends NodeObject {
       var yStart = this.y;
       var height = this.cellSize;
     }
-    this.ctx.rect(this.x, yStart, this.cellSize, height);
-    this.ctx.fillRect(this.x, yStart, this.cellSize, height);
+    this.ctx.rect(this.x - h, yStart - h, this.cellSize, height);
+    this.ctx.fillRect(this.x - h, yStart - h, this.cellSize, height);
+    this.hitCtx.fillRect(this.x - h, yStart - h, this.cellSize, height);
+
     this.ctx.stroke();
+    this.ctx.fill();
 
-    if (this.getParent().showValues && this.showValues)
-      this.drawValue();
-    
-    if (this.getParent().showIndices && this.showIndices) 
-      this.drawIndex(idx);
-
-    // draw to hit detection canvas
-    this.hitCtx.beginPath();
-    this.hitCtx.fillRect(this.x, yStart, this.getParent().cellSize, height);
     this.hitCtx.stroke();
+    this.hitCtx.fill()
+
+    if (this.showValues && this.getParent().showValues) 
+      this.drawValue();
+
+    if (this.showIndices && this.getParent().showIndices) 
+      this.drawIndex(idx);
   }
 }
 
