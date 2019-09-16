@@ -27,24 +27,42 @@ const mc = new MediaController(cState);
 const clientSocket = new ClientSocket(websock, mc, cState);
 const varEnv = new VariableEnvironment();
 
+// update command stack in side pane
+const updateCommandStack = () => {
+
+  // update command stack 
+  if (window.commandHistoryPane) {
+    // use past/future if already recorded
+    if (mc.postRecording) {
+      var past = mc.cmdRecorder.pastCmds;
+      var init = mc.cmdRecorder.initCmds;
+      window.commandHistoryPane.setState({ stack: init.concat(past) });
+    }
+    else {
+      // otherwise use undo/redo
+      window.commandHistoryPane.setState({ stack: mc.cmdRecorder.undoStack });
+    }
+  }
+};
+
 // global wrapper to record command execution and repaint
 const executeCommand = (...args) => {
   var ret = CommandRecorder.execute(...args);
   repaint();
+
+  updateCommandStack();
   return ret;
-}
-const undoCommand = (...args) => { 
-  CommandRecorder.undo(...args);
-  repaint();
 }
 const hotkeyUndo = () => { 
   mc.hotkeyUndo();
   repaint();
+  updateCommandStack();
 };
 
 const hotkeyRedo = () => { 
   mc.hotkeyRedo();
   repaint();
+  updateCommandStack();
 };
 
 const repaint = () => cState.repaint();
@@ -59,7 +77,13 @@ const parseLine = cmdStr => {
   if (parseTree.results.length == 0)
     throw "Incomplete parse error";
 
-  return parseTree.results[0].command;
+  var cmdObj = parseTree.results[0].command;
+
+  // hold onto AST node for later
+  cmdObj._astNode = parseTree.results[0];
+  cmdObj._cmdStr = cmdStr;
+
+  return cmdObj;
 }
 /**
  *  MOUSE CLICK PRESSED
@@ -67,6 +91,7 @@ const parseLine = cmdStr => {
  *  on console won't invoke canvas events)
  */
 editCanvas.onmousedown = (event) => { 
+  if (mc.postRecording) return;
   cState.eventHandler.mouseDown(event);
   repaint();
 };
@@ -78,6 +103,7 @@ editCanvas.onmousedown = (event) => {
  *  invoke canvas events)
  */
 document.onmousemove = (event) => { 
+  if (mc.postRecording) return;
   cState.eventHandler.mouseMove(event);
   repaint();
 };
@@ -91,6 +117,7 @@ document.onmousemove = (event) => {
  *  is released over console, still invoke canvas event)
  */
 document.onmouseup = (event) => { 
+  if (mc.postRecording) return;
   cState.eventHandler.mouseUp(event);
   repaint();
 };
