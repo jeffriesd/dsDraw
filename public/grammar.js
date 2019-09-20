@@ -921,6 +921,7 @@ function buildFunctionDefinition(operands) {
 
   var funcStatements = operands[operands.length - 1];
   return {
+    isFunctionDef: true,
     isLiteral: false,
     opNodes: funcStatements,
     command: { 
