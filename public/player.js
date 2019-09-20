@@ -55,6 +55,11 @@ class MediaController {
       (acc, val) => Math.max(acc, val), -1) + 1;
   }
 
+  // is recording done yet
+  get postRecording() {
+    if (this.cmdRecorder) return this.cmdRecorder.postRecording;
+  }
+
   /** MediaController.cmdRecorder
    *    getter method to fetch the
    *    command recorder for current active clip
@@ -208,7 +213,8 @@ class MediaController {
     // apply any initialization commands
     this.cmdRecorder.init()
       .then(() => repaint())
-      .catch(() => console.log("ERROR initializing canvas"));
+      .catch(() => console.log("ERROR initializing canvas"))
+      .then(() => updateCommandStack());
   }
 
   /** MediaController.setCurrentClip
@@ -284,30 +290,63 @@ class MediaController {
 
     // get array of objects
     var cloneCommand = new CloneCanvasCommand(this.cState); 
+    var cloneEnvCommand = new CloneEnvCommand(this.cState);
+
+    // this destroys some aliases
     this.cState.clearCanvas();
-    cloneCommand.doClone(); // clone after clearing so labels can persist
-    
+    cloneCommand.cloneObjects(); // clone after clearing so labels can persist
+    cloneEnvCommand.cloneEnv();
+
     var cmdRec = new CommandRecorder(this);
     this.commandRecorders.set(clipId, cmdRec);
 
     cmdRec.initCmds.push({ type: "execute", command: cloneCommand });
+    cmdRec.initCmds.push({ type: "execute", command: cloneEnvCommand });
 
     // restore contents of current canvas
     // so 'continue' button can be clicked more than once in a row
     this.setEditorState(this.activeClipId);
   }
 
-  /** MediaController.removeClip
-   *    remove clip id from clip and 
-   *    ComamndRecorder maps and thumbnail
-   *    from clip menu
+  /** MediaController.removeClips
+   *    remove selected clips from 
+   *    the editor state and delete the video
+   *    segments on the server
+   * 
+   *    if current clip was deleted, switch to another
+   * 
+   * @param {*} clipIds - array of clip ids
    */
-  removeClip(clipId) {
-    this.commandRecorders.delete(clipId);
-    this.clips.delete(clipId);
+  removeClips(clipIds) {
+    clipIds.forEach(cid => {
+      this.commandRecorders.delete(cid);
+      this.clips.delete(cid);
 
-    var thumbnail = document.getElementById("thumbnail" + clipId);
-    this.clipMenu.removeChild(thumbnail);
+      var thumbnail = document.getElementById("thumbnail" + cid);
+      this.clipMenu.removeChild(thumbnail);
+    });
+
+    // send signal to delete on backend 
+
+    var conn = ClientSocket.getInstance();
+    var body = { clipIds: clipIds };
+    conn.sendServer("deleteClip", body);
+
+    // if current clip deleted, switch to another
+    if (clipIds.includes(this.activeClipId)) {
+      this.cState.clearCanvas();
+
+      // switch to the oldest clip
+      if (this.clips.size) {
+        var minId = Array.from(this.clips.keys())
+          .reduce((acc, val) => Math.min(acc, val)); 
+        this.setCurrentClip(minId);
+      }
+      else {
+        // switch to a new blank clip
+        this.newClipBlank();
+      }
+    }
   }
 
   // /** MediaController.getMergedCommandRec
@@ -340,7 +379,10 @@ class MediaController {
     this.state = newState;
 
     // update react
-    window.reactEditor.setState({ recording: this.state === this.recordState });
+    window.reactEditor.setState(
+      { playState : this.state,
+        postRecording: this.cmdRecorder.postRecording,
+      });
   }
 
   record() {
@@ -560,7 +602,7 @@ class PauseState extends MediaState {
       context.setState(context.playState);
     }
     else
-      alert("Merging clips...");
+      alert("Exporting clips...");
   }
 }
 
@@ -647,7 +689,7 @@ class CommandRecorder {
   execute(cmdObj, redo) {
     if (cmdObj instanceof UtilCommand)
       return cmdObj.execute();
-    if (this.postRecording) return alert("Clip can no longer be edited");
+    if (this.postRecording) return lockedAlert();
 
     // may throw exec error
     var ret = cmdObj.execute();
@@ -657,14 +699,17 @@ class CommandRecorder {
 
     this.mc.updateThumbnail();
 
-    this.undoStack.push(cmdObj);
-    if (! redo) this.redoStack = [];
+    // don't record state of pure expressions
+    if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
+      this.undoStack.push(cmdObj);
+      if (! redo) this.redoStack = [];
 
-    // if clip hasn't been recorded yet
-    if (this.mc.getState() !== this.mc.recordState)
-      this.initCmds.push({ type: "execute", command: cmdObj });
-    else
-      this.recordCommand(cmdObj, "execute");
+      // if clip hasn't been recorded yet
+      if (this.mc.getState() !== this.mc.recordState)
+        this.initCmds.push({ type: "execute", command: cmdObj });
+      else
+        this.recordCommand(cmdObj, "execute");
+    }
 
     return ret;
   }
@@ -736,16 +781,26 @@ class CommandRecorder {
     // since seeking isn't handled 
     // by the Command pattern
     repaint();
+
+    updateCommandStack();
   }
 
   fullRewind() {
+    console.log("full rewind")
     this.seekTo(-1);
 
-    this.initCmds.slice().reverse().forEach(ct => { 
-      if (ct.type == "execute") 
-        ct.command.undo();
-      else ct.command.execute();
-    });
+    // new edition: just clear canvas and VEnv
+    this.mc.cState.clearCanvas();
+
+    VariableEnvironment.clearAll();
+    console.log("Clear all")
+
+    // // why is this necessary?
+    // this.initCmds.slice().reverse().forEach(ct => { 
+    //   if (ct.type == "execute") 
+    //     ct.command.undo();
+    //   else ct.command.execute();
+    // });
   }
 
   printStacks() {
@@ -765,6 +820,7 @@ class CommandRecorder {
   }
 
   init() {
+    console.log("CMDR init")
     return new Promise((resolve, reject) => {
       this.initCmds.forEach(ct => {
         console.log("INIT CMD: ", ct.command.constructor.name, ct.command);
