@@ -1,13 +1,10 @@
 const mainCommands = {
   "delete": ConsoleDestroyCommand, // maybe turn into inherited method
   // "relabel": RelabelCommand,
-  "snap": ExportToImageCommand,
-  "sleep": SleepCommand,
+  // "snap": ExportToImageCommand, TODO move to button
   "dir": DirCommand,
-  "show": ShowCommnd,
+  "show": ShowCommand,
   "hide": HideCommand, 
-  "truncate": TruncateVideoCommand,
-  "export": ExportVideoCommand,
   "rand": RandomFloatCommand,
   "randn": RandomIntCommand,
   "range": RangeCommand,
@@ -66,10 +63,11 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
   if (functionNode == null)
     throw "Cannot invoke function on null";
 
-  // call wrapper 'execute' method to get class object
-  // if just calling a built-in function 
-  if (false // functionNode.command instanceof GetVariableCommand 
-      || runtimeOverride) {
+  // construct function call AST nodes at runtime 
+  // to make recursion possible (for a function f 
+  // which calls itself, the binding for f is unknown
+  // at parse time)
+  if (runtimeOverride) {
 
     // get mapped value from variable name
     // -- error thrown if function name undefined
