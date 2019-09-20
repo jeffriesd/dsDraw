@@ -146,19 +146,6 @@ class VideoManager {
       });
   }
 
-  /** VideoManager.removeClips
-   *    delete clips in file system, from clip id => 
-   *    path map and notify
-   *    client to remove from clip menu
-   */
-  removeClips(clipIds) {
-    this.deleteClipFiles(clipIds);
-    clipIds.forEach((id) => {
-      this.sendClient(id, "removeClip");
-      this.clips.delete(id);
-    });
-  }
-
   /** VideoManager.deleteClipFiles
    *    remove video files from file system
    */
@@ -167,18 +154,6 @@ class VideoManager {
       if (! this.clips.has(id)) return;
       fs.unlinkSync(this.idToPath(id), (err) => console.log("Cleanup error:", err));
     });
-  }
-
-  /** VideoManager.removeExcept
-   *    remove all clips from directory except 
-   *    clip with given id
-   */
-  removeExcept(clipId) {
-    var otherClips = 
-      Array.from(this.clips.keys())
-        .filter(c => c != clipId);
-
-    this.removeClips(otherClips);
   }
 
   /** VideoManager.truncateClip
