@@ -1,5 +1,5 @@
 // for custom static outline methods
-canvasObjectClasses = {
+customOutlineClasses = {
   "RoundBox": RoundBox,
   "DiamondBox": DiamondBox,
   "ParallelogramBox": ParallelogramBox,
@@ -177,8 +177,12 @@ class CanvasState {
     return this.recCanvas.height;
   }
 
+  /** CanvasState.clearCanvas
+   *    used to destroy objects but leave aliases
+   *    in the venv unaffected
+   */
   clearCanvas() {
-    this.objects.forEach(obj => obj.destroy());
+    this.objects.forEach(obj => obj.destroy(false));
   }
 
   /** CanvasState.setMode
@@ -306,8 +310,8 @@ class CanvasState {
 
       // use tool or outline object creation
       var toolClass = null;
-      if (this.drawMode in canvasObjectClasses)
-        toolClass = canvasObjectClasses[this.drawMode];
+      if (this.drawMode in customOutlineClasses)
+        toolClass = customOutlineClasses[this.drawMode];
       else 
         toolClass = CanvasObject; // default for outline method
 
@@ -395,13 +399,13 @@ class CanvasEventHandler {
   
   mouseDown(event) {
     this.cState.mouseDown = {x: event.clientX, y: event.clientY};
-    // update react state
+    // update react state (used for option menu)
     this.cState.reactEditor.setState({ mouseDown: this.cState.mouseDown });
 
     this.cState.mouseUp = null;
 
-    var canvasObj = cState.getClickedObject(event.clientX, event.clientY);
 
+    var canvasObj = cState.getClickedObject(event.clientX, event.clientY);
     if (canvasObj) {
       // don't try to create new object/textbox/etc
       // if click starts on another object
