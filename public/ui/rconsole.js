@@ -77,6 +77,10 @@ class ReactConsole extends React.Component {
 
   // reset cycle idx and parse/execute line
   commandEntered() {
+    // CommandRecorder.execute will check anyways
+    // but this way the console contents are unaffected
+    if (consoleLocked()) return lockedAlert();
+
     var line = this.state.commandLineValue;
     this.setState({ cycleIdx: 0 });
     var cmdObj;

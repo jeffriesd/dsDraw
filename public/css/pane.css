@@ -1,0 +1,70 @@
+
+#inspectPane {
+  z-index: 4;
+  position: absolute;
+  width: 20%;
+  height: 90%;
+  top: 5%;
+  right: 0%;
+
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+#environmentPane, #commandHistoryPane {
+  padding: 20px;
+  padding-top: 10px;
+  font-size: 13pt;
+  font-family: monospace;
+  text-align: center;
+  vertical-align: middle;
+  background: var(--dgray4);
+  color: var(--white);
+
+  height: 50%;
+
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--lgray);
+  box-sizing: border-box;
+}
+
+#commandHistoryPane {
+  position: relative;
+  width: 100%;
+  height: 100%;
+
+  background: var(--dgray4);
+  border: 1px solid black;
+  box-sizing: border-box;
+}
+
+table{
+  margin: auto;
+  margin-top: 5%;
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--lgray);
+  text-align: center;
+  table-layout: fixed;
+}
+
+table td {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+table tr {
+  background-color: var(--dgray5);
+  border: 1px solid var(--dgray7);
+}
+table th {
+  color: white;
+  font-family: monospace;
+  font-weight: normal;
+  background-color: var(--dgray7);
+}

@@ -18,6 +18,14 @@ class ReactToolbar extends React.Component {
       "div",
       { className: "ToolbarContainer" },
       create(
+        ToolbarSettings,
+        {
+          selected: this.props.selectedSettings, 
+          updateInspectPane: (...x) => this.props.updateInspectPane(...x),
+        },
+        null
+      ),
+      create(
         ToolbarDropdown,
         {
           className: "ToolbarDropdown",
@@ -54,7 +62,7 @@ class ReactToolbar extends React.Component {
 class ToolbarButtons extends React.Component {
 
   deleteButton() {
-    if (this.props.activeObj)
+    if (this.props.activeObj && ! canvasLocked())
       return [deleteButton];
     return [];
   }
@@ -70,7 +78,11 @@ class ToolbarButtons extends React.Component {
   }
 }
 
-/** buttons */
+/** by default toolbar buttons just set the drawing mode 
+ *  to whatever their id is (capitalizing the first character)
+ *  
+ *  additional callbacks can be passed in as an object
+*/
 const tbb = (id, callbacks) => create(
   "button",
   { 
@@ -97,7 +109,8 @@ const mathBoxButton = tbb("mathBox");
 const imageBoxButton = tbb("imageBox");
 const bstButton = tbb("bST");
 const binaryHeapButton = tbb("binaryHeap");
-const graphButton = tbb("graph");
+const udgraphButton = tbb("uDGraph");
+const digraphButton = tbb("diGraph");
 
 const deleteButton = create(
   "button",
@@ -110,6 +123,175 @@ const deleteButton = create(
   }
 );
 
+
+const toolbarSettingsStrings = [
+  "Show environment",
+  "Show command history"
+];
+
+
+/** By default, toolbar settings options are just 
+ *  active/inactive like checkboxes
+ * 
+ *  props: 
+ *    text - text to display in settings dropdown
+ *    settingsCallback - function to call when dropdown item clicked
+ *    selected - whether this option is currently selected
+ *    selectCallback - set select state in parent component
+ */
+class ToolbarSettingsOption extends React.Component {
+
+  settingsString() {
+    return create (
+      "div",
+      { className: "ToolbarSettingsOptionContainer" },
+      // check mark 
+      (this.props.selected ? "⠀✔⠀" : "⠀⠀") + this.props.text,
+    );
+  }
+
+  /** ToolbarSettingsOption.render
+   *    just draw the settings text with or
+   *    without a checkmark
+   */
+  render() {
+    return create(
+      "div",
+      { onClick: (_e) => { 
+          this.props.selectCallback(this);
+        },
+        className: "ToolbarSettingsOption" 
+      },
+      this.settingsString(),
+    )
+  }
+}
+
+/** ToolbarSettings
+ *    dropdown settings menu for 
+ *    showing/hiding environment, 
+ *    command history, etc.
+ * 
+ *    single button used to show dropdown on hover
+ */
+const settingsButton = create(
+  "button",
+  {
+    id: "settingsButton",
+  }
+)
+
+// quarter second timeout to make 
+// settings menu disappear
+const settingsHoverTimeout = 100;
+
+const tbSettingsOption = (text, onclickCb) => {
+  return create(
+    ToolbarSettingsOption,
+    {
+      className: "ToolbarSettingsOption",
+      text: text,
+      // selectCallback updates select state
+      // and calls onclickCb
+      selectCallback: toolbarSettingsOpt => {
+
+        onclickCb();
+      }
+    }
+  )
+};
+
+
+// setting names used to select inspect pane 
+// elements
+const ENVIRONMENT_PANE = "ENVIRONMENT";
+const COMMAND_HISTORY_PANE = "COMMAND_HISTORY";
+
+const texts = {
+  [ ENVIRONMENT_PANE ] : "Show environment",
+  [ COMMAND_HISTORY_PANE ] : "Show command history",
+}
+
+
+class ToolbarSettings extends React.Component {
+
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      hidden: true,
+      // map from option text -> Bool
+    };
+
+    this.timeout = null;
+  }
+
+
+  /** create a ToolbarSettingsOption 
+   *  with onclick callback    
+  */
+  tbSettingsOption(paneType) {
+
+    return create(
+      ToolbarSettingsOption,
+      {
+        selected: this.props.selected[paneType],                           
+        className: "ToolbarSettingsOption",
+        text: texts[paneType],
+        // toggle setting
+        selectCallback: () => { 
+          var oldState = this.props.selected[paneType];
+          this.props.updateInspectPane(paneType, ! oldState);
+        },
+      }
+    )
+  }
+
+  /** ToolbarSettings.maybeRenderOptions
+   *    only render dropdown options when 
+   *    hovered over 
+   */
+  maybeRenderOptions() {
+    if (this.state.hidden) return null;
+
+    return create(
+      "div",
+      {
+        id: "toolbarSettingsContainer"
+      },
+
+      /** instantiate each settings option with its text and onclick callback */
+      this.tbSettingsOption(ENVIRONMENT_PANE),
+      this.tbSettingsOption(COMMAND_HISTORY_PANE),
+    )
+  }
+
+  render() {
+    return create(
+      "div",
+      { id: "toolbarSettings",
+        className: "ToolbarSettings" ,
+        onMouseEnter: () => { 
+          this.setState({ hidden: false });
+          if (this.timeout) clearTimeout(this.timeout);
+        },
+        onMouseLeave: () => { 
+          this.timeout = setTimeout(() => {
+            this.setState({ hidden: true  });
+          }, settingsHoverTimeout)
+        },
+      },
+
+      // settings button is always drawn.
+      // whether its hidden is managed by css
+      settingsButton,
+      this.maybeRenderOptions(),
+
+    );
+  }
+}
+
+
 const selectButton = tbb("selectTool");
 
 
@@ -120,9 +302,11 @@ const buttons = {
                 rectBoxButton, roundBoxButton, 
                 diamondBoxButton, plBoxButton, connectorButton,
               ],
-  "data structures": [array1dButton, linkedListButton, bstButton, binaryHeapButton, graphButton],
+  "data structures": [array1dButton, linkedListButton, bstButton, binaryHeapButton, udgraphButton, digraphButton],
 }
 /* */
+
+
 
 class ToolbarDropdown extends React.Component {
   constructor(props) {
@@ -165,28 +349,31 @@ class ToolbarDropdown extends React.Component {
   }
 }
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI.
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, info) {
-    // You can also log the error to an error reporting service
-    logErrorToMyService(error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      // You can render any custom fallback UI
-      return "Something went wrong.";
-    }
-
-    return this.props.children;
-  }
-}
+// NB -- never used this. Was trying to resolve some exception 
+//      but must have found the actual cause
+// 
+// class ErrorBoundary extends React.Component {
+//   constructor(props) {
+//     super(props);
+//     this.state = { hasError: false };
+//   }
+// 
+//   static getDerivedStateFromError(error) {
+//     // Update state so the next render will show the fallback UI.
+//     return { hasError: true };
+//   }
+// 
+//   componentDidCatch(error, info) {
+//     // You can also log the error to an error reporting service
+//     logErrorToMyService(error, info);
+//   }
+// 
+//   render() {
+//     if (this.state.hasError) {
+//       // You can render any custom fallback UI
+//       return "Something went wrong.";
+//     }
+// 
+//     return this.props.children;
+//   }
+// }

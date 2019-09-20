@@ -75,7 +75,12 @@ class OptionMenu extends React.Component {
           },
         },
         ...values.map(makeOption),        
-      ));
+      ),
+      // dummy div for color
+      create(
+        "div", { className: "OptionSelectCover" },
+      ),
+      );
     }
     return create(
       OptionInput,
@@ -140,8 +145,13 @@ class ReactEditor extends React.Component {
     this.state = {
       activeObj: null,
       drawMode: "SelectTool",
-      recording: false,
+      playState: null, 
+      postRecording: false, 
       mouseDown: { x: 0, y: 0},
+
+      // for inspect pane
+      showCommandHistory: true,
+      showEnvironment: true,
     };
   }
 
@@ -151,6 +161,11 @@ class ReactEditor extends React.Component {
     return false;
   }
 
+
+  /** ReactEditor.optionsMenu
+   *    Option menu componenet for canvas object settings.
+   *    Activated by double click (managed in canvas-util.js). 
+   */
   optionsMenu() {
     if (! this.showMenuOptions()) return null;
 
@@ -166,6 +181,22 @@ class ReactEditor extends React.Component {
     )
   }
 
+  // show inspect pane if either
+  // command history or environment should be shown
+  maybeInspectPane() {
+    // never show on playback
+    if (this.state.playState instanceof PlayState) return; 
+    if (! (this.state.showCommandHistory || this.state.showEnvironment)) return null;
+    return create(
+      ReactInspectPane,
+      {
+        postRecording: this.state.postRecording,
+        showCommandHistory: this.state.showCommandHistory,
+        showEnvironment: this.state.showEnvironment, 
+      }
+    );
+  }
+
   render() {
     return create(
       "div", {}, // this.props.children[0], // canvas
@@ -175,11 +206,26 @@ class ReactEditor extends React.Component {
           toolbarType: "flowchart",
           activeObj: this.state.activeObj,
           drawMode: this.state.drawMode,
-          recording: this.state.recording,
+          recording: this.state.playState instanceof RecordState,
+
+          // propagate update from settings toolbar 
+          // to InspectPane
+          // elementName : String, value : Bool
+          updateInspectPane: (elementName, value)  => {
+            if (elementName == COMMAND_HISTORY_PANE)
+              this.setState({ showCommandHistory:  value });
+            else if (elementName == ENVIRONMENT_PANE)
+              this.setState({ showEnvironment: value });
+          },
+          selectedSettings: { 
+            [ COMMAND_HISTORY_PANE ]  : this.state.showCommandHistory,
+            [ ENVIRONMENT_PANE ] : this.state.showEnvironment,
+          }
         }, 
         null
       ),
-      create(ReactConsole, 
+      create(
+        ReactConsole, 
         { 
           ref: r => window.reactConsole = r ,
           left:   400,
@@ -188,6 +234,7 @@ class ReactEditor extends React.Component {
           height: 250,
         },
       ),
+      this.maybeInspectPane(),
       this.optionsMenu(),
     );
   }

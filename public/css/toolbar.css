@@ -6,6 +6,7 @@
   background: var(--vlgray);
   border: 1px solid black;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .ToolbarLabel {
@@ -41,6 +42,7 @@
   width: 50%;
   float: left;
 }
+
 
 .ToolbarDropdown {
   float: left;
@@ -93,11 +95,72 @@
   background-color: var(--dgray5);
 }
 
+
+
+/** toolbarSettings **/
+
+#toolbarSettings {
+  background: var(--vlgray);
+  float: left;
+  position: relative;
+  top: 10%;
+  height: 80%;
+  width: auto;
+
+  /* min width */
+
+  margin-left: .2%;
+  margin-right: .2%;
+
+  border: 0;
+
+  text-align: left;
+  font-size: 13pt;
+  font-family: monospace;
+
+}
+
+/* align with bottom of toolbar */
+#toolbarSettingsContainer {
+  position: fixed;
+  z-index: 4;
+  top: 5%;
+  left: 0%;
+  border: 1px solid black;
+  background-color: var(--vlgray);
+  width: auto;
+}
+
+.ToolbarSettingsOption {
+  padding-top: 2%;
+  padding-bottom: 2%;
+  box-sizing: border-box;
+  background-color: var(--vlgray);
+}
+
+.ToolbarSettingsOptionContainer {
+  padding-right: 20px;
+}
+
+.ToolbarSettingsOption p {
+  padding: 10px 50px;
+  vertical-align: middle;
+}
+
+#toolbarSettings .ToolbarSettingsOption:hover {
+  background-color: var(--dgray5);
+}
+
+/** Canvas object options menu **/
+
 .OptionMenu {
   position: absolute;
-  background: var(--vlgray);
+  background: var(--dgray4);
   overflow-x: hidden;
   outline: 1px solid black;
+  color: white;
+
+  font-family: monospace;
 }
 
 .OptionPair {
@@ -125,10 +188,12 @@
   flex-direction: row;
 }
 
-.OptionInput, .OptionSelect {
+.OptionInput {
   float: right;
   font-size: 10pt;
-  border: 1px solid var(--blacko30);
+  border: 1px solid var(--lgray);
+  background-color: var(--dgray4);
+  color: white;
 }
 
 .OptionSelect {
@@ -137,13 +202,14 @@
   position: relative;
   display: block;
   float: left;
-  border: 1px solid var(--blacko30);
+  border: 1px solid var(--lgray);
   font-size: 10pt;
   height: 100%;
   margin-top: 0;
   margin-bottom: 0;
 
-  background: var(--white);
+  background: var(--dgray4);
+  color: var(--white);
 
   -moz-appearance:none; /* Firefox */
   -webkit-appearance:none; /* Safari and Chrome */
@@ -156,12 +222,11 @@
 }
 
 .OptionSelectWrapper:after {
-  content: url("../images/caret-down-solid.svg");
+  content: url("../images/caret-down-white.svg");
   width: 10px;
   height: 10px;
   top: 10%;
 
-  color: #333;
   right: 11px;
   /*Adjust for position however you want*/
   
@@ -180,7 +245,7 @@ button:focus , button::-moz-focus-inner {
   border: 0;
 }
 
-.toolbarButton {
+.toolbarButton, #settingsButton {
   display: inline-block;
   width: 40px;
   height: 80%;
@@ -202,6 +267,12 @@ button:focus , button::-moz-focus-inner {
 
 .toolbarButton:active {
   opacity: 0.7;
+}
+
+#settingsButton {
+  display: inline-block;
+  background-image: url("../images/settingsButton.png");
+  background-position: center;
 }
 
 #deleteButton {
@@ -270,4 +341,12 @@ button:focus , button::-moz-focus-inner {
 
 #binaryHeap {
   background-image: url("../images/binaryheap.png");
+}
+
+#uDGraph {
+  background-image: url("../images/udgraph.png");
+}
+
+#diGraph {
+  background-image: url("../images/digraph.png");
 }
