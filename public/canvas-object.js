@@ -196,11 +196,12 @@ class CanvasObject {
    *    repaintable objects and also clear
    *    labeling (remove from variable environment)
    */
-  destroy() {
+  destroy(deleteAliases) {
+    if (deleteAliases == undefined) deleteAliases = true;
     this.hide();
 
     if (VariableEnvironment.hasVar(this.label))
-      VariableEnvironment.deleteVar(this.label);
+      VariableEnvironment.deleteVar(this.label, deleteAliases);
   }
 
   hide() {
