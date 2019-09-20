@@ -30,6 +30,13 @@ class Dictionary extends LanguageObject {
       });
   }
 
+  toString() {
+    return `{${
+      Array.from(this.entries())
+      .map(([k, v]) => `${stringify(k)} : ${stringify(v)}`)
+      .join(", ")}}`;
+  }
+
   methodNames() {
     return {
       "keys" : DictionaryKeysCommand,
