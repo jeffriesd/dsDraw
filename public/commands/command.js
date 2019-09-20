@@ -1,3 +1,5 @@
+
+
 // TODO
 // organize command classes into separate files
 
@@ -208,11 +210,21 @@ class ClickDestroyCommand {
   }
 
   execute() {
-    this.receivers.forEach(r => r.destroy());
+    this.deletedBindings =  [];
+    this.receivers.forEach(r => { 
+      r.hide();
+      var deleted = VariableEnvironment.deleteVar(r.label);
+      this.deletedBindings.push(deleted);
+    });
   }
 
   undo() {
-    this.receivers.forEach(r => r.restore());
+    this.receivers.forEach((r, i) => {
+      r.unhide();
+      this.deletedBindings[i].forEach((v,  k) => {
+        VariableEnvironment.setVar(k, v);
+      })
+    });
   }
 }
 
@@ -338,32 +350,70 @@ function cloneObjectsMaintainAnchors(objects) {
   });
 }
 
+/**
+ * Clone canvas objects and also copy
+ * variable environment state
+ */
 class CloneCanvasCommand {
   constructor(cState) {
     this.cState = cState;
     this.originals = this.cState.objects.slice();
   }
 
-  doClone() {
+  cloneObjects() {
     this.receivers = cloneObjectsMaintainAnchors(this.originals);
+
+    // also update aliases
+    this.receivers.forEach(obj => {
+      var venv = VariableEnvironment.getInstance();
+      if (venv.aliases.has(obj.label)) {
+        venv.aliases.get(obj.label).forEach(alias => {
+          if (venv.hasVar(alias))
+            VariableEnvironment.setVar(alias, obj);
+        });
+      }
+    })
   }
 
   execute() {
-    if (this.receivers == null) this.doClone();
+    if (this.receivers == null) this.cloneObjects();
 
     this.receivers.forEach(r => r.restore());
-
     // necessary to bind labels to objects
     // in new clip when switching and labels are shared
-    this.cState.updateLabels();
+    // this.cState.updateLabels();
   }
 
   undo() {
-    this.receivers.forEach(r => {
-      r.destroy();
-    });
+    // this.receivers.forEach(r => {
+    //   r.destroy();
+    // });
   }
 }
+
+/**
+ * Clone canvas objects and also copy
+ * variable environment state
+ */
+class CloneEnvCommand {
+  constructor() {
+    this.cState = cState;
+  }
+
+  cloneEnv() {
+    this.env = VariableEnvironment.clone();
+  }
+
+  execute() {
+    if (this.env == null) this.cloneEnv();
+
+    VariableEnvironment.setState(this.env);
+  }
+
+}
+
+
+
 
 class GetVariableCommand { 
   constructor(variableName) {
@@ -467,13 +517,19 @@ class ConsoleDestroyCommand extends ConsoleCommand {
       throw `Cannot delete non-CanvasObject '${stringify(this.receiver)}'.`;
   }
 
+  /** ConsoleDestroyCommand.executeSelf
+   *    hide object and destroy variable bindings
+   */
   executeSelf() {
-    this.receiver.destroy();
+    this.deletedBindings = VariableEnvironment.deleteVar(this.receiver.label);
+    this.receiver.hide();
   }
 
   undo() {
-    this.receiver.restore();
-    this.receiver.label = this.objLabel;
+    this.deletedBindings.forEach((v, k) => {
+      VariableEnvironment.setVar(k, v);
+    });
+    this.receiver.unhide();
   }
 }
 
@@ -511,13 +567,21 @@ class AssignVariableCommand extends ConsoleCommand {
       if (this.funcReturn)
         this.value.label = this.variableName;
     }
-    else
-      VariableEnvironment.setVar(this.variableName, this.value); 
+
+    // this allows aliases to canvas objects
+    // i.e. 
+    // a = array()
+    // z = a
+    // 
+    // issue:
+    // delete(a) doesn't do anything for deleting z binding
+    // TODO 
+    VariableEnvironment.setVar(this.variableName, this.value); 
   }
 
   undo() {
     if (VariableEnvironment.hasVar(this.variableName))
-      VariableEnvironment.deleteVar(this.variableName);
+      VariableEnvironment.deleteVar(this.variableName, false); // don't delete any aliases on undo
     this.argNodes[0].command.undo();
   }
 }
@@ -803,6 +867,7 @@ class GetPropertyCommand extends ConsoleCommand {
     if (typeof this.property == "string")
       return this.receiver[this.property];
 
+    console.log("getting method for", this.receiver.index)
     return {
       receiver: this.receiver,
       methodClass: this.property,
@@ -880,20 +945,6 @@ class AssignListElementCommand extends ConsoleCommand {
 
   undo() {
     this.list[this.index] = this.oldValue;
-  }
-}
-
-class MacroCommand {
-  constructor(commands) {
-    this.commands = commands;
-  }
-
-  execute() {
-    this.commands.forEach((command) => command.execute());
-  }
-
-  undo() {
-    this.commands.forEach((command) => command.undo());
   }
 }
 
@@ -1168,91 +1219,91 @@ class RangeCommand extends ConsoleCommand {
  *  Statement nodes are cloned so each call runs
  *  with fresh command objects.
  */
-class UserFunctionCommand extends ConsoleCommand {
-  constructor(funcDef, ...args) {
-    super(...args);
-    this.funcName = funcDef.funcName;
-    this.statements = funcDef.statements.map(x => x.clone());
-    this.argNames = funcDef.argNames;
-    this.namespace = this.setArguments();
-    // flag to ensure command stack is only created once
-    this.storedStack = false; 
-    this.executed = [];
-  }
-
-  execPush(command) {
-    if (! this.storedStack) this.executed.push(command);
-    return command.execute();
-  }
-
-  /** UserFunctionCommand.setArguments
-   *    evaluate arguments and map to local names
-   */
-  setArguments() {
-    if (this.argNames.length != this.argNodes.length)  {
-      console.log(this.argNames, this.argNodes);
-      throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
-    }
-    var namespace = new Map();
-    this.argNames.forEach((argname, i) => {
-      namespace.set(argname, this.argNodes[i].command.execute());
-    });
-    return namespace;
-  }
-
-  execute() {
-    var ret = null;
-    VariableEnvironment.pushNamespace(this.namespace);
-    console.log("pushing");
-    try {
-      for (var i = 0; i < this.statements.length; i++) {
-        this.execPush(this.statements[i].command);
-        // if (this.statements[i].command instanceof ReturnCommand) break;
-        // if (ret instanceof ReturnValue) break;
-      }
-      VariableEnvironment.popNamespace(this.namespace);
-    }
-    catch (e) {
-      VariableEnvironment.popNamespace(this.namespace);
-      // quick easy way to return value from any nested call
-      if (e instanceof FunctionReturn)
-        ret = e.value; 
-      else // some other error
-        throw e;
-    }
-
-    // indicate that further calls to execute
-    // should no longer update stack
-    this.storedStack = true;
-    return ret;
-  }
-
-  undo() {
-    VariableEnvironment.pushNamespace(this.namespace);
-    try {
-      this.executed.slice().reverse().forEach(cmd => cmd.undo());
-      VariableEnvironment.popNamespace(this.namespace);
-    }
-    catch (e) {
-      VariableEnvironment.popNamespace(this.namespace);
-      throw e;
-    }
-  }
-}
-
-class ReturnCommand extends ConsoleCommand {
-  executeSelf() {
-    throw new FunctionReturn("Return called outside function", this.args[0]);
-  }
-}
-
-class FunctionReturn extends Error {
-  constructor(message, retValue) {
-    super(message);
-    this.value = retValue;
-    this.name = "";
-  }
-}
+// class UserFunctionCommand extends ConsoleCommand {
+//   constructor(funcDef, ...args) {
+//     super(...args);
+//     this.funcName = funcDef.funcName;
+//     this.statements = funcDef.statements.map(x => x.clone());
+//     this.argNames = funcDef.argNames;
+//     this.namespace = this.setArguments();
+//     // flag to ensure command stack is only created once
+//     this.storedStack = false; 
+//     this.executed = [];
+//   }
+// 
+//   execPush(command) {
+//     if (! this.storedStack) this.executed.push(command);
+//     return command.execute();
+//   }
+// 
+//   /** UserFunctionCommand.setArguments
+//    *    evaluate arguments and map to local names
+//    */
+//   setArguments() {
+//     if (this.argNames.length != this.argNodes.length)  {
+//       console.log(this.argNames, this.argNodes);
+//       throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
+//     }
+//     var namespace = new Map();
+//     this.argNames.forEach((argname, i) => {
+//       namespace.set(argname, this.argNodes[i].command.execute());
+//     });
+//     return namespace;
+//   }
+// 
+//   execute() {
+//     var ret = null;
+//     VariableEnvironment.pushNamespace(this.namespace);
+//     console.log("pushing");
+//     try {
+//       for (var i = 0; i < this.statements.length; i++) {
+//         this.execPush(this.statements[i].command);
+//         // if (this.statements[i].command instanceof ReturnCommand) break;
+//         // if (ret instanceof ReturnValue) break;
+//       }
+//       VariableEnvironment.popNamespace(this.namespace);
+//     }
+//     catch (e) {
+//       VariableEnvironment.popNamespace(this.namespace);
+//       // quick easy way to return value from any nested call
+//       if (e instanceof FunctionReturn)
+//         ret = e.value; 
+//       else // some other error
+//         throw e;
+//     }
+// 
+//     // indicate that further calls to execute
+//     // should no longer update stack
+//     this.storedStack = true;
+//     return ret;
+//   }
+// 
+//   undo() {
+//     VariableEnvironment.pushNamespace(this.namespace);
+//     try {
+//       this.executed.slice().reverse().forEach(cmd => cmd.undo());
+//       VariableEnvironment.popNamespace(this.namespace);
+//     }
+//     catch (e) {
+//       VariableEnvironment.popNamespace(this.namespace);
+//       throw e;
+//     }
+//   }
+// }
+// 
+// class ReturnCommand extends ConsoleCommand {
+//   executeSelf() {
+//     throw new FunctionReturn("Return called outside function", this.args[0]);
+//   }
+// }
+// 
+// class FunctionReturn extends Error {
+//   constructor(message, retValue) {
+//     super(message);
+//     this.value = retValue;
+//     this.name = "";
+//   }
+// }
 
 // for debugging
 
@@ -1283,7 +1334,7 @@ class DirCommand extends ConsoleCommand {
 
 /** Show a hidden canvas object
  */
-class ShowCommnd extends ConsoleCommand {
+class ShowCommand extends ConsoleCommand {
   constructor(cState, ...args) {
     super(...args);
     this.wasHidden = null;
