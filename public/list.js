@@ -246,7 +246,6 @@ class LinkedList extends LinearCanvasObject {
      
     var edge = this.arrows.getEquiv(e);
     this.arrows.deleteEquiv(e);
-    // edge.destroy();
     return edge;
   }
 
