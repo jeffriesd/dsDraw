@@ -197,7 +197,7 @@ class GraphCanvasObject extends LinearCanvasObject {
     this.bboxStroke = "#aaaa";
     this.bboxThickness = 2;
     
-    GraphCanvasObject.defaultSize = 10;
+    GraphCanvasObject.defaultSize = 5;
 
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
