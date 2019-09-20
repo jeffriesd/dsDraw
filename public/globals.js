@@ -127,7 +127,7 @@ function stringify(object) {
   if (object.command) return "method";
   if (object instanceof CanvasChildObject
     || object instanceof CanvasObject || object instanceof LanguageObject)
-    return String(object);
+    return object.toString();
   if (object instanceof Array) // 'list' object
     return "[" + object.map(stringify) + "]";
   if (object instanceof Dictionary) {
@@ -136,7 +136,7 @@ function stringify(object) {
       .map(([k, v]) => `${stringify(k)} : ${stringify(v)}`)
       .join(", ")}}`;
   }
-  if (object.funcName) return "function " + object.funcName;
+  if (object.funcName) return "function";
   if (object.methodClass) return "method";
   // console.log("Unknown string representation for:", object);
 }
