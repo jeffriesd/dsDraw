@@ -17,8 +17,6 @@ class BSTNode {
     this.left = null;
     this.right = null;
 
-    this.collapsed = false;
-
     // Reingold Tilford render attributes
     this.xleft = this;
     this.xright = this;
@@ -251,6 +249,11 @@ class BST {
     this.ids = new Map();
   }
 
+  print() {
+    for (var node of this.root.preorder())
+      console.log(node.value)
+  }
+
   clone() {
     var copy = new BST(this.bstCanvasObject);
     copy.root = this.root.deepCopy();
@@ -341,13 +344,17 @@ class BST {
    */
   _remove(node, value) {
     if (node == null) return null;
+    console.log("at ", node.value, "removing", value)
+    repaint();
     if (node.value == value) {
       if (node.left == null) return node.right;
       if (node.right == null) return node.left;
       
       // swap current node with predecessor then remove
       var predNode = node.pred();
-      this.swapNodes(predNode, node);      
+      var t = predNode.value;
+      predNode.value = node.value;
+      node.value = t;
 
       // remove the node that was swapped to 
       // predecessor's position
@@ -404,10 +411,7 @@ class BSTCanvasObject extends LinearCanvasObject {
     this.minSep = 2;
     this.depthSep = 30;
 
-    this.minSep = 2;
-    this.depthSep = 30;
-
-    BSTCanvasObject.defaultSize = 15;
+    BSTCanvasObject.defaultSize = 5;
   }
 
   toString() {
@@ -492,38 +496,46 @@ class BSTCanvasObject extends LinearCanvasObject {
       return this.ids.get(node.index);
   }
 
+  /** BSTCanvasObject.bstNodeToCanvasNode
+   *    map BSTNode objects to BSTNodeCanvasObject
+   *    possibly updating the node values
+   * @param {*} bstNode - BSTNode object
+   */
+  bstNodeToCanvasNode(bstNode) {
+    var bstCanvasNode = this.ids.get(bstNode.index);
+    bstCanvasNode.value = bstNode.value;
+    return bstCanvasNode;
+  }
+
   inorder() {
-    var nodes = this.bst.inorder();
-    return nodes.map(node => this.ids.get(node.index));
+    return this.bst.inorder().map(bn => this.bstNodeToCanvasNode(bn));
   }
 
   preorder() {
-    var nodes = this.bst.preorder();
-    return nodes.map(node => this.ids.get(node.index));
+    return this.bst.preorder().map(bn => this.bstNodeToCanvasNode(bn));
   }
 
   postorder() {
-    var nodes = this.bst.preorder();
-    return nodes.map(node => this.ids.get(node.index));
+    return this.bst.postorder().map(bn => this.bstNodeToCanvasNode(bn));
   }
 
   getMin() {
     if (this.bst.root) {
       var min = this.bst.root.getMin();
-      return this.ids.get(min.index);
+      return this.bstNodeToCanvasNode(min);
     }
   }
 
   getMax() {
     if (this.bst.root) {
       var max = this.bst.root.getMax();
-      return this.ids.get(max.index);
+      return this.bstNodeToCanvasNode(max);
     }
   }
 
   getRoot() {
     if (this.bst.root)
-      return this.ids.get(this.bst.root.index);
+      return this.bstNodeToCanvasNode(this.bst.root);
   }
 
   /** END WRAPPER METHODS FOR INTERNAL BST
@@ -676,7 +688,7 @@ class BSTNodeCanvasObject extends NodeObject {
   }
 
   internalToCanvasNode(node) {
-    if (node) return this.getParent().ids.get(node.index);
+    if (node) return this.getParent().bstNodeToCanvasNode(node);
   }
 
   /** BEGIN WRAPPER METHODS FOR ACCESSING INTERNAL BST */
