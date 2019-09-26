@@ -29,7 +29,19 @@ body {
   --console-fs: 16px;
   --console-ff: monospace;
 
-  background-color: var(--lblue);
+  --menuZ: 2;
+  --lockDivZ: 2;
+  --toolbarZ: 5;
+  --consoleZ: 3;
+}
+
+#lockDiv {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  /* over canvas but beneath menus */
+  z-index: var(--lockDivZ);
+  background-color: var(--blacko30);
 }
 
 #recCanvas {
