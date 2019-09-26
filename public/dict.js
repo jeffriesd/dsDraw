@@ -1,4 +1,3 @@
-
 class LanguageObject {
 
   propNames() {
@@ -83,5 +82,11 @@ class Dictionary extends LanguageObject {
 
   forEach(f) {
     this.map.forEach(f);
+  }
+
+  toObject() {
+    var o = {};
+    this.map.forEach((v, k) => o[k] = v );
+    return o;
   }
 }
