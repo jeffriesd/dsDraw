@@ -31,6 +31,10 @@ class MediaController {
     this.state = this.pauseState;
     
     this.chunks = [];
+    this.chunks2 = [];
+
+    // send a blob every 2 seconds
+    this.timeSlice = 2000;
 
     MediaController.instance = this;
   }
@@ -205,16 +209,17 @@ class MediaController {
    */
   setEditorState(id) {
     // clear canvas contents
-    this.cmdRecorder.fullRewind();
+    return this.cmdRecorder.fullRewind()
+      .then(() => {
+        this.activeClipId = id;
+        this.player.updateTime();
 
-    this.activeClipId = id;
-    this.player.updateTime();
-
-    // apply any initialization commands
-    this.cmdRecorder.init()
-      .then(() => repaint())
-      .catch(() => console.log("ERROR initializing canvas"))
-      .then(() => updateCommandStack());
+        // apply any initialization commands
+        return this.cmdRecorder.init()
+          .then(() => repaint())
+          .catch(err => console.log("ERROR initializing canvas:", err))
+          .then(() => updateInspectPane());
+      });
   }
 
   /** MediaController.setCurrentClip
@@ -229,8 +234,8 @@ class MediaController {
     if (this.clips.get(id).url) 
       this.setVideoURL(id, this.clips.get(id).url);
     else {
-      this.setEditorState(id);
-      this.player.video.src = null;
+      this.setEditorState(id)
+        .then(() => this.player.video.src = null);
     }
   }
 
@@ -248,6 +253,8 @@ class MediaController {
     // switch to clicked clip and show selection with border
     // TODO (ctrl + click for multi-select)
     thumbnail.onclick = (event) => {
+      if (clipMenuLocked()) return cmLockedAlert();
+
       this.setCurrentClip(id);
 
       // set active class for css 
@@ -386,6 +393,7 @@ class MediaController {
   }
 
   record() {
+    if (canvasLocked()) return canvasLockedAlert();
     this.state.record(this);
   }
 
@@ -418,6 +426,8 @@ class MediaController {
   /** MediaController.hotkeyRedo
    *   grabs current command recorder and redoes 
    *   most recently undone command
+   * 
+   *   lock context before redoing for async commands
    */
   hotkeyRedo() {
     if (this.getState() !== this.recordState 
@@ -429,8 +439,11 @@ class MediaController {
     var redoStack = this.cmdRecorder.redoStack;
     if (redoStack.length) {
       var nextCommand = redoStack.pop();
-      executeCommand(nextCommand, true);
+      lockContext();
+      return executeCommand(nextCommand, true, true) // redo = true, overrideLock = true
+        .then(() => unlockContext());
     }
+    return new Promise(resolve => resolve());
   }
 }
 
@@ -580,13 +593,8 @@ class PauseState extends MediaState {
 
       context.clips.get(context.activeClipId).recorded = true;
 
-      // wait 2 frames to avoid drawing
-      // previous contents
-      // setTimeout(() => {
-        context.recorder.start(); 
-        context.setState(context.recordState);
-      // }, context.framerate * 2);
-
+      context.recorder.start(context.timeSlice); 
+      context.setState(context.recordState);
     }
     else if (! context.clips.get(context.activeClipId).recorded) 
       context.waiting = false;
@@ -609,8 +617,8 @@ class PauseState extends MediaState {
 class PlayState extends MediaState {
   togglePlayback(context) {
     context.player.pause();
-    context.cmdRecorder.seekTo(context.player.video.currentTime);
-    context.setState(context.pauseState);
+    context.cmdRecorder.seekTo(context.player.video.currentTime)
+      .then(() => context.setState(context.pauseState));
   }
 } 
 
@@ -650,17 +658,13 @@ class CommandRecorder {
   }
 
   /** CommandRecorder.getTime
-   *    if video is paused, allow commands to be recorded,
-   *    but video has already been written, so it 
-   *    only makes sense to record as occurring at the
-   *    end of the current clip
-   *
-   *    otherwise calculate ms since timer started
+   *    seconds since timer started
    */
   getTime() {
     if (this.recording) 
       return (new Date().getTime() - this.startTime) / 1000;
-    return this.player.video.duration;
+    // return this.player.video.duration;
+    throw "getTime should only be called while recording";
   }
 
   stopRecording() {
@@ -685,33 +689,54 @@ class CommandRecorder {
    *    execute command and add it to pastCmds
    *    if clip hasn't been recorded yet.
    *    optional redo flag - if true, dont clear redo stack
+   * 
+   *    only called from one place -- global executeCommand
    */
   execute(cmdObj, redo) {
+    if (this.postRecording) return canvasLockedAlert();
     if (cmdObj instanceof UtilCommand)
-      return cmdObj.execute();
-    if (this.postRecording) return lockedAlert();
+      return liftCommand(cmdObj);
 
     // may throw exec error
-    var ret = cmdObj.execute();
+    // var ret = cmdObj.execute();
 
-    // only update undo stack and other state
-    // if execution succeeds      
+    // // only update undo stack and other state
+    // // if execution succeeds      
 
-    this.mc.updateThumbnail();
+    // this.mc.updateThumbnail();
 
-    // don't record state of pure expressions
-    if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
-      this.undoStack.push(cmdObj);
-      if (! redo) this.redoStack = [];
+    // // don't record state of pure expressions
+    // if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
+    //   this.undoStack.push(cmdObj);
+    //   if (! redo) this.redoStack = [];
 
-      // if clip hasn't been recorded yet
-      if (this.mc.getState() !== this.mc.recordState)
-        this.initCmds.push({ type: "execute", command: cmdObj });
-      else
-        this.recordCommand(cmdObj, "execute");
-    }
+    //   // if clip hasn't been recorded yet
+    //   if (this.mc.getState() !== this.mc.recordState)
+    //     this.initCmds.push({ type: "execute", command: cmdObj });
+    //   else
+    //     this.recordCommand(cmdObj, "execute");
+    // }
 
-    return ret;
+    // return ret;
+
+    return liftCommand(cmdObj)
+    .then(cmdRet => {
+      this.mc.updateThumbnail();
+      if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
+        this.undoStack.push(cmdObj);
+        if (! redo) this.redoStack = [];
+
+        // TODO maybe record when animation begins 
+
+        // if clip hasn't been recorded yet
+        if (this.mc.getState() !== this.mc.recordState)
+          this.initCmds.push({ type: "execute", command: cmdObj });
+        else
+          this.recordCommand(cmdObj, "execute");
+      }
+
+      return cmdRet;
+    })
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -727,9 +752,9 @@ class CommandRecorder {
    *    if clip hasn't been recorded over yet
    */
   undo(cmdObj) {
+    if (this.postRecording) return canvasLockedAlert();
     if (cmdObj instanceof UtilCommand)
       return cmdObj.undo();
-    if (this.postRecording) return alert("Clip can no longer be edited");
 
     cmdObj.undo();
     this.mc.updateThumbnail();
@@ -749,7 +774,7 @@ class CommandRecorder {
   }
 
   recordCommand(cmdObj, type) {
-    console.log("recording cmd at ", this.getTime());
+    console.log("recording ", cmdObj.constructor.name, " cmd at ", this.getTime());
     this.pastCmds.push(
       { command: cmdObj, 
         time: this.getTime(), 
@@ -758,49 +783,86 @@ class CommandRecorder {
 
   /** CommandRecorder.seekTo
    *    update stacks and redo/undo commands
+   *    
+   *    async commands get converted to their atomic versions
+   *    which instantly set the state to their final frame
    */
   seekTo(secs) {
     if (this.recording)
       throw "Cannot seek while recording";
 
-    while (this.futureCmds.peek() && this.futureCmds.peek().time < secs) {
-      var cmdTime = this.futureCmds.pop();
-      if (cmdTime.type == "execute") cmdTime.command.execute();
-      if (cmdTime.type == "undo") cmdTime.command.undo();
-      this.pastCmds.push(cmdTime);
-    }
+    // use atomic command lifting so
+    // animations happen instantly
+    var prevLiftingMode = getCommandLifting();
+    return setCommandLifting(LIFT_ATOMIC)
+    .then(() => {
+      return this.futureCmds.reduceRight((prevCT, curCT) => {
+        return prevCT.then(() => {
+          // pop from future and push to past
+          if (curCT.time < secs) { 
+            this.futureCmds.pop();
+            var lift;
+            if (curCT.type == "execute") lift = liftCommand;
+            if (curCT.type == "undo") lift = liftUndo;
+            return lift(curCT.command).then(() => this.pastCmds.push(curCT));
+          }
+          return new Promise(resolve => resolve());
+        });
+      }, new Promise(resolve => resolve()))
+      .then(() => {
+        return this.pastCmds.reduceRight((prevCT, curCT) => {
+          return prevCT.then(() => {
+            if (curCT.time > secs) {
+              this.pastCmds.pop();
+              var lift;
+              if (curCT.type == "execute") lift = liftUndo;
+              if (curCT.type == "undo") lift = liftCommand;
+              return lift(curCT.command).then(() => this.futureCmds.push(curCT));
+            }
+            return new Promise(resolve => resolve());
+          });
+        }, new Promise(resolve => resolve()));
+      })
+      .then(() => setCommandLifting(prevLiftingMode))
+      .then(() => {
+        // call repaint manually here
+        // since seeking isn't handled 
+        // by the Command pattern
+        repaint();
 
-    while (this.pastCmds.peek() && this.pastCmds.peek().time > secs) {
-      var cmdTime = this.pastCmds.pop();
-      if (cmdTime.type == "execute") cmdTime.command.undo();
-      if (cmdTime.type == "undo") cmdTime.command.execute();
-      this.futureCmds.push(cmdTime);
-    }
+        updateInspectPane();
+      });
+    })
 
-    // call repaint manually here
-    // since seeking isn't handled 
-    // by the Command pattern
-    repaint();
-
-    updateCommandStack();
   }
 
+  /** CommandRecorder.fullRewind
+   *    first 
+   *      call seekTo(-1) to undo all the commands that were
+   *      recorded after the clock started ticking
+   * 
+   *    then clear the contents of the canvas
+   */
   fullRewind() {
-    console.log("full rewind")
-    this.seekTo(-1);
+    return this.seekTo(-1)
+      .then(() => {
+        // new edition: just clear canvas and VEnv
+        // this.mc.cState.clearCanvas();
 
-    // new edition: just clear canvas and VEnv
-    this.mc.cState.clearCanvas();
-
-    VariableEnvironment.clearAll();
-    console.log("Clear all")
-
-    // // why is this necessary?
-    // this.initCmds.slice().reverse().forEach(ct => { 
-    //   if (ct.type == "execute") 
-    //     ct.command.undo();
-    //   else ct.command.execute();
-    // });
+        // VariableEnvironment.clearAll();
+      })
+      .then(() => {
+        // also undo init commands (in reverse) to restore state
+        // of altered data structures, etc.
+        return this.initCmds.reduceRight((prevCT, curCT) => {
+          return prevCT.then(() => {
+            var lift;
+            if (curCT.type == "execute") lift = liftUndo;
+            if (curCT.type == "undo") lift = liftCommand;
+            return lift(curCT.command);
+          })
+        }, new Promise(resolve => resolve()));
+      });
   }
 
   printStacks() {
@@ -820,20 +882,21 @@ class CommandRecorder {
   }
 
   init() {
-    console.log("CMDR init")
-    return new Promise((resolve, reject) => {
-      this.initCmds.forEach(ct => {
-        console.log("INIT CMD: ", ct.command.constructor.name, ct.command);
-        if (ct.type == "execute") { 
-          if (ct.command.command) // quick fix for function being executed
-            ct.command.command.execute();
-          else
-            ct.command.execute();
-        }
-        else ct.command.undo();
-      });
-
-      resolve();
+    // use atomic versions of async commands
+    // for setting initial canvas state 
+    var prevLiftingMode = getCommandLifting();
+    return setCommandLifting(LIFT_ATOMIC)
+    .then(() => {
+      return this.initCmds.reduce((prev, cur) => {
+        // console.log("INIT CMD: ", cur.command.constructor.name, cur.command);
+        return prev.then(() => {
+          if (cur.type == "execute") 
+            return liftCommand(cur.command);
+          else // undo is atomic
+            return liftUndo(cur.command);
+        });
+      }, new Promise(resolve => resolve()))
+      .then(() => setCommandLifting(prevLiftingMode));
     });
   } 
 }
