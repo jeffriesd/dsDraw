@@ -1,3 +1,4 @@
+
 // TODO
 // decorator pattern (maybe) to highlight lines
 // debugger style 
@@ -29,7 +30,7 @@
 //
 //    Loops/blocks could be iterators
 
-const LOOP_MAX = 1000000; // stop infinite loops from 
+const LOOP_MAX = 10000; // stop infinite loops from 
                             // taking up too many resources
 
 
@@ -39,14 +40,33 @@ class ControlFlowCommand {
     this.storedStack = false;
     this.steps = 0;
   }
-  /** ControlFlowCommand.execPush
+  /** ControlFlowCommand.pushCmd
    *    execute command and push it onto stack for undo
    *    if this is first call to execute
    */
-  execPush(command) {
+  pushCmd(command) {
     if (! this.storedStack) this.executed.push(command);
-    return command.execute();
   }
+
+  executeStatements(statements) {
+    return statements.reduce((prev, cur) => {
+      return prev.then(() => {
+        // limit number of computations
+        if (this.steps++ > LOOP_MAX) throw "Loop too long";
+
+        // clone ast nodes for each new iteration to update references
+        var cl = cur.clone().command;
+        this.pushCmd(cl);
+        repaint();
+        return liftCommand(cl);
+      });
+    }, new Promise(resolve => resolve()));
+  }
+
+  doBody() {
+    return this.executeStatements(this.loopStatements);
+  }
+
 
   undo() {
     this.executed.slice().reverse().forEach(cmd => cmd.undo());
@@ -68,15 +88,21 @@ class WhileLoopCommand extends ControlFlowCommand {
     this.loopStatements = loopStatements;
   }
 
+  maybeContinue() {
+    if (this.condition == null) 
+      return new Promise(resolve => resolve());
+
+    return liftCommand(this.condition.clone().command).then(condRet => {
+      if (condRet)
+        return this.doBody()
+          .then(() => this.maybeContinue());
+      else
+        this.storedStack = true;
+    });
+  }
+
   execute() {
-    while (this.condition.command.execute()) {
-      this.loopStatements.forEach(s => this.execPush(s.command));
-      if (this.steps++ > LOOP_MAX) {
-        alert("Loop is taking too long");
-        break;
-      }
-    }
-    this.storedStack = true;
+    return this.maybeContinue();
   }
 }
 
@@ -106,19 +132,30 @@ class ForLoopCommand extends ControlFlowCommand {
     this.loopStatements = loopStatements;
   }
 
+  maybeContinue() {
+    if (this.condition == null) 
+      return new Promise(resolve => resolve());
+
+    return liftCommand(this.condition.clone().command).then(condRet => {
+      if (condRet)
+        return this.doBody()
+        .then(() => this.doIncr()
+        .then(() => this.maybeContinue()));
+      else
+        this.storedStack = true;
+    });
+  }
+
+  doInit() {
+    return this.executeStatements(this.initStatements);
+  }
+
+  doIncr() {
+    return this.executeStatements(this.incrStatements);
+  }
+
   execute() {
-    this.initStatements.forEach(s => this.execPush(s.command));
-    while (this.condition == null || this.execPush(this.condition.command)) {
-      this.loopStatements.forEach(s => { 
-        this.execPush(s.clone().command);
-      });
-      this.incrStatements.forEach(s => this.execPush(s.command));
-      if (this.steps++ > LOOP_MAX) {
-        alert("Loop is taking too long");
-        break;
-      }
-    }
-    this.storedStack = true;
+    return this.doInit().then(() => this.maybeContinue());
   }
 }
 
@@ -128,21 +165,34 @@ class IfBlockCommand extends ControlFlowCommand {
     this.condBlockPairs = condBlockPairs;
   }
 
+  untilFirstTrue() {
+    var cond, lines;
+    return this.condBlockPairs.reduce((prev, cur) => {
+      cond = cur[0];
+      lines = cur[1];
+      // if previous block evaluated to true, 
+      // then subsequent else ifs should fall through
+      return prev.then(prevCondRet => {
+        if (prevCondRet) return;
+        return liftCommand(cond.clone().command)
+          .then(curCondRet => {
+            // if false, don't execute block
+            if (! curCondRet) { 
+              this.storedStack = true;
+              return;
+            }
+            return this.executeStatements(lines);
+          })
+      })
+    }, new Promise(resolve => resolve()));
+  }
+
   /** IfBlockCommand.execute
    *    try conditions until one evaluates true, then
    *    execute all the lines in that block and break
    */
   execute() {
-    var cond, lines;
-    for (var i = 0; i < this.condBlockPairs.length; i++) {
-      cond = this.condBlockPairs[i][0];
-      lines = this.condBlockPairs[i][1];
-      if (this.execPush(cond.command)) {
-        lines.forEach(line => this.execPush(line.command));
-        break;
-      }
-    }
-    this.storedStack = true;
+    return this.untilFirstTrue();
   }
 }
 
