@@ -12,7 +12,6 @@ function fullPath(relPath) {
 function writeListFile(tempFile, clipPaths) {
   var contents = 
     clipPaths.map(x => `file '${fullPath(x)}'`).join("\n");
-  console.log(contents);
 
   return new Promise((resolve, reject) => { 
     fs.writeFile(tempFile, contents, (err) => {
