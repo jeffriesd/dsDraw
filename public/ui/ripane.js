@@ -22,9 +22,9 @@ class ReactInspectPane extends React.Component {
     return create(
         CommandHistoryPane,
         {
-          ref: r => window.commandHistoryPane = r,  
           // needed for timestamps
           postRecording: this.props.postRecording,
+          commandStack: this.props.commandStack,
         }
     );
   }
@@ -136,36 +136,32 @@ class EnvironmentPane extends React.Component {
 class CommandHistoryPane extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-      stack: MediaController.getInstance().cmdRecorder.undoStack,
-    };
   }
 
   renderTable() {
     var rows = [];
 
     const getName = cmd => {
+      if (cmd.command) cmd = cmd.command;
       if (cmd._astNode && cmd._astNode.isFunctionDef) 
         return "FunctionDefinition";
-      if (cmd.command) 
-        return cmd.command.constructor.name;
       return cmd.constructor.name;
     };
 
     // show timestamps if available
-    const makeEntry = cmd => {
+    const makeEntry = cmdTime => {
       var prefix = "";
-      if (cmd.time != undefined) 
-        prefix = cmd.time.toFixed(1) + "s ";
+      if (cmdTime.time != undefined) 
+        prefix = cmdTime.time.toFixed(1) + "s ";
       else if (this.props.postRecording) 
         prefix = "0s ";
-      return create("td", {}, prefix + getName(cmd));
+      return create("td", {}, prefix + getName(cmdTime.command));
     };
 
-    this.state.stack.forEach(cmd => {
+    this.props.commandStack.forEach(cmdTime => {
       rows.push(create(
         "tr", {}, 
-        makeEntry(cmd),
+        makeEntry(cmdTime),
       ));
     });
 
