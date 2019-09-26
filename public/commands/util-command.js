@@ -56,3 +56,17 @@ class TruncateVideoCommand extends VideoCommand {
     conn.sendServer("truncate", body);
   }
 }
+
+class RepaintCommand extends UtilCommand {
+  constructor(cState) {
+    super();
+    this.cState = cState;
+  }
+
+  execute() {
+    this.cState.repaint();
+  }
+
+  undo() {
+  }
+}

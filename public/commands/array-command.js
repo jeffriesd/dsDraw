@@ -9,14 +9,23 @@ class Array1DCommand extends CanvasObjectMethod {
         this.argsError(`Invalid index: '${i}'`);
     });
   }
+
+  saveState() {
+    return { 
+      prevArray : this.receiver.array.slice()
+    };
+  }
+
+  restoreState(state) {
+    this.receiver.array = state.prevArray.slice();
+  }
+
 }
 
 class Array1DLengthCommand extends Array1DCommand {
   executeSelf() {
     return this.receiver.array.length; 
   }
-
-  undo() {}
 }
 
 /** Array1DResizeCommand
@@ -37,8 +46,7 @@ class Array1DResizeCommand extends Array1DCommand {
     this.newValues = null;
   }
   
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.newLength = this.args[0];
 
     if (typeof this.newLength != "number")
@@ -70,15 +78,14 @@ class Array1DResizeCommand extends Array1DCommand {
     }
   }
 
-  undo() {
-    this.receiver.array = this.prevArray.slice();
-  }
+  // undoSelf() {
+  //   this.receiver.array = this.prevArray.slice();
+  // }
 }
 
 class Array1DSwapCommand extends Array1DCommand {
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.i1 = this.args[0];
     this.i2 = this.args[1]; 
   }
@@ -93,9 +100,9 @@ class Array1DSwapCommand extends Array1DCommand {
     this.receiver.array[this.i2] = t;
   }
 
-  undo() {
-    this.executeSelf();
-  }
+  // undoSelf() {
+  //   this.executeSelf();
+  // }
 
   usage() {
     return "array.swap [index1] [index2]";
@@ -123,8 +130,7 @@ class Array1DCopyCommand extends Array1DCommand {
     this.savedValues = null;
   }
   
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.destArr = this.args[0];
     this.numCopy = this.args[1];
     this.srcStart = this.args[2];
@@ -171,17 +177,18 @@ class Array1DCopyCommand extends Array1DCommand {
       this.destArr.array[di].value = this.receiver.array[si].value; 
   }
 
-  /** Array1DCopyCommand.undo
-   *    restore contents of dest array
-   */
-  undo() {
-    this.savedValues.forEach((v, idx) => {
-      this.destArr.array[this.destStart + idx].value = v;
-    });
+  saveState() {
+    return { 
+      prevValues: this.destArr.array.slice().map(x => x.value),
+    }
+  }
+
+  restoreState(state) {
+    state.prevValues.forEach((v, i) => this.destArr.array[i].value = v);
   }
 
   usage() {
-    return "array.copy [destArr] [[numCopy]] [[srcIndex]] [[dstIndex]]";
+    return "array.copy(destArr, [numCopy = array.length()], [srcIndex = 0], [dstIndex = 0])";
   }
 
 }
@@ -199,8 +206,18 @@ class Array1DSortCommand extends Array1DCommand {
     );
   }
 
-  undo() {
-    this.receiver.array = this.savedArray.slice();
+  // undoSelf() {
+  //   this.receiver.array = this.savedArray.slice();
+  // }
+
+  saveState() {
+    return {
+      prevArray: this.receiver.array.slice(),
+    }
+  }
+
+  restoreState(state) {
+    this.receiver.array = state.prevArray.slice();
   }
 }
 
@@ -220,21 +237,10 @@ class Array1DGetTreeCommand extends Array1DCommand {
   }
 
   /** Array1DTreeCommand
-   *    build a tree bottom up with 
-   *    the array elements as leaves
+   *    return tree that sits on top of this array
    */
   executeSelf() {
     return this.receiver.tree;
-    var d = new Dictionary();
-    if (this.receiver.tree == undefined) return d;
-
-    this.receiver.tree.ids.forEach((v, k) => {
-      d.set(k, v);
-    });
-    return d;
-  }
-
-  undo() {
   }
 }
 

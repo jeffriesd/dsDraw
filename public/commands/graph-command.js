@@ -10,10 +10,24 @@ class GraphCommand extends CanvasObjectMethod {
   /** GraphCommand.undo
    *    by default, restore adjacency list and coordinates
    */
-  undo() {
-    this.receiver.setAdjacency(this.oldAdj);
-    this.restoreCoords(this.oldCoords);
-    this.restoreArrows(this.oldArrowCoords);
+  // undoSelf() {
+  //   this.receiver.setAdjacency(this.oldAdj);
+  //   this.restoreCoords(this.oldCoords);
+  //   this.restoreArrows(this.oldArrowCoords);
+  // }
+
+  saveState() {
+    return {
+      adj : this.receiver.copyAdjacency(),
+      arrowCoords : this.saveArrows(),
+      coords : this.saveCoords(),
+    };
+  }
+
+  restoreState(state) {
+    this.receiver.setAdjacency(state.adj);
+    this.restoreArrows(state.arrowCoords);
+    this.restoreCoords(state.coords);
   }
 
   /** saveGraphCoords
@@ -107,8 +121,7 @@ class GraphRenderCommand extends GraphCommand {
     this.checkArgsLength(0, 1);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.iterations = this.args[0];
   }
 
@@ -122,9 +135,21 @@ class GraphRenderCommand extends GraphCommand {
   }
 
   // only restore coordinates
-  undo() {
-    this.restoreCoords(this.oldCoords);
-    this.restoreArrows(this.oldArrowCoords);
+  // undoSelf() {
+  //   this.restoreCoords(this.oldCoords);
+  //   this.restoreArrows(this.oldArrowCoords);
+  // }
+
+  saveState() {
+    return {
+      arrowCoords : this.saveArrows(),
+      coords : this.saveCoords(),
+    };
+  }
+
+  restoreState(state) {
+    this.restoreArrows(state.arrowCoords);
+    this.restoreCoords(state.coords);
   }
 }
 
@@ -139,8 +164,8 @@ class GraphDeleteNodeCommand extends GraphCommand {
     this.checkArgsLength(1);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.nodeId = this.args[0];
   }
 
@@ -167,8 +192,8 @@ class GraphAddNodeCommand extends GraphCommand {
     this.checkArgsLength(1);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.nodeValue = this.args[0];
   }
 
@@ -190,8 +215,8 @@ class GraphAddEdgeCommand extends GraphCommand {
 
   /** GraphAddEdgeCommand
    */
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.fromId = this.args[0];
     this.toId = this.args[1];
   }
@@ -227,8 +252,8 @@ class GraphDeleteEdgeCommand extends GraphCommand {
     this.checkArgsLength(2);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.fromId = this.args[0];
     this.toId = this.args[1];
   }
@@ -243,7 +268,7 @@ class GraphDeleteEdgeCommand extends GraphCommand {
     this.checkNodeId(this.toId);
 
     // check that edge doesn't exist already
-    if (this.receiver.hasEdge(this.fromId, this.toId))
+    if (! this.receiver.hasEdge(this.fromId, this.toId))
       this.argsError(`Edge (${this.fromId}, ${this.toId}) doesn't exist`);
   }
 

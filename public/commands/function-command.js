@@ -1,27 +1,3 @@
-class SyncCommand extends ConsoleCommand {
-
-}
-
-class WaitCommand extends ConsoleCommand {
-  executeSelf() {
-    return new Promise(resolve => { 
-      setTimeout(() => {
-        resolve();
-      }, 1000);
-    });
-  }
-}
-
-function executePromise(cmd) {
-  if (cmd instanceof WaitCommand)
-    return cmd.execute();
-
-  return new Promise((resolve, reject) => {
-    cmd.execute();
-    resolve();
-  });
-}
-
 /**
  *  User defined functions are created
  *  using the 'define' keyword. Example:
@@ -49,15 +25,9 @@ class UserFunctionCommand extends ConsoleCommand {
     this.funcName = funcDef.funcName;
     this.statements = funcDef.statements.map(x => x.clone());
     this.argNames = funcDef.argNames;
-    this.namespace = this.setArguments();
     // flag to ensure command stack is only created once
     this.storedStack = false; 
     this.executed = [];
-  }
-
-  execPush(command) {
-    if (! this.storedStack) this.executed.push(command);
-    return command.execute();
   }
 
   /** UserFunctionCommand.setArguments
@@ -65,60 +35,103 @@ class UserFunctionCommand extends ConsoleCommand {
    */
   setArguments() {
     if (this.argNames.length != this.argNodes.length)  {
-      console.log(this.argNames, this.argNodes);
       throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
     }
-    var namespace = new Map();
-    this.argNames.forEach((argname, i) => {
-      namespace.set(argname, this.argNodes[i].command.execute());
-    });
-    return namespace;
+
+    if (this.namespace == undefined) {
+      var namespace = new Map(VariableEnvironment.getInstance().variables);
+      // this.argNames.forEach((argname, i) => {
+      //   namespace.set(argname, this.argNodes[i].command.execute());
+      // });
+      return this.argNames.reduce((prev, curName, i) => {
+        return prev.then(_ => {
+          return liftCommand(this.argNodes[i].command)
+            .then(cmdRet => namespace.set(curName, cmdRet));
+        });
+      }, new Promise(resolve => resolve()))
+      .then(() => {
+        this.namespace = namespace;
+      })
+    }
+    else 
+      return new Promise(resolve => resolve());
   }
 
-  nextPromise(n) {
-    if (n == this.statements.length) 
-      return new Promise(resolve => resolve());
-    // return new Promise(resolve => {
-    //   if (! this.storedStack) this.executed.push(this.statements[n].command);
-    //   executePromise(this.statements[n].command)
-    //       // .then(() => resolve())
+  pushCmd(command) {
+    if (! this.storedStack) this.executed.push(command);
+  }
 
-    // })
-    if (! this.storedStack) this.executed.push(this.statements[n].command);
-    return executePromise(this.statements[n].command)
-      .then(() => this.nextPromise(n+1)())
+  executeAllStatements() {
+    return this.statements.reduce((prev, cur) => { 
+      return prev.then(() => {
+        this.pushCmd(cur.command);
+        return liftCommand(cur.command)
+          .then(ret => {
+            // don't push to saved stack
+            // unless execution is successful
+            // this.pushCmd(cur.command);
+            return ret;
+          })
+      })
+    }, new Promise(resolve => resolve()));
   }
 
   execute() {
-    var ret = null;
-    VariableEnvironment.pushNamespace(this.namespace);
-    console.log("pushing");
+    return this.setArguments()
+    .then(() => {
+      VariableEnvironment.pushNamespace(this.namespace);
 
+      return this.executeAllStatements()
+            .then(() => { 
+              VariableEnvironment.popNamespace(this.namespace);
 
-    this.nextPromise(0)
-    .then(() => { 
-      VariableEnvironment.popNamespace(this.namespace);
-    })
-    .catch(e => {
-      VariableEnvironment.popNamespace(this.namespace);
-      // quick easy way to return value from any nested call
-      console.log(e.value);
-      if (e instanceof FunctionReturn)
-        ret = e.value; 
-      else // some other error
-        throw e;
-    })
-
-    // indicate that further calls to execute
-    // should no longer update stack
-    this.storedStack = true;
-    return ret;
+              // indicate that further calls to execute
+              // should no longer update stack
+              this.storedStack = true;
+            })
+            .catch(e => {
+              VariableEnvironment.popNamespace(this.namespace);
+              // quick easy way to return value from any nested call
+              if (e instanceof FunctionReturn)
+                return e.value; 
+              else // some other error
+                throw e;
+            })
+    });
   }
 
-  undo() {
+  /** UserFunctionCommand.saveState
+   *    what gets mutated? well,
+   *    all of the commands in this function
+   *    need to restore their own state
+   *    and the namespace needs to be restored as well
+   */
+  // saveState() {
+  //   return {
+  //     venvStack : VariableEnvironment.getInstance().stack.slice(),
+  //     stateMap : this.executed.slice().reverse().map(cmd => [cmd, cmd.saveState()]),
+  //   }
+  // }
+
+  // restoreState(state) {
+  //   var venv = VariableEnvironment.getInstance();
+  //   venv.stack = state.venvStack.slice();
+  //   state.stateMap.forEach(([cmd, state]) => {
+  //     cmd.restoreState(state);
+  //   });
+  // }
+
+  /** UserFunctionCommand.undoSelf
+   *    this should work -- just undo the commands
+   *    that got executed
+   */
+  undoSelf() {
     VariableEnvironment.pushNamespace(this.namespace);
     try {
-      this.executed.slice().reverse().forEach(cmd => cmd.undo());
+      this.executed.slice().reverse().forEach(cmd => { 
+        console.log("undo ", cmd.constructor.name)
+        cmd.undo();
+      });
       VariableEnvironment.popNamespace(this.namespace);
     }
     catch (e) {

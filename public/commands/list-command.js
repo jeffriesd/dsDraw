@@ -5,17 +5,28 @@ class LinkedListCommand extends CanvasObjectMethod {
   checkIndices(...indices) {
     indices.forEach(i => {
       if (! (this.receiver.list.hasEquiv(i))) {
-        console.log(i, "not in ", this.receiver.list);
         this.argsError(`Invalid index: ${i}.`);
       }
     });
+  }
+
+  saveState() {
+    return {
+      previousList : new Map(this.receiver.list),
+      previousArrows : new Map(this.receiver.arrows),
+    }
+  }
+
+  restoreState(state) {
+    this.receiver.list = new Map(state.previousList);
+    this.receiver.arrows = new Map(state.previousArrows);
   }
 }
 
 class LinkedListInsertCommand extends LinkedListCommand {
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.fromIndex = this.args[0];
     this.value = this.args[1];
   }
@@ -32,16 +43,17 @@ class LinkedListInsertCommand extends LinkedListCommand {
     this.newNode = this.receiver.addNode(this.fromNode, this.value);
   }
 
-  undo() {
-    // remove node and newly created edge
-    this.receiver.removeNode(this.newNode);
-  }
+  // undoSelf() {
+  //   // remove node and newly created edge
+  //   this.receiver.removeNode(this.newNode);
+  // }
+
 }
 
 class LinkedListLinkCommand extends LinkedListCommand {
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.fromIndex = this.args[0];
     this.toIndex = this.args[1];
   }
@@ -51,20 +63,24 @@ class LinkedListLinkCommand extends LinkedListCommand {
   }
 
   executeSelf() {
+    if (this.newState == undefined) {
     this.fromNode = this.receiver.list.get(this.fromIndex);
     this.toNode = this.receiver.list.get(this.toIndex);
     this.receiver.addEdge(this.fromNode, this.toNode);
+    this.newState = this.saveState();
+    }
+    else this.restoreState(this.newState);
   }
 
-  undo() {
-    this.receiver.removeEdge(this.fromNode, this.toNode);
-  }
+  // undoSelf() {
+  //   this.receiver.removeEdge(this.fromNode, this.toNode);
+  // }
 }
 
 class LinkedListCutCommand extends LinkedListCommand {
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.fromIndex = this.args[0];
     this.toIndex = this.args[1];
   }
@@ -82,9 +98,9 @@ class LinkedListCutCommand extends LinkedListCommand {
   /** LinkedListCutCommand.undo 
    *    restore cut edge in arrows map
    */
-  undo() {
-    this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
-  }
+  // undoSelf() {
+  //   this.receiver.arrows.set([this.fromIndex, this.toIndex], this.edge);
+  // }
 }
 
 class LinkedListRemoveCommand extends LinkedListCommand {
@@ -93,8 +109,8 @@ class LinkedListRemoveCommand extends LinkedListCommand {
     this.node = null;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.removeIndex = this.args[0];
   }
 
@@ -103,13 +119,17 @@ class LinkedListRemoveCommand extends LinkedListCommand {
   }
 
   executeSelf() {
-    if (this.node == null) {
-      this.node = this.receiver.list.get(this.removeIndex);
+    // if (this.node == null) {
+    //   this.node = this.receiver.list.get(this.removeIndex);
+    // }
+    if (this.newState == undefined) {
+      this.receiver.list.delete(this.removeIndex);
+      this.newState = this.saveState();
     }
-    this.receiver.list.delete(this.removeIndex);
+    else this.restoreState(this.newState);
   }
 
-  undo() {
-    this.receiver.list.set(this.removeIndex, this.node);
-  }
+  // undoSelf() {
+  //   this.receiver.list.set(this.removeIndex, this.node);
+  // }
 }

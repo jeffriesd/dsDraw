@@ -3,40 +3,34 @@
 
 class BSTCommand extends CanvasObjectMethod {
 
-  /** BSTCommand.saveBST
+  /** BSTCommand.saveState
    *    save the state/shape of a BST 
    */
-  saveBST() {
+  saveState() {
     if (this.receiver.bst.root)
-      return this.receiver.bst.root.deepCopy();
+      return { bst : this.receiver.bst.root.deepCopy() };
   }
 
-  /** BSTCommand.restoreBST
+  /** BSTCommand.restoreState
    *    restore the state/shape of the BST
    * 
    * @param bstRoot previous state to restore to
    */
-  restoreBST(bstRoot) {
-    this.receiver.bst.root = bstRoot.deepCopy();
+  restoreState(state) {
+    this.receiver.bst.root = state.bst.deepCopy();
 
     // extra step here because 
     // deep copy doesn't do this by default 
     // reason: if cloning, the copied nodes get mapped to 
     // the cloned BST
-    for (var node of this.receiver.bst.root.inorder())
+    for (var node of this.receiver.bst.root.inorder()) 
       this.receiver.bst.ids.set(node.index, node);
   }
 }
 
 
 class BSTInsertCommand extends BSTCommand {
-  constructor(receiver, valueNode) {
-    super(receiver, valueNode);
-    this.oldTree = this.saveBST();
-  }
-
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.value = this.args[0];
   }
 
@@ -48,26 +42,22 @@ class BSTInsertCommand extends BSTCommand {
   executeSelf() {
     if (this.newTree == undefined) {
       this.receiver.insert(this.value);
-      this.newTree = this.saveBST();
+      this.newTree = this.saveState();
     }
-    this.restoreBST(this.newTree);
+    this.restoreState(this.newTree);
   }
 
   /** BSTInsertCommand.undo
    *    remove inserted node
    */
-  undo() {
-    this.restoreBST(this.oldTree);
-  }
+  // undoSelf() {
+  //   this.restoreState(this.oldTree);
+  // }
 }
 
 class BSTRemoveCommand extends BSTCommand {
-  constructor(receiver, valueNode) {
-    super(receiver, valueNode);
-    this.oldTree = this.saveBST();
-  }
-  executeChildren() {
-    super.executeChildren();
+
+  getChildValues() {
     this.value = this.args[0];
   }
 
@@ -81,21 +71,20 @@ class BSTRemoveCommand extends BSTCommand {
   executeSelf() {
     if (this.newTree == undefined) {
       this.receiver.remove(this.value);
-      this.newTree = this.saveBST();
+      this.newTree = this.saveState();
     }
-    this.restoreBST(this.newTree);
+    this.restoreState(this.newTree);
   }
 
-  undo() {
-    this.restoreBST(this.oldTree);
-  }
+  // undoSelf() {
+  //   this.restoreState(this.oldTree);
+  // }
 
 }
 
 
 class BSTFindCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.value = this.args[0];
   }
 
@@ -108,13 +97,15 @@ class BSTFindCommand extends BSTCommand {
     return this.receiver.find(this.value);
   }
 
-  undo() {
-  }
+  saveState() {}
+  restoreState() {}
+
+  // undoSelf() {
+  // }
 }
 
 class BSTRangeCommand extends BSTCommand {
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.low = this.args[0];
     this.high = this.args[1];
     if (this.low == undefined) this.low = this.receiver.bst.root.getMin().value;
@@ -130,6 +121,9 @@ class BSTRangeCommand extends BSTCommand {
     return this.receiver.inorder()
       .filter(node => node.value >= this.low && node.value < this.high);
   }
+
+  saveState() {}
+  restoreState() {}
 }
 
 /**
@@ -139,8 +133,8 @@ class BSTInorderCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.inorder();
   }
-
-  undo() {}
+  saveState() {}
+  restoreState() {}
 }
 
 /**
@@ -150,8 +144,8 @@ class BSTPreorderCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.preorder();
   }
-
-  undo() {}
+  saveState() {}
+  restoreState() {}
 }
 
 
@@ -162,8 +156,8 @@ class BSTPostorderCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.postorder();
   }
-
-  undo() {}
+  saveState() {}
+  restoreState() {}
 }
 
 /** BSTMinCommand
@@ -173,6 +167,8 @@ class BSTMinCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.getMin();
   }
+  saveState() {}
+  restoreState() {}
 }
 
 /** BSTMaxCommand
@@ -182,6 +178,8 @@ class BSTMaxCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.getMax();
   }
+  saveState() {}
+  restoreState() {}
 }
 
 
@@ -192,6 +190,8 @@ class BSTRootCommand extends BSTCommand {
   executeSelf() {
     return this.receiver.getRoot();
   }
+  saveState() {}
+  restoreState() {}
 }
 
 /**
@@ -210,9 +210,10 @@ class BSTNodeCanvasObjectCommand extends CanvasObjectMethod {
 class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
   // rotate self with parent
   executeSelf() {
-    if (this.receiverNode.parNode == null) {
+    if (this.newState) return this.restoreState(this.newState);
+
+    if (this.receiverNode.parNode == null) 
       this.undoDir = "none";
-    }
 
     if (this.receiverNode.isLeftChild()) {
       this.undoDir = "left";
@@ -223,14 +224,32 @@ class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
       this.undoDir = "right";
       this.receiverNode.rotateLeft();
     }
+    if (this.newState == undefined) this.newState = this.saveState();
   }
 
-  undo() {
-    if (this.undoDir == "left" && this.receiverNode.rightChild())
-      this.receiverNode.rightChild().rotateLeft();
-    else if (this.undoDir == "right" && this.receiverNode.leftChild())
-      this.receiverNode.leftChild().rotateRight();
+  saveState() {
+    return { 
+      bst : this.receiver.getParent().bst.root.deepCopy() 
+    };
   }
+
+  restoreState(state) {
+    this.receiver.getParent().bst.root = state.bst.deepCopy();
+
+    // extra step here because 
+    // deep copy doesn't do this by default 
+    // reason: if cloning, the copied nodes get mapped to 
+    // the cloned BST
+    for (var node of this.receiver.getParent().bst.root.inorder()) 
+      this.receiver.getParent().bst.ids.set(node.index, node);
+  }
+
+  // undoSelf() {
+  //   if (this.undoDir == "left" && this.receiverNode.rightChild())
+  //     this.receiverNode.rightChild().rotateLeft();
+  //   else if (this.undoDir == "right" && this.receiverNode.leftChild())
+  //     this.receiverNode.leftChild().rotateRight();
+  // }
 }
 
 class BSTNodeCanvasObjectLeftCommand extends BSTNodeCanvasObjectCommand {

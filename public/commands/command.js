@@ -1,313 +1,15 @@
 
-
-// TODO
-// organize command classes into separate files
-
 /*  Command classes encapsulate actions on the canvas
  *  through either mouse clicks or commands entered in the
  *  user console. These classes allow for simple 
  *  handling of undo/redo state.
  */
 
-class DrawCommand {
-  constructor(cState, receiver) {
-    this.cState = cState;
-    this.receiver = receiver;
-    this.state = this.getState();
-  }
-
-  /*  CanvasState class stores state of canvas when click starts
-   *    - hotkeys
-   *    - coordinates of receiver
-   */
-  getState() {
-    return {
-      hotkeys: this.cState.hotkeyStartState,
-      startPoint: this.cState.mouseDown,
-      endPoint: this.cState.mouseMove,
-    };
-  }
-
-  execute() {
-    throw "Execute not implemented for " + this.constructor.name;
-  }
-
-  undo() {
-    throw "Undo not implemented for " + this.constructor.name;
-  }
-}
-
-
-/**  Handles object instantiation using click and drag
- */
-class ClickCreateCommand extends DrawCommand {
-  constructor(cState, receiver) {
-    super(cState, receiver);
-  }
-
-  execute() {
-    this.receiver.restore();
-  }
-
-  undo() {
-    this.receiver.destroy();
-  }
-}
-
-
-/** MoveCommand
- *    supports single element or group translation on canvas
- */
-class MoveCommand extends DrawCommand {
-  constructor(cState, receiver) {
-    super(cState, receiver);
-
-    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
-
-    if (this.cState.selectGroup.size) 
-      this.group = Array.from(this.cState.selectGroup);
-    else
-      this.group = [this.receiver];
-
-    // move only applies to parent objects
-    this.group = this.group.map(obj => obj.getParent());
-
-    // determine final positions so undo/redo 
-    // doesn't keep applying relative drag
-    this.oldPos = this.group.map(r => { 
-      return { x: r.x - deltaX, y: r.y1 - deltaY } 
-    });
-    this.newPos = this.oldPos.map(p => { 
-      return { x: p.x + deltaX, y: p.y + deltaY } 
-    });
-  }
-
-  execute() {
-    this.group.forEach((receiver, i) => {
-      var dx = this.newPos[i].x - receiver.x;
-      var dy = this.newPos[i].y - receiver.y1;
-      receiver.move(dx, dy);
-    });
-  }
-
-  undo() {
-    // move (translate) back to initial point
-    this.group.forEach((receiver, i) => {
-      var dx = this.oldPos[i].x - receiver.x;
-      var dy = this.oldPos[i].y - receiver.y1;
-      receiver.move(dx, dy);
-    });
-  }
-}
-
-class DragCommand extends DrawCommand {
-  constructor(cState, receiver) {
-    super(cState, receiver);
-
-    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
-
-    this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
-    this.newPos = {x: this.receiver.x, y: this.receiver.y };
-  }
-
-  execute() {
-    var dx = this.newPos.x - this.receiver.x;
-    var dy = this.newPos.y - this.receiver.y;
-    this.receiver.drag(dx, dy);
-  }
-
-  undo() {
-    var dx = this.oldPos.x - this.receiver.x;
-    var dy = this.oldPos.y - this.receiver.y;
-    // drag back to initial point
-    this.receiver.drag(dx, dy);
-  }
-}
-
-// class ShiftDragCommand extends DrawCommand {
-//   constructor(cState, receiver) {
-//     super(cState, receiver);
-// 
-//     var deltaX = this.state.endPoint.x - this.state.startPoint.x;
-//     var deltaY = this.state.endPoint.y - this.state.startPoint.y;
-// 
-//     this.oldPos = {x: this.receiver.x - deltaX, y: this.receiver.y - deltaY };
-//     this.newPos = {x: this.receiver.x, y: this.receiver.y };
-//   }
-// 
-//   execute() {
-//     var dx = this.newPos.x - this.receiver.x;
-//     var dy = this.newPos.y - this.receiver.y;
-//     this.receiver.shiftDrag(dx, dy);
-//   }
-// 
-//   undo() {
-//     var dx = this.oldPos.x - this.receiver.x;
-//     var dy = this.oldPos.y - this.receiver.y;
-//     // drag back to initial point
-//     this.receiver.shiftDrag(dx, dy);
-//   }
-// }
-
-
-
-class CloneCommand extends DrawCommand {
-  constructor(cState, receiver) {
-    super(cState, receiver);
-
-    var deltaX = this.state.endPoint.x - this.state.startPoint.x;
-    var deltaY = this.state.endPoint.y - this.state.startPoint.y;
-
-    if (this.cState.selectGroup.size)  
-      this.group = Array.from(this.cState.selectGroup);
-    else
-      this.group = [this.receiver];
-
-
-    this.clones = cloneObjectsMaintainAnchors(this.group);
-
-    this.newPos = this.group.map(r => {
-      return { x: r.x + deltaX, y: r.y + deltaY };
-    });
-  }
- 
-  /** CloneCommand.execute
-   *    Clone all objects in selection 
-   *    and translate by dx, dy
-   */  
-  execute() {
-    this.clones.forEach((cl, i) => {
-      cl.restore();
-
-      console.log("moving", String(cl))
-
-      var dx = this.newPos[i].x - cl.x;
-      var dy = this.newPos[i].y - cl.y;
-      cl.move(dx, dy);
-    });
-  }
-
-  undo() {
-    this.clones.forEach((clone) => {
-      clone.destroy();
-    });
-  }
-}
-
-/** ClickDestroyCommand
- *    Delete an object from canvas by clicking delete
- *    button in toolbar.
- *
- *    TODO:
- *    make group delete command (undo in single press)
- */
-class ClickDestroyCommand {
-  constructor(cState, ...receivers) {
-    this.cState = cState;
-    this.receivers = receivers;
-  }
-
-  execute() {
-    this.deletedBindings =  [];
-    this.receivers.forEach(r => { 
-      r.hide();
-      var deleted = VariableEnvironment.deleteVar(r.label);
-      this.deletedBindings.push(deleted);
-    });
-  }
-
-  undo() {
-    this.receivers.forEach((r, i) => {
-      r.unhide();
-      this.deletedBindings[i].forEach((v,  k) => {
-        VariableEnvironment.setVar(k, v);
-      })
-    });
-  }
-}
-
-class SelectCommand {
-  constructor(cState) {
-    this.cState = cState;
-
-    this.x1 = cState.mouseDown.x;
-    this.y1 = cState.mouseDown.y;
-    this.x2 = cState.mouseUp.x;
-    this.y2 = cState.mouseUp.y;
-  }
-
-  /** SelectCommand.execute
-   *    iterate through canvas objects and check if 
-   *    starting point is in selected rectangle.
-   *    also call mousedown for each object to raise
-   *    it to top.
-   */
-  execute() {
-    this.cState.selectGroup.clear();
-    var toRaise = [];
-  
-    this.cState.objects.forEach((cObject) => {
-      var pObj = cObject.getParent();
-      var pt = cObject.getStartCoordinates();
-
-      if (pt.x <= this.x2 && pt.x >= this.x1 
-           && pt.y <= this.y2 && pt.y >= this.y1) {
-        this.cState.selectGroup.add(pObj);
-        toRaise.push(pObj);
-        console.log("adding to st")
-      }
-    });
-
-    // raise in reverse order to 
-    // reflect prev order (last on top)
-    toRaise.forEach(canvasObj => canvasObj.mouseDown());
-
-    // if only one thing selected, set it
-    // as active and show options
-    if (this.cState.selectGroup.size == 1) {
-      this.cState.selectGroup.forEach((obj) => {
-        this.cState.activeObj = obj;
-      });
-    }
-  }
-
-  /** SelectCommand.undo
-   *    if selection is not already undone, 
-   *    then clear selection 
-   *    TODO -- restore cState objects order (undo raise)
-   */
-  undo() {
-    if (this.cState.selectGroup.size)
-      this.cState.selectGroup.clear();
-  }
-}
-
 
 /**
  *  Console command objects
  *
  */
-class RelabelCommand {
-  constructor(cState, receiverLabel, newLabel) {
-    this.receiver = VariableEnvironment.getCanvasObj(receiverLabel);
-    if (this.receiver == null) throw `No object with label '${receiverLabel}'.`;
-    this.newLabel = newLabel;
-    // save old label for undo
-    this.oldLabel = receiverLabel;
-  } 
-
-  execute() {
-    this.receiver.label = this.newLabel; 
-  }
-
-  undo() {
-    this.receiver.label = this.oldLabel;
-  }
-
-}
-
 
 /** cloneObjectsMaintainAnchors
  *    function to clone every object in an array
@@ -364,15 +66,15 @@ class CloneCanvasCommand {
     this.receivers = cloneObjectsMaintainAnchors(this.originals);
 
     // also update aliases
-    this.receivers.forEach(obj => {
-      var venv = VariableEnvironment.getInstance();
-      if (venv.aliases.has(obj.label)) {
-        venv.aliases.get(obj.label).forEach(alias => {
-          if (venv.hasVar(alias))
-            VariableEnvironment.setVar(alias, obj);
-        });
-      }
-    })
+    // this.receivers.forEach(obj => {
+    //   var venv = VariableEnvironment.getInstance();
+    //   if (venv.aliases.has(obj.label)) {
+    //     venv.aliases.get(obj.label).forEach(alias => {
+    //       if (venv.hasVar(alias))
+    //         VariableEnvironment.setVar(alias, obj);
+    //     });
+    //   }
+    // })
   }
 
   execute() {
@@ -384,10 +86,8 @@ class CloneCanvasCommand {
     // this.cState.updateLabels();
   }
 
-  undo() {
-    // this.receivers.forEach(r => {
-    //   r.destroy();
-    // });
+  undo() { 
+    this.cState.clearCanvas();
   }
 }
 
@@ -400,46 +100,60 @@ class CloneEnvCommand {
     this.cState = cState;
   }
 
+  /** CloneEnvCommand.cloneEnv
+   *    clone entire variable environment 
+   *    from current canvas. Entries that point
+   *    to canvas objects should point to 
+   *    their clones in the new venv.
+   * 
+   *    this is handled automatically for 
+   *    venv.canvasObjects because
+   *    they get cloned by CloneCanvasCommand and
+   *    updated. 
+   *    however aliases of canvas objects (in venv.variables)
+   *    must be updated manually
+   */
   cloneEnv() {
     this.env = VariableEnvironment.clone();
+
+    // update aliases
+    this.env.mainVariables.forEach((v, k) => {
+      if (v._cloneRef)
+        this.env.mainVariables.set(k, v._cloneRef);
+    });
   }
 
   execute() {
+    console.log("exec cloneenv")
     if (this.env == null) this.cloneEnv();
 
     VariableEnvironment.setState(this.env);
   }
 
+  undo() { 
+    VariableEnvironment.clearAll();
+  }
 }
 
 
-
-
-class GetVariableCommand { 
-  constructor(variableName) {
-    this.variableName = variableName;
-  }
-
-  /** GetVariableCommand.execute
-   *    return command class (for function calls)
-   *    or value of variable (usual case)
-   */
-  execute() {
-    if (this.variableName in mainCommands)
-      return mainCommands[this.variableName];
-    if (this.variableName in constructors)
-      return constructors[this.variableName];
-    return VariableEnvironment.getVar(this.variableName);
-  }
-
-  undo() {}
-}
-
+/** ConsoleCommand
+ *    Provides some template methods for 
+ *    all commands that form statements 
+ *    in the language. 
+ */
 class ConsoleCommand {
   constructor(...argNodes) {
-    this.argNodes = argNodes;
-  }
+    this.argNodes = argNodes; // astNodes 
+    this.args = []; // evaluated argNodes
 
+    // save state before execution
+    this.prevState = null;
+
+    // save childnodes which
+    // successfully get executed on first execute
+    this.executedChildren = false;
+    this.savedChildren = [];
+  }
 
   /** ConsoleCommand.checkArgsLength
    *    check number of arguments with inclusive
@@ -458,10 +172,15 @@ class ConsoleCommand {
     }
   }
 
+  argsError(errMessage) {
+    if (this.usage)
+      throw errMessage + "\nUsage: " + this.usage();
+    throw errMessage;
+  }
+
   /** ConsoleCommand.precheckArguments
    *    check number of arguments etc. before
    *    arguments get evaluated
-   * 
    */
   precheckArguments() {
   }
@@ -469,16 +188,42 @@ class ConsoleCommand {
   /** ConsoleCommand.executeChildren
    *  //TODO check for cached literal result
    *  //TODO push nodes to stack for reverse postorder (recursive undo)
+   *  
+   *  do synchronously so any sync child commands
+   *  are certain to be evaluated 
+   * 
+   *  e.g. 
+   * 
+   *  x = f()
+   * 
+   *  if f is a sync function it needs 
+   *  to finish executing and pushing/popping namespaces
    */
   executeChildren() {
-    this.args = 
-      this.argNodes
-      .filter(node => node != undefined) 
-      // filter is necessary at least for interpreation of arr[:]
-      // in which argNodes = ["buildVariable", null, null]
-      .map(node => node.command.execute());  
+    return new Promise(resolve => {
+      this.precheckArguments();
+      this.args = [];
+
+      resolve(
+        // filter is necessary at least for interpreation of arr[:]
+        this.argNodes.filter(node => node != undefined)
+        .reduce((prev, current) => {
+          return prev.then(_ => {
+            return liftCommand(current.command)
+              .then(ret => this.args.push(ret));
+          });
+        }, new Promise(resolve => resolve()))
+      );
+    });
   }
+
+  getChildValues() { }
+
   checkArguments() { }
+
+  saveState() { }
+
+  restoreState(state) { }
 
   /** ConsoleCommand.execute
    *    Template method:
@@ -487,74 +232,134 @@ class ConsoleCommand {
    *      - execute self
    */
   execute() {
-    this.precheckArguments();
-    this.executeChildren();
-    this.checkArguments();
-    return this.executeSelf();
+    return this.executeChildren()
+    .then(() => this.executedChildren = true)
+    .then(() => {
+      this.getChildValues();
+      this.checkArguments();
+      if (this.prevState == undefined) this.prevState = this.saveState();
+
+      return this.executeSelf();
+    })
   }
 
-  //TODO undo postorder traversal...
-  undo() {}
+  
+  /** ConsoleCommand.undo
+   *    undo the earliest actions first, so 
+   *    first undo "children"
+   *    (i.e. argument nodes) in reverse
+   *    and then undo self 
+   */
+  undo() {
+    try {
+      // if error occurred in this command,
+      // it likely can't be undone successfully 
+      this.undoSelf();
+    }
+    catch(err) {
+      console.warn("failed to undo", this.constructor.name);
+    }
+    finally {
+      this.argNodes.slice().reverse()
+        .filter(cmd => cmd != undefined)
+        .forEach(cmd => cmd.command.undo());
+    }
+  }
+
+  undoSelf() { 
+    console.log("using default undo");
+    this.restoreState(this.prevState);
+  }
+
+  // safeUndo() {
+  //   this.undoSelf();
+  //   this.argNodes.slice().reverse()
+  //     .filter(node => node != undefined)
+  //     .forEach(argNode => {
+  //       if (argNode.command.prevState)
+  //         argNode.command.restoreState(argNode.command.prevState);
+  //     });
+  // }
 }
 
 /**
  * Just calls destroy on first argument
  */
-class ConsoleDestroyCommand extends ConsoleCommand {
-  constructor(cState, receiver) {
-    super(receiver);
-    this.cState = cState;
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.receiver = this.args[0];
-    this.objLabel = this.receiver.label;
-  }
-
-  checkArguments() {
-    if (! (this.receiver instanceof CanvasObject))
-      throw `Cannot delete non-CanvasObject '${stringify(this.receiver)}'.`;
-  }
-
-  /** ConsoleDestroyCommand.executeSelf
-   *    hide object and destroy variable bindings
-   */
-  executeSelf() {
-    this.deletedBindings = VariableEnvironment.deleteVar(this.receiver.label);
-    this.receiver.hide();
-  }
-
-  undo() {
-    this.deletedBindings.forEach((v, k) => {
-      VariableEnvironment.setVar(k, v);
-    });
-    this.receiver.unhide();
-  }
-}
-
+// class ConsoleDestroyCommand extends ConsoleCommand {
+//   constructor(cState, receiver) {
+//     super(receiver);
+//     this.cState = cState;
+//   }
+// 
+//   usage() {
+//     return "delete(objLabel)";
+//   }
+// 
+//   precheckArguments() {
+//     this.checkArgsLength(1);
+//   }
+// 
+//   getChildValues() {
+//     this.receiver = this.args[0];
+//     this.objLabel = this.receiver.label;
+//   }
+// 
+//   checkArguments() {
+//     if (! (this.receiver instanceof CanvasObject))
+//       throw `Cannot delete non-CanvasObject '${stringify(this.receiver)}'.`;
+//   }
+// 
+//   /** ConsoleDestroyCommand.executeSelf
+//    *    hide object and destroy variable bindings
+//    */
+//   executeSelf() {
+//     this.deletedBindings = VariableEnvironment.deleteCanvasObj(this.receiver.label);
+//     this.receiver.hide();
+//   }
+// 
+//   /** ConsoleDestryCommand.saveState
+//    *    save relevant part of variable environment 
+//    *    (i.e. the canvas object label binding
+//    *      and any variable bindings that point to it)
+//    */
+//   saveState() {
+//     return {
+//       
+//     };
+//   }
+// 
+//   restoreState(state) {
+// 
+//   }
+// 
+//   // undoSelf() {
+//   //   this.deletedBindings.forEach((v, k) => {
+//   //     VariableEnvironment.setVar(k, v);
+//   //   });
+//   //   this.receiver.unhide();
+//   // }
+// }
 
 class AssignVariableCommand extends ConsoleCommand {
   constructor(variableName, value) {
     super(value);
     this.variableName = variableName;
 
-    // variables that corresponed to labeled canvas objects
-    // cant be reassigned
-    if (VariableEnvironment.hasVar(this.variableName)) 
-      if (VariableEnvironment.getVar(this.variableName) instanceof CanvasObject) 
-        throw `Cannot reassign reference to canvas object: '${this.variableName}' .`;
+    this.previousValue = undefined;
+    if (VariableEnvironment.hasVar(this.variableName))
+      this.previousValue = VariableEnvironment.getVar(this.variableName);
+
+    // variables that corresponed to function names
+    // can't be reassigned
+    if (VariableEnvironment.hasFunction(this.variableName))
+      throw `Cannot reassign function name: '${this.variableName}' .`;
   }
 
   /** AssignVariableCommand.executeChildren
    *    evaluate opNode on right side of equals 
    */
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.value = this.args[0];
-    // if rvalue is returned from function (including constructors), 
-    // update the label of the canvas object
-    this.funcReturn = this.argNodes[0].toString() == "buildFunctionCall";
   }
 
   /** AssignVariableCommand.execute
@@ -563,26 +368,42 @@ class AssignVariableCommand extends ConsoleCommand {
    *    VarEnv.setVar
    */
   executeSelf() {
-    if (this.value instanceof CanvasObject) {
-      if (this.funcReturn)
-        this.value.label = this.variableName;
-    }
+    // if (this.value instanceof CanvasObject) {
+    //   if (this.funcReturn)
+    //     this.value.label = this.variableName;
+    // }
 
-    // this allows aliases to canvas objects
-    // i.e. 
-    // a = array()
-    // z = a
-    // 
-    // issue:
-    // delete(a) doesn't do anything for deleting z binding
-    // TODO 
+    // CBHERE
     VariableEnvironment.setVar(this.variableName, this.value); 
   }
 
-  undo() {
+  /** AssignVariableCommand.undoSelf
+   *    restore previous value
+   */
+  // undoSelf() {
+  //   if (this.previousValue === undefined)
+  //     VariableEnvironment.deleteVar(this.variableName);
+  //   else
+  //     VariableEnvironment.setVar(this.variableName, this.previousValue)
+  // }
+
+  /** AssignVariableCommand.saveState
+   *    save current binding of this.variableName
+   */
+  saveState() {
+    var prevValue = undefined;
     if (VariableEnvironment.hasVar(this.variableName))
-      VariableEnvironment.deleteVar(this.variableName, false); // don't delete any aliases on undo
-    this.argNodes[0].command.undo();
+      prevValue = VariableEnvironment.getVar(this.variableName)
+    return {
+      previousValue :  prevValue,
+    };
+  }
+
+  restoreState(state) {
+    if (state.previousValue !== undefined)
+      VariableEnvironment.setVar(this.variableName, state.previousValue);
+    else 
+      VariableEnvironment.deleteVar(this.variableName);
   }
 }
 
@@ -624,11 +445,11 @@ class ConfigCommand extends ConsoleCommand {
       this.property = this.receiver.propNames()[this.propName];
 
     // save original value for undo
-    this.oldValue = this.receiver[this.property];
+    // this.oldValue = this.receiver[this.property];
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.value = this.args[0];
   }
 
@@ -667,19 +488,29 @@ class ConfigCommand extends ConsoleCommand {
     this.receiver[this.property] = this.value;
   }
 
-  undo() {
-    this.receiver[this.property] = this.oldValue;
+  // undoSelf() {
+  //   this.receiver[this.property] = this.oldValue;
+  // }
+
+  saveState() {
+    return {
+      prevValue : this.receiver[this.property],
+    }
+  }
+
+  restoreState(state) {
+    this.receiver[this.property] = state.prevValue;
   }
 }
 
 // take value directly (as opposed to valueNode in ConfigCommand)
 class MenuConfigCommand extends ConfigCommand {
   constructor(receiver, propName, value) {
-    super(receiver, propName, value);
+    super(receiver, propName);
     this.value = value;
   }
 
-  executeChildren() {
+  getChildValues() {
   }
 
   // convert string (from <input> unlike parsed ConfigCommand)
@@ -691,6 +522,11 @@ class MenuConfigCommand extends ConfigCommand {
     if (value == "false") return false;
     return value;
   }
+
+  // undoSelf() {
+  // }
+
+  // no save/restore (handled by ConfigCommand)
 }
 
 /** GetChildrenCommand
@@ -705,14 +541,14 @@ class GetChildrenCommand extends ConsoleCommand {
     this.highArgNode = high;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.receiver = this.args[0];
     if (this.lowArgNode != null)
-      this.low = this.lowArgNode.command.execute();
+      this.low = this.args[1];
     else this.low = null;
     if (this.highArgNode != null)
-      this.high = this.highArgNode.command.execute();
+      this.high = this.args[2];
     else this.high = null;
   }
 
@@ -751,8 +587,6 @@ class GetChildrenCommand extends ConsoleCommand {
     }
     throw `Cannot perform range access on '${this.receiver.constructor.name}'.`;
   }
-
-  undo() {}
 }
 
 /** GetChildCommand
@@ -766,8 +600,8 @@ class GetChildCommand extends ConsoleCommand {
     super(receiver, key);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.receiver = this.args[0];
     this.key = this.args[1];
   }
@@ -823,8 +657,8 @@ class GetPropertyCommand extends ConsoleCommand {
     this.propName = propName;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.receiver = this.args[0];
   }
 
@@ -867,7 +701,6 @@ class GetPropertyCommand extends ConsoleCommand {
     if (typeof this.property == "string")
       return this.receiver[this.property];
 
-    console.log("getting method for", this.receiver.index)
     return {
       receiver: this.receiver,
       methodClass: this.property,
@@ -887,14 +720,20 @@ class RangeConfigCommand extends ConsoleCommand {
     this.property = property;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.receivers = this.args[0];
     if (! (this.receivers instanceof Array))
       this.receivers = [this.receivers];
 
     // must be passed to ConfigCommand as an opNode
     this.rValueNode = this.argNodes[1];
+
+    if (this.configCommands.length == 0) {
+      this.receivers.forEach((receiver) => {
+        this.configCommands.push(new ConfigCommand(receiver, this.property, this.rValueNode));
+      });
+    }
   }
 
   checkArguments() {
@@ -903,24 +742,31 @@ class RangeConfigCommand extends ConsoleCommand {
   }
 
   executeSelf() {
-    if (this.configCommands.length == 0) {
-      this.receivers.forEach((receiver) => {
-        this.configCommands.push(new ConfigCommand(receiver, this.property, this.rValueNode));
-      });
-    }
-    this.configCommands.forEach(cmd => cmd.execute());
+    return this.configCommands.reduce((prev, cur) => {
+      return prev.then(() => cur.execute());
+    }, new Promise(resolve => resolve()));
   }
 
-  undo() {
-    this.configCommands.forEach(cmd => cmd.undo());
+  saveState() {
+    return { 
+      stateMap : this.configCommands.map(cmd => [cmd, cmd.saveState()]),
+    };
   }
+
+  restoreState(state) {
+    state.stateMap.forEach(([cmd, cmdState]) => cmd.restoreState(cmdState));
+  }
+
+  // undoSelf() {
+  //   this.configCommands.forEach(cmd => cmd.undo());
+  // }
 }
 
 class AssignListElementCommand extends ConsoleCommand {
 
   // assign list/list value at idx/key
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.list = this.args[0];
     this.index = this.args[1];
     this.rValue = this.args[2];
@@ -928,7 +774,7 @@ class AssignListElementCommand extends ConsoleCommand {
 
   checkArguments() {
     if (this.list instanceof Dictionary) return;
-    if (! (this.list instanceof Array || this.list.constructor == Object))
+    if (! (this.list instanceof Array))
       throw "Element assignment is only allowed for lists and dicts";
     if (this.index < 0 || this.index >= this.list.length) 
       throw "Array index out of bounds: " + this.index;
@@ -943,8 +789,26 @@ class AssignListElementCommand extends ConsoleCommand {
     this.list[this.index] = this.rValue;
   }
 
-  undo() {
-    this.list[this.index] = this.oldValue;
+  // undoSelf() {
+  //   this.list[this.index] = this.oldValue;
+  // }
+
+  saveState() {
+    if (this.list instanceof Dictionary) 
+      return {
+        previousValue : this.list.get(this.index),
+      };
+    else if (this.list instanceof Array)
+      return {
+        previousValue : this.list[this.index],
+      };
+  }
+
+  restoreState(state) {
+    if (this.list instanceof Dictionary) 
+      this.list.set(this.index, state.previousValue);
+    else if (this.list instanceof Array)
+      this.list[this.index] = state.previousValue;
   }
 }
 
@@ -956,11 +820,6 @@ class CanvasObjectMethod extends ConsoleCommand {
     this.argNodes = argNodes;
   }
 
-  argsError(errMessage) {
-    if (this.usage)
-      throw errMessage + "\nUsage: " + this.usage();
-    throw errMessage;
-  }
 }
 /**
  * Heap methods
@@ -969,147 +828,6 @@ class CanvasObjectMethod extends ConsoleCommand {
 class BinaryHeapCommand extends CanvasObjectMethod {
 }
 
-class BinaryHeapInsertCommand extends BinaryHeapCommand {
-  constructor(receiver, valueNode) {
-    super(receiver, valueNode);
-    this.oldHeap = this.receiver.heapArray.slice();
-    this.oldHeap = this.oldHeap.map(node => {
-      node = node.clone();
-      node.parentObject = this.receiver;
-      return node;
-    });
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.value = this.args[0];
-  }
-
-  checkArguments() {
-    if (typeof this.value !== "number")
-      throw "BinaryHeap only support numeric values";
-  }
-
-  executeSelf() {
-    if (this.newHeap == undefined) {
-      this.receiver.insert(this.value);
-      this.newHeap = this.receiver.heapArray.slice();
-    }
-    this.receiver.heapArray = this.newHeap.slice();
-  }
-
-  undo() {
-    this.receiver.heapArray = this.oldHeap.slice();
-  }
-}
-
-class BinaryHeapPopCommand extends BinaryHeapCommand {
-  constructor(receiver) {
-    super(receiver);
-    this.oldHeap = this.receiver.heapArray.slice();
-    this.oldHeap = this.oldHeap.map(node => {
-      node = node.clone();
-      node.parentObject = this.receiver;
-      return node;
-    });
-  }
-
-  executeSelf() {
-    if (this.newHeap == undefined) {
-      this.popped = this.receiver.removeRoot();
-      this.newHeap = this.receiver.heapArray.slice();
-    }
-    this.receiver.heapArray = this.newHeap.slice();
-    return this.popped;
-  }
-
-  undo() {
-    this.receiver.heapArray = this.oldHeap.slice();
-  }
-}
-
-class BinaryHeapFindCommand extends BinaryHeapCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.value = this.args[0];
-  }
-  executeSelf() {
-    return this.receiver.find(this.value);
-  }
-}
-
-class BinaryHeapRootCommand extends BinaryHeapCommand {
-  executeSelf() {
-    return this.receiver.root;
-  }
-}
-
-class BinaryHeapRangeCommand extends BinaryHeapCommand {
-  executeChildren() {
-    super.executeChildren();
-    this.low = this.args[0];
-    this.high = this.args[1];
-    if (this.low == undefined) this.low = this.receiver.getMin();
-    if (this.high == undefined) this.low = this.receiver.getMax() + 1;
-  }
-  checkArguments() {
-    if (typeof this.low !== "number")
-      throw "Invalid lower bound: " + this.low;
-    if (typeof this.high !== "number")
-      throw "Invalid upper bound: " + this.high;
-  }
-  executeSelf() {
-    return this.receiver.heapArray
-      .filter(node => node.value >= this.low && node.value < this.high);
-  }
-}
-
-
-class BinaryHeapDecreaseKeyCommand extends BinaryHeapCommand {
-  constructor(receiver, heapNodeOpNode, newKeyNode) {
-    super(receiver, heapNodeOpNode, newKeyNode);
-    this.oldHeap = this.receiver.heapArray.slice();
-    this.oldHeap = this.oldHeap.map(node => {
-      node = node.clone();
-      node.parentObject = this.receiver;
-      return node;
-    });
-  }
-
-  executeChildren() {
-    super.executeChildren();
-    this.receiverNode = this.args[0];
-    this.newKey = this.args[1];
-  }
-
-  checkArguments() {
-    if (! (this.receiverNode instanceof BinaryHeapNode))
-      throw "Cannot decrease key of non BinaryHeapNode";
-    if (this.receiverNode.parentObject !== this.receiver)
-      throw "BinaryHeap can only decrease keys of its own nodes";
-  }
-
-  executeSelf() {
-    if (this.newHeap == undefined) {
-      this.receiver.decreaseKey(this.receiverNode, this.newKey);
-      this.newHeap = this.receiver.heapArray.slice();
-    }
-    this.receiver.heapArray = this.newHeap.slice();
-  }
-
-  undo () {
-    this.receiver.heapArray = this.oldHeap.slice();
-  }
-}
-
-class BinaryHeapNodeCommand extends CanvasObjectMethod {
-}
-
-class BinaryHeapNodeValueCommand extends BinaryHeapNodeCommand {
-  executeSelf() {
-    return this.receiver.value;
-  }
-}
 
 /**
  * Built-in math (rand, randn), util (range)
@@ -1120,8 +838,8 @@ class RandomIntCommand extends ConsoleCommand {
     super(min, max);
     this.value = null;
   }
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.min = this.args[0];
     this.max = this.args[1];
     if (this.min == undefined) { 
@@ -1152,7 +870,7 @@ class RandomFloatCommand extends ConsoleCommand {
     super();
     this.value = null;
   }
-  executeChildren() {}
+  getChildValues() {}
   executeSelf() {
     if (this.value == null) 
       this.value = Math.random();
@@ -1166,8 +884,8 @@ class RangeCommand extends ConsoleCommand {
     this.value = null;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.start = this.args[0];
     this.end = this.args[1];
     this.step = this.args[2] || 1;
@@ -1198,112 +916,61 @@ class RangeCommand extends ConsoleCommand {
   }
 }
 
-/**
- *  User defined functions are created
- *  using the 'define' keyword. Example:
+/** BuildDictCommand
+ *    The array of argnodes correspond to dictionary values,
+ *    and there is an additional array argument for the keys
  *    
- *  define printArr(arr) {
- *    for (i = 0; i < arr.length; i = i + 1) {
- *      print(arr[i].value);   
- *    } 
- *  }   
+ *    Keys are raw text (not quoted string)
+ *    and values can be any expression
  * 
- *  User functions maintain their own namespace
- *  (map of variable names) and force child
- *  statements to use the same namespace by pushing
- *  it onto a stack used by the VariableEnvironment class.
- *  When a variable value is requested, the top of the stack
- *  is looked at first. The local namespace gets popped off 
- *  when execution ends.
- * 
- *  Statement nodes are cloned so each call runs
- *  with fresh command objects.
+ *    since the values could require executing async functions,
+ *    BuildDictCommand counts as a console command
  */
-// class UserFunctionCommand extends ConsoleCommand {
-//   constructor(funcDef, ...args) {
-//     super(...args);
-//     this.funcName = funcDef.funcName;
-//     this.statements = funcDef.statements.map(x => x.clone());
-//     this.argNames = funcDef.argNames;
-//     this.namespace = this.setArguments();
-//     // flag to ensure command stack is only created once
-//     this.storedStack = false; 
-//     this.executed = [];
-//   }
-// 
-//   execPush(command) {
-//     if (! this.storedStack) this.executed.push(command);
-//     return command.execute();
-//   }
-// 
-//   /** UserFunctionCommand.setArguments
-//    *    evaluate arguments and map to local names
-//    */
-//   setArguments() {
-//     if (this.argNames.length != this.argNodes.length)  {
-//       console.log(this.argNames, this.argNodes);
-//       throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
-//     }
-//     var namespace = new Map();
-//     this.argNames.forEach((argname, i) => {
-//       namespace.set(argname, this.argNodes[i].command.execute());
-//     });
-//     return namespace;
-//   }
-// 
-//   execute() {
-//     var ret = null;
-//     VariableEnvironment.pushNamespace(this.namespace);
-//     console.log("pushing");
-//     try {
-//       for (var i = 0; i < this.statements.length; i++) {
-//         this.execPush(this.statements[i].command);
-//         // if (this.statements[i].command instanceof ReturnCommand) break;
-//         // if (ret instanceof ReturnValue) break;
-//       }
-//       VariableEnvironment.popNamespace(this.namespace);
-//     }
-//     catch (e) {
-//       VariableEnvironment.popNamespace(this.namespace);
-//       // quick easy way to return value from any nested call
-//       if (e instanceof FunctionReturn)
-//         ret = e.value; 
-//       else // some other error
-//         throw e;
-//     }
-// 
-//     // indicate that further calls to execute
-//     // should no longer update stack
-//     this.storedStack = true;
-//     return ret;
-//   }
-// 
-//   undo() {
-//     VariableEnvironment.pushNamespace(this.namespace);
-//     try {
-//       this.executed.slice().reverse().forEach(cmd => cmd.undo());
-//       VariableEnvironment.popNamespace(this.namespace);
-//     }
-//     catch (e) {
-//       VariableEnvironment.popNamespace(this.namespace);
-//       throw e;
-//     }
-//   }
-// }
-// 
-// class ReturnCommand extends ConsoleCommand {
-//   executeSelf() {
-//     throw new FunctionReturn("Return called outside function", this.args[0]);
-//   }
-// }
-// 
-// class FunctionReturn extends Error {
-//   constructor(message, retValue) {
-//     super(message);
-//     this.value = retValue;
-//     this.name = "";
-//   }
-// }
+class BuildDictCommand extends ConsoleCommand {
+  constructor(keys, ...args) {
+    super(...args); 
+    this.keys = keys;
+  }
+
+  precheckArguments() {
+    if (this.keys.length != this.argNodes.length)
+      throw "Dictionary requires same number of keys and values";
+  }
+
+  executeSelf() {
+    this.dict = new Dictionary();
+    this.args.forEach((value, i) => {
+      this.dict.set(this.keys[i], value);
+    });
+    return this.dict;
+  }
+}
+
+/** BuildListCommand
+ *    The array of argnodes is exactly the array
+ *    of expressions specified in the list constructor
+ */
+class BuildListCommand extends ConsoleCommand {
+  executeSelf() {
+    return this.args.slice();
+  }
+}
+
+class GetVariableCommand {
+  constructor(varName) {
+    this.varName = varName;
+  }
+
+  execute() {
+    if (this.varName in mainCommands)
+      return mainCommands[this.varName];
+    if (this.varName in constructors)
+      return constructors[this.varName];
+    return VariableEnvironment.getVar(this.varName);
+  }
+
+  undo() { }
+}
 
 // for debugging
 
@@ -1312,8 +979,7 @@ class DirCommand extends ConsoleCommand {
     super(...args);
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.canvasObject = this.args[0];
   }
 
@@ -1337,11 +1003,9 @@ class DirCommand extends ConsoleCommand {
 class ShowCommand extends ConsoleCommand {
   constructor(cState, ...args) {
     super(...args);
-    this.wasHidden = null;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.receiver = this.args[0];
   }
 
@@ -1358,25 +1022,31 @@ class ShowCommand extends ConsoleCommand {
   }
 
   executeSelf() {
-    if (this.wasHidden == undefined) 
-      this.wasHidden = this.receiver.dead;
-
-    if (this.wasHidden) this.receiver.unhide();
+    this.receiver.unhide();
   }
 
-  undo() {
-    if (this.wasHidden) this.receiver.hide();
+  // undoSelf() {
+  //   if (this.wasHidden) this.receiver.hide();
+  // }
+
+  saveState() {
+    return {
+      hidden: this.receiver.dead,
+    }
+  }
+
+  restoreState(state) {
+    if (state.hidden) this.receiver.hide();
+    else this.receiver.unhide();
   }
 }
 
 class HideCommand extends ConsoleCommand {
   constructor(cState, ...args) {
     super(...args);
-    this.wasShown = null;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.receiver = this.args[0];
   }
 
@@ -1393,13 +1063,130 @@ class HideCommand extends ConsoleCommand {
   }
 
   executeSelf() {
-    if (this.wasShown == undefined) 
-      this.wasShown = ! this.receiver.dead;
-
-    if (this.wasShown) this.receiver.hide();
+    this.receiver.hide();
   }
 
-  undo() {
-    if (this.wasShown) this.receiver.unhide();
+  saveState() {
+    return { hidden: this.receiver.dead };
   }
+
+  restoreState(state) {
+    if (state.hidden) this.receiver.hide();
+    else this.receiver.unhide();
+  }
+}
+
+class ClearCanvasCommand extends ConsoleCommand {
+  constructor(cState) {
+    super();
+  }
+
+  executeSelf() {
+  }
+}
+
+/** BuckCommand
+ *    the buck command comes in two forms:
+ * 
+ *    buck getter:
+ *      $(objLabel) 
+ *    restrictions: 
+ *      objlabel must evaluate to a string
+ *    return:
+ *      canvas object with label objLabel, if it exists
+ *      null otherwise 
+ *    
+ *    buck setter: 
+ *      $(objLabel, canvasObject)
+ *    restrictions:
+ *      objLabel must evaluate to a string
+ *      canvasObject must be a CanvasObject
+ */
+class BuckCommand extends ConsoleCommand {
+  constructor(cState, ...args) {
+    if (args.length == 1) return new BuckGetCommand(...args);
+    if (args.length == 2) return new BuckSetCommand(...args);
+    // otherwise throw exception
+    super(...args);
+    this.checkArgsLength(1, 2);
+  }
+
+}
+
+class BuckGetCommand extends ConsoleCommand {
+  usage() {
+    return "$(objLabel) returns the canvas object with this label if it exists";
+  }
+
+  getChildValues() {
+    this.objLabel = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.objLabel !== "string") this.argsError("objLabel must be a string");
+  }
+
+  // no state to save, restore
+
+  executeSelf() {
+    if (! VariableEnvironment.hasCanvasObj(this.objLabel)) return null;
+    return VariableEnvironment.getCanvasObj(this.objLabel);
+  }
+}
+
+/**
+ *  what is mutated? 
+ *    
+ *  
+ */
+class BuckSetCommand extends ConsoleCommand {
+
+  usage() {
+    return "$(objLabel, canvasObject) sets a canvas objects' label";
+  }
+
+  getChildValues() {
+    this.objLabel = this.args[0];
+    this.canvasObject = this.args[1];
+  }
+
+  /** BuckSetCommand.checkArguments
+   *    make sure canvasObject argument is indeed a CanvasObject
+   *    and that no other canvas object already has this label
+   */
+  checkArguments() {
+    if (typeof this.objLabel !== "string") this.argsError("objLabel must be a string");
+    if (! (this.canvasObject instanceof CanvasObject))
+      this.argsError("canvasObject argument must refer to a canvas object");
+
+    // check that new label isn't already taken
+    if (VariableEnvironment.hasCanvasObj(this.objLabel)) 
+      throw `Label ${this.objLabel} is already taken.`;
+  }
+
+  /** BuckCommand.saveState
+   *    
+   */
+  saveState() { 
+    return { 
+      label: this.canvasObject.label,
+    }
+  }
+
+  /** BuckCommand.restoreState
+   *    delete binding for canvas object's current label
+   *    and create a new binding with the new label
+   */
+  restoreState(state) {
+    VariableEnvironment.deleteCanvasObj(this.canvasObject.label);
+    VariableEnvironment.setCanvasObj(state.label, this.canvasObject);
+    this.canvasObject.label = state.label;
+  }
+
+  executeSelf() {
+    VariableEnvironment.deleteCanvasObj(this.canvasObject.label);
+    VariableEnvironment.setCanvasObj(this.objLabel, this.canvasObject);
+    this.canvasObject.label = this.objLabel;
+  }
+
 }

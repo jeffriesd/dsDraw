@@ -18,8 +18,7 @@ class DictionaryValuesCommand extends DictionaryCommand {
 }
 
 class DictionaryDeleteCommand extends DictionaryCommand {
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
     this.deleteKey = this.args[0];
   }
 
@@ -35,7 +34,23 @@ class DictionaryDeleteCommand extends DictionaryCommand {
     this.receiver.delete(this.deleteKey);
   }
 
-  undo() {
-    this.receiver.set(this.deleteKey, this.oldEntry);
+  saveState() {
+    var prevEntry = undefined;
+    if (this.receiver.has(this.deleteKey))
+      prevEntry = this.receiver.get(this.deleteKey);
+    return {
+      previousEntry : prevEntry,
+    };
   }
+
+  restoreState(state) {
+    if (state.previousEntry !== undefined)
+      this.receiver.set(this.deleteKey, state.previousEntry);
+    else
+      this.receiver.delete(this.deleteKey);
+  }
+
+  // undoSelf() {
+  //   this.receiver.set(this.deleteKey, this.oldEntry);
+  // }
 }
