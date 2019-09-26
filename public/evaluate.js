@@ -3,18 +3,15 @@ class MathCommand extends ConsoleCommand {
   /** MathCommand.executeChildren
    *    default behavior for binary operators
    */
-  executeChildren() {
-    this.operands = this.argNodes.map(node => node.command.execute());
-    this.op1 = this.operands[0];
-    this.op2 = this.operands[1];
+  getChildValues() {
+    this.op1 = this.args[0];
+    this.op2 = this.args[1];
   }
 
   checkArguments() {
     if (isNaN(Number(this.op1)) || isNaN(Number(this.op2)))
       throw `Invalid operands for operator '${this.constructor.name}': ${this.op1}, ${this.op2}`;
   }
-
-  undo() {}
 }
 
 class AddCommand extends MathCommand {
@@ -52,13 +49,12 @@ class MultCommand extends MathCommand {
     throw `Invalid operands for '*': '${this.op1}', '${this.op2}'.`;
   }
   executeSelf() { 
-    // evaluate expression (opNode) again for each list element
-    // so [f()] * x causes f to be evaluated/executed x times
+    // just copy values, don't evaluate astnodes again
+    // so [f()] * x causes f to be evaluated only once
     if (this.op1 instanceof Array) {
-      var argNode = this.argNodes[0]; 
       var extended = this.op1.slice();
       for (var i = 1; i < this.op2; i++) 
-        extended = extended.concat(argNode.clone().command.execute().slice());
+        extended = extended.concat(extended);
       return extended;
     }
     return this.op1 * this.op2;
@@ -84,7 +80,7 @@ class ExponentCommand extends MathCommand {
 }
 
 class UnaryMathCommand extends MathCommand {
-  executeChildren() {
+  getChildValues() {
     this.op1 = this.argNodes[0].command.execute();
   }
   checkArguments() {
@@ -100,7 +96,7 @@ class NegateNumberCommand extends UnaryMathCommand {
 /** Boolean commands
  */
 class ConjunctionCommand extends MathCommand {
-  executeChildren() {}
+  getChildValues() {}
   checkArguments() {}
   executeSelf() { 
     // do short circuiting
@@ -109,7 +105,7 @@ class ConjunctionCommand extends MathCommand {
 }
 
 class DisjunctionCommand extends MathCommand {
-  executeChildren() {}
+  getChildValues() {}
   checkArguments() {}
   executeSelf() { 
     // do short circuiting
