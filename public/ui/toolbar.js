@@ -38,6 +38,7 @@ class ReactToolbar extends React.Component {
         ToolbarButtons,
         { toolbarType: this.state.toolbarType,
           activeObj: this.props.activeObj,
+          groupSelected: this.props.groupSelected,
           drawMode: this.props.drawMode,
         },
         null
@@ -62,7 +63,7 @@ class ReactToolbar extends React.Component {
 class ToolbarButtons extends React.Component {
 
   deleteButton() {
-    if (this.props.activeObj && ! canvasLocked())
+    if ((this.props.activeObj || this.props.groupSelected) && ! canvasLocked())
       return [deleteButton];
     return [];
   }

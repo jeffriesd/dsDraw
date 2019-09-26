@@ -198,8 +198,20 @@ class CanvasState {
   }
 
   set activeObj(obj) {
-    this.reactEditor.setState( { activeObj: obj || this.selectGroup.size });
+    this.reactEditor.setState( { activeObj: obj } );
     this._activeObj = obj;
+  }
+
+  addToSelectGroup(obj) { 
+    if (this.selectGroup.size == 0)
+      window.reactEditor.setState({ groupSelected: true });
+    this.selectGroup.add(obj);
+  }
+
+  clearSelectGroup(obj) {
+    if (this.selectGroup.size)
+      window.reactEditor.setState({ groupSelected: false });
+    this.selectGroup.clear();
   }
 
   updateOptions(object, name, value) {
@@ -351,7 +363,7 @@ class CanvasState {
 
     // remove from canvas, hide options, and set activeObj to null
     executeCommand(new ClickDestroyCommand(this, ...toDestroy));
-    this.selectGroup.clear();
+    this.clearSelectGroup();
     this.activeObj = null;
   }
 
@@ -372,13 +384,11 @@ class CanvasObjectFactory {
     var y2 = cState.mouseMove.y;    
 
     var constrClass = canvasObjectConstructors[this.cState.drawMode];
-    if (constrClass == undefined) return null;
+    if (constrClass == undefined) return new Promise(resolve => resolve());
     var constr = new constrClass(this.cState);
     // set coordinates of constructor 
     Object.assign(constr, { coords : { x1: x1, y1: y1, x2: x2, y2: y2 } });
-    var newObj = executeCommand(constr);
-
-    return newObj;
+    return executeCommand(constr);
   }
 } 
 
@@ -438,11 +448,23 @@ class CanvasEventHandler {
       // set doubleclick timeout
       if (canvasObj.dcTimer) { 
         clearTimeout(canvasObj.dcTimer);
-        canvasObj.doubleClick();
+        if (this.cState.mouseDown.x == canvasObj.dcCoordinates.x 
+          && this.cState.mouseDown.y == canvasObj.dcCoordinates.y) {
+          canvasObj.doubleClick();
+        }
       }
+      else
+        window.reactEditor.setState({ showOptionMenu : false });
+
       canvasObj.dcTimer = setTimeout(() => {
         canvasObj.dcTimer = null;
       }, doubleClickTime);
+
+      // double click should happen in the same location
+      canvasObj.dcCoordinates = {
+        x : this.cState.mouseDown.x, 
+        y : this.cState.mouseDown.y
+      }
 
     } 
     else {
@@ -455,7 +477,7 @@ class CanvasEventHandler {
   
       this.cState.clickedBare = true;
       this.cState.activeObj = null;
-      this.cState.selectGroup.clear();
+      this.cState.clearSelectGroup();
     }
   }
 
@@ -549,7 +571,9 @@ class CanvasEventHandler {
 
       // create new object and record the command
       if (this.cState.clickedBare) {
-        this.cState.activeObj = this.cState.objectFactory.createCanvasObject();
+        // safe because draw commands dont include code
+        this.cState.objectFactory.createCanvasObject()
+          .then(newObj => this.cState.activeObj = newObj);
       }
 
       // create DrawCommand object and push onto undo stack
@@ -569,16 +593,16 @@ class CanvasEventHandler {
         // select group (and previous activeObject if it exists)
         if (hotkeys[CTRL]) {
           if (! this.cState.selectGroup.has(canvasObj))
-            this.cState.selectGroup.add(canvasObj.getParent());
+            this.cState.addToSelectGroup(canvasObj.getParent());
           if (this.prevActive 
             && ! this.cState.selectGroup.has(this.prevActive.getParent())) 
-            this.cState.selectGroup.add(this.prevActive.getParent());
+            this.cState.addToSelectGroup(this.prevActive.getParent());
           return;
         }
         else { 
           // only clear selection if clicking on unselected element
           if (! this.cState.selectGroup.has(canvasObj.getParent()))
-            this.cState.selectGroup.clear();
+            this.cState.clearSelectGroup();
         }
       }
     }
@@ -586,10 +610,6 @@ class CanvasEventHandler {
     this.cState.activeCommandType = "";
     
     this.shifted = null;
-
-    // send update to show X for group selection
-    if (this.cState.selectGroup.size)
-      window.reactEditor.setState({ activeObj: this.cState.selectGroup });
 
     this.cState.mouseDown = null;
   }
