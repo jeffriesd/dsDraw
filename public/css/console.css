@@ -1,9 +1,11 @@
 /* Console styles */
 #commandConsole {
-  z-index: 2;
+  z-index: var(--consoleZ);
   position: absolute;
   background: var(--blacko70);
   scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
 }
 
 #commandLine {
@@ -17,8 +19,9 @@
   color: var(--white);
   left: var(--console-fs);
   margin-left: 10px; /* bit of extra space to align history with input */
-  width: 100%;
+  width: 85%;
 }
+
 
 #commandBg {
   position: absolute;
@@ -85,7 +88,7 @@
 }
 
 #commandSettingsPane {
-  z-index: 3;
+  z-index: var(--menuZ);
   position: absolute;
   width: 200px;
   height: 100%;

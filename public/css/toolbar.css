@@ -7,6 +7,8 @@
   border: 1px solid black;
   white-space: nowrap;
   box-sizing: border-box;
+
+  z-index: var(--toolbarZ);
 }
 
 .ToolbarLabel {
@@ -123,7 +125,6 @@
 /* align with bottom of toolbar */
 #toolbarSettingsContainer {
   position: fixed;
-  z-index: 4;
   top: 5%;
   left: 0%;
   border: 1px solid black;
