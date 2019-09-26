@@ -56,12 +56,12 @@ class CanvasObjectConstructor extends ConsoleCommand {
   /** 
    *  All constructors take default argument of style dict
    */
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.styleOptions = this.args[0];
   }
 
-  undo() {
+  undoSelf() {
     this.newObj.destroy();
   }
 
@@ -142,8 +142,8 @@ class CurvedArrowConstructor extends CanvasObjectConstructor {
    *    0/1-ary constructor is ([style])
    *    2/3-ary constructor is (startAnchor, endAnchor, [style])
    */
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     if (this.args.length > 1) {
       this.startAnchor = this.args[0];
       this.endAnchor = this.args[1];
@@ -196,8 +196,8 @@ class Array1DConstructor extends CanvasObjectConstructor {
     this.canvasClass = Array1D;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.initializer = this.args[0];
     // default parameters
     if (this.initializer == undefined) this.initializer = "random";
@@ -248,8 +248,8 @@ class LinkedListConstructor extends CanvasObjectConstructor {
     this.canvasClass = LinkedList;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.initializer = this.args[0];
     this.styleOptions = this.args[1];
   }
@@ -281,8 +281,8 @@ class BSTConstructor extends CanvasObjectConstructor {
     this.canvasClass = BSTCanvasObject;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.initializer = this.args[0];
     this.styleOptions = this.args[1];
   }
@@ -327,8 +327,8 @@ class BinaryHeapConstructor extends CanvasObjectConstructor {
     this.canvasClass = BinaryHeap;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.initializer = this.args[0];
     this.styleOptions = this.args[1];
   }
@@ -360,8 +360,8 @@ class GraphConstructor extends CanvasObjectConstructor {
   // example:
   // g = graph({ 1: [2, 3], 2: [1], 3: [] })
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.initializer = this.args[0];
     this.styleOptions = this.args[1];
   }
@@ -471,7 +471,6 @@ class UDGraphConstructor extends GraphConstructor {
         }
       });
     });
-    console.log(nodesByValue)
 
     m.forEach((neighborVals, v) => {
       var i1 = nodesByValue.get(v).index;
@@ -492,8 +491,8 @@ class PlotlyPlotConstructor extends CanvasObjectConstructor {
     this.canvasClass = PlotlyPlot;
   }
 
-  executeChildren() {
-    super.executeChildren();
+  getChildValues() {
+     
     this.data = this.args[0] || [];
     this.layout = this.args[1] || {};
   }
