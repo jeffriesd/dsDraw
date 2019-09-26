@@ -1,47 +1,3 @@
-const mainCommands = {
-  "delete": ConsoleDestroyCommand, // maybe turn into inherited method
-  // "relabel": RelabelCommand,
-  // "snap": ExportToImageCommand, TODO move to button
-  "dir": DirCommand,
-  "show": ShowCommand,
-  "hide": HideCommand, 
-  "rand": RandomFloatCommand,
-  "randn": RandomIntCommand,
-  "range": RangeCommand,
-};
-
-const mathCommands = {
-  "add": AddCommand,
-  "mult": MultCommand,
-  "sub": SubCommand,
-  "div": DivCommand,
-  "exp": ExponentCommand,
-  "negateNum": NegateNumberCommand,
-};
-
-const constructors = {
-  "array":    Array1DConstructor,
-  "linked":   LinkedListConstructor,
-  "text":     TextBoxConstructor,
-  "math":     MathBoxConstructor,
-  "image":    ImageBoxConstructor,
-  "rectbox":  RectBoxConstructor,
-  "rbox":     RectBoxConstructor,
-  "roundbox": RoundBoxConstructor,
-  "rdbox":    RoundBoxConstructor,
-  "dbox":     DiamondBoxConstructor,
-  "pbox":     ParallelogramBoxConstructor,
-  "conn":     ConnectorConstructor,
-  "arrow":    CurvedArrowConstructor,
-  "bst":      BSTConstructor,
-  "bheap":    BinaryHeapConstructor,
-  "plot":     PlotlyPlotConstructor,
-  "ugraph":   UDGraphConstructor,
-  "udgraph":  UDGraphConstructor,
-  "dgraph":   DiGraphConstructor, 
-  "digraph":  DiGraphConstructor,
-};
-
 /** createFunctionCommand 
  *    check properties of provided opNode
  *    object and create method or function
@@ -59,7 +15,7 @@ const constructors = {
  *                       because 'x' is defined at runtime
  *      3: func1().method1() -- same reasoning as example 2
  */   
-function createFunctionCommand(functionNode, args, runtimeOverride) {
+function createFunctionCommand(functionName, functionNode, args, runtimeOverride) {
   if (functionNode == null)
     throw "Cannot invoke function on null";
 
@@ -67,50 +23,94 @@ function createFunctionCommand(functionNode, args, runtimeOverride) {
   // to make recursion possible (for a function f 
   // which calls itself, the binding for f is unknown
   // at parse time)
+
   if (runtimeOverride) {
 
-    // get mapped value from variable name
-    // -- error thrown if function name undefined
-    try {
-      var functionClass = functionNode.command.execute(); 
-    }
-    catch (e) {
-      // try catch just to show where exception originates 
-      // -- propagate back up to CommandRecorder.execute
-      // -- so this command is ignored in history
+    // // get mapped value from variable name
+    // // -- error thrown if function name undefined
+    // try {
+    //   var functionClass = functionNode.command.execute(); 
+    // }
+    // catch (e) {
+    //   // try catch just to show where exception originates 
+    //   // -- propagate back up to CommandRecorder.execute
+    //   // -- so this command is ignored in history
+    //   console.log("Unknown function");
+    //   throw e;
+    // }
+
+    // if (functionClass.methodClass !== undefined)
+    //   return createMethodCommand(functionClass, args);
+
+    // // built-in commands and constructors get cState reference
+    // if (Object.values(mainCommands).includes(functionClass)
+    //     || Object.values(constructors).includes(functionClass))
+    //   return new functionClass(CanvasState.getInstance(), ...args);
+    //     
+    // if (functionClass instanceof FunctionDefinition) {
+    //   return new UserFunctionCommand(functionClass, ...args);
+    // }
+
+    // need to return a promise because callee 
+    // may do async action before returning a 
+    // reference to a function or method
+
+    // e.g. 
+    // define t() { wait(1000); return f; }
+    // t()()
+    return liftCommand(functionNode.command)
+    .then(functionClass => {
+      if (functionClass !== undefined) {
+        // e.g. 
+        // b = bst();
+        // b.remove(5); -- b evaluates to BSTCanvasObject
+        if (functionClass.methodClass !== undefined)
+          return createMethodCommand(functionClass, args);
+
+        // callee could still be a builtin structure that 
+        // was wrapped in a variable that needed to be evaluated first
+        // e.g. 
+        // f = bst
+        // f()
+        if (builtinFunctionClasses.has(functionClass))
+          return new functionClass(CanvasState.getInstance(), ...args);
+            
+        if (functionClass instanceof FunctionDefinition) 
+          return new UserFunctionCommand(functionClass, ...args);
+      }
+
+      throw `Invalid function name: '${functionClass}'.`;
+    })
+    .catch(e => {
       console.log("Unknown function");
       throw e;
-    }
-
-    if (functionClass.methodClass !== undefined)
-      return createMethodCommand(functionClass, args);
-
-    // built-in commands and constructors get cState reference
-    if (Object.values(mainCommands).includes(functionClass)
-        || Object.values(constructors).includes(functionClass))
-      return new functionClass(CanvasState.getInstance(), ...args);
-        
-    if (functionClass instanceof FunctionDefinition) {
-      return new UserFunctionCommand(functionClass, ...args);
-    }
+    })
+  }
+  // only exception is builtin functions -- 
+  // check name and interpret immediately
+  else if (builtinFunctions.has(functionName)) {
+    var functionClass = mainCommands[functionName] || constructors[functionName];
+    return new functionClass(CanvasState.getInstance(), ...args);
   }
   else {
-    // otherwise construct this AST node at runtime
-    // TODO always do this so recursive functions can be parsed successfully
+    // callee is an object or a user defined function
+    // -- must evaluate this ast node to get reference
+    // -- to callee
     return {
       execute: function() {
         if (this.command == undefined)
-          this.command = createFunctionCommand(functionNode, args, true);
-        if (this.command)
-          return this.command.execute();
+          return createFunctionCommand(functionName, functionNode, args, true)
+            .then(command => {
+              this.command = command;
+              return liftCommand(this.command);
+            });
+        return liftCommand(this.command);
       },
       undo: function() {
         return this.command.undo();
       }
     }  
   }
-
-  throw `Invalid function name: '${functionClass}'.`;
 }
 
 /** createMethodCommand
@@ -146,11 +146,9 @@ function createDrawCommand(cState) {
   if (! cState.activeCommandType) return;
   switch (cState.activeCommandType) {
     case "move":
-      return new MoveCommand(cState, cState.activeObj);
+      return new MouseMoveCommand(cState, cState.activeObj);
     case "drag":
       return new DragCommand(cState, cState.activeObj);
-    // case "shiftDrag":
-    //   return new ShiftDragCommand(cState, cState.activeObj);
     case "clone":
       return new CloneCommand(cState, cState.activeParent());
   }
