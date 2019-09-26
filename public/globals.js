@@ -7,6 +7,39 @@ const functionPattern = /^[a-zA-Z]+\(/;
 const stringLiteralPattern = /^"[a-zA-Z0-9]+"$/;
 const mathCharsPattern = /^[0-9\.\(\)\*\/\-\+\^\s]+$/;
 
+/**
+ *  s = start point
+ *  e = end point
+ *  c1 = control point 1
+ *  c2 = control point 2
+ *  B(t) = (1 - t)^ 3 * s 
+ *       + 3 * (1 - t)^2 * t * c1 
+ *       + 3 * (1 - t) * t^2 * c2 
+ *       + t^3 * e
+ */
+function bezier(t, s, c1, c2, e) {
+  if (t < 0 || t > 1) throw `Invalid 't' for bezier calculation: ${t}`;
+  var bx = ((1 - t)**3 * s.x)
+         + (3 * (1 - t)**2 * t * c1.x)
+         + (3 * (1 - t) * t**2 * c2.x)
+         + (t**3 * e.x);
+  var by = ((1 - t)**3 * s.y)
+         + (3 * (1 - t)**2 * t * c1.y)
+         + (3 * (1 - t) * t**2 * c2.y)
+         + (t**3 * e.y);
+  return {
+    x : bx,
+    y : by,
+  };
+}
+
+function sleep(ms) {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(), ms);
+  })
+}
+
+
 /** linMap
  *    map x from (a, b) to (c, d)
  * @param a - lower bound 1
@@ -16,8 +49,42 @@ const mathCharsPattern = /^[0-9\.\(\)\*\/\-\+\^\s]+$/;
  * @param x - value in range (a, b)
  */
 function linMap(a, b, c, d, x) {
-  return ((x - a) / (b - a)) * (d - c) + c;
+  if (x < a || x > b) throw `Linmap error: ${x} is not in range [${a}, ${b}]`;
+
+  var ret = ((x - a) / (b - a)) * (d - c) + c;
+  if (isNaN(ret)) throw "NaN value from linmap";
+  return ret;
 }
+
+// Array subset function
+Object.defineProperty(Array.prototype, "subsetOf", {
+  value: function(arr) {
+    var s2;
+    if (arr instanceof Array) s2 = new Set(arr);
+    else if (arr instanceof Set) s2 = arr;
+    else return false;
+
+    for (var x of this) 
+      if (! s2.has(x)) return false;
+    return true;
+  },
+  enumerable: false,
+});
+
+// Set subset function
+Object.defineProperty(Set.prototype, "subsetOf", {
+  value: function(arr) {
+    var s2;
+    if (arr instanceof Array) s2 = new Set(arr);
+    else if (arr instanceof Set) s2 = arr;
+    else return false;
+
+    for (var x of this) 
+      if (! s2.has(x)) return false;
+    return true;
+  },
+  enumerable: false,
+});
 
 Object.defineProperty(Array.prototype, "peek", {
   value: function() {
@@ -122,8 +189,8 @@ function randomArray(length, max) {
 function stringify(object) {
   if (object == null) return "null";
   if (typeof object == "function") return "function";
-  if (typeof object == "string" 
-      || typeof object == "number" || typeof object == "boolean") return String(object);
+  if (typeof object == "string") return '"' + object + '"';
+  if (typeof object == "number" || typeof object == "boolean") return String(object);
   if (object.command) return "method";
   if (object instanceof CanvasChildObject
     || object instanceof CanvasObject || object instanceof LanguageObject)
