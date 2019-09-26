@@ -155,12 +155,14 @@ nonQuote -> " " | "\t" | "-" | "+" | "*" | "/" | "^" | %LESSEQ | %GREATEQ | %EQE
           | %varName 
           | %character
 
+string -> %QUOTE nonQuote:* %QUOTE {% wrapString %}
+
 mathTerminal -> number            {% id %}
        | callable                 {% id %}
        | accessor                 {% id %}  # list access
        | list                     {% id %}
        | dict                     {% id %}
-       | %QUOTE nonQuote:* %QUOTE {% wrapString %}
+       | string                   {% id %}
        | %NULL                    {% wrapNull   %}
        | %varName                 {% buildVariable %}
        | "(" _ bool _ ")"         {% d => d[2] %}     # drop parens
@@ -205,8 +207,13 @@ function -> objExpr "(" _ args _ ")" {% buildFunctionCall %}
 args -> funcarg (_ "," _ funcarg):* {% buildFunctionArguments %}
 funcarg -> expr {% id %}
 
+# number or string (not wrapped number)
+
+unquotedString -> %varName {% wrapUnquotedString %}
+strOrNum -> unquotedString {% id %} | number {% id %} | string {% id %}
+
 dictArgs -> dictPair (_ "," _ dictPair):* {% buildDictArgs %}
-dictPair -> expr _ ":" _ expr             {% d => [d[0], d[4]] %}
+dictPair -> strOrNum _ ":" _ expr             {% d => [d[0], d[4]] %}
 
 dict -> "{" "}"            {% buildDict %}
       | "{" _ dictArgs _ "}" {% buildDict %}
@@ -426,13 +433,17 @@ function buildNegate(operands) {
 function buildFunctionCall(operands) {
   var functionNode = operands[0];
   var functionArgs = []; // default (no args function)
+
+  // save function name for interpreter
+  var functionName = operands[0].varName || "";
+
   if (operands.length == 6) 
     functionArgs = operands[3];
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    command: createFunctionCommand(functionNode, functionArgs),
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
     },
@@ -520,6 +531,23 @@ function wrapString(operands) {
   };
 }
 
+function wrapUnquotedString(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { 
+        return operands[0].text;
+      },
+      undo: function() {},
+    },
+    clone: function() {
+      return this;
+    },
+    toString: () => "wrapUnquotedString",
+  };
+}
+
 /** wrapBool
  *    create boolean evaluation node
  *    pattern: %TRUE | %FALSE
@@ -567,6 +595,7 @@ function wrapNull(operands) {
 function buildVariable(operands) {
   var varName = operands[0].text;
   return {
+    varName: varName,
     isLiteral: false,
     opNodes: [],
     command: new GetVariableCommand(varName),
@@ -812,12 +841,7 @@ function buildList(operands) {
   return {
     isLiteral: elements.every(x => x.isLiteral),
     opNodes: elements,
-    command: {
-      execute: function() {
-        return elements.map(opNode => opNode.command.execute());
-      },
-      undo: function() {},
-    },
+    command: new BuildListCommand(...elements),
     clone: function() {
       return buildList(cloneOperands(operands));
     },
@@ -1008,14 +1032,23 @@ function buildNotEquals(operands) {
 
 /** buildDictArgs
  *    return array of [key, value] pair (arrays)
- *    
+ * 
+ *    dictPair -> %varName _ ":" _ expr        [d[0], d[4]]
+ *  
  *    dictArgs -> dictPair (_ "," _ dictPair):* 
+ * 
+ *    safe to execute because keys must be
+ *    number or str
  */
 function buildDictArgs(operands) {
-  var dictArgs = [operands[0]];
-  for (var idx in operands[1])
-    dictArgs.push(operands[1][idx][3]);
-  return dictArgs;
+  var keys = [operands[0][0].command.execute()];
+  var values = [operands[0][1]];
+
+  for (var idx in operands[1]) {
+    keys.push(operands[1][idx][3][0].command.execute());
+    values.push(operands[1][idx][3][1]);
+  }
+  return [keys, values];
 }
 
 /** buildDict
@@ -1031,34 +1064,20 @@ function buildDictArgs(operands) {
  *    d[3] still == "asdf" (not  d[5])
  *
  */
-function buildDict(operands, loc, rej, originalPairs) {
-  var pairs = [];
-  if (operands.length > 3) 
-    pairs = operands[2];
-
+function buildDict(operands) {
+  var keys = [];
+  var values = [];
+  if (operands.length > 3) {
+    keys = operands[2][0];
+    values = operands[2][1];
+  }
   return {
-    isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
-    opNodes: pairs,
-    command: {
-      execute: function() {
-        // evaluate keys only once
-        if (originalPairs) {
-          if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
-            originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
-          return new Dictionary(originalPairs);
-        }
-        var d = new Dictionary([]);
-        // set one by one while executing for short-circuiting
-        pairs.forEach(([k, v]) => { 
-          d.set(k.command.execute(), v.command.execute());
-        })
-        return d;
-      },
-      undo: function() {}
-    },
+    // isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
+    isLiteral: values.every(x => x.isLiteral),
+    opNodes: values,
+    command: new BuildDictCommand(keys, ...values),
     clone: function() {
-      return buildDict(
-        cloneOperands(operands), null, null, originalPairs || pairs);
+      return buildDict(cloneOperands(operands));
     },
     toString: () => "buildDict",
   };
@@ -1094,7 +1113,7 @@ function buildFunctionDefinition(operands) {
       }
     },
     clone: function() {
-      return buildDict(cloneOperands(operands));
+      return buildFunctionDefinition(cloneOperands(operands));
     },
     toString: () => "buildFunctionDefinition",
   };

@@ -265,13 +265,17 @@ function buildNegate(operands) {
 function buildFunctionCall(operands) {
   var functionNode = operands[0];
   var functionArgs = []; // default (no args function)
+
+  // save function name for interpreter
+  var functionName = operands[0].varName || "";
+
   if (operands.length == 6) 
     functionArgs = operands[3];
 
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    command: createFunctionCommand(functionNode, functionArgs),
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
     },
@@ -359,6 +363,23 @@ function wrapString(operands) {
   };
 }
 
+function wrapUnquotedString(operands) {
+  return {
+    isLiteral: true,
+    opNodes: [],
+    command: {
+      execute: function() { 
+        return operands[0].text;
+      },
+      undo: function() {},
+    },
+    clone: function() {
+      return this;
+    },
+    toString: () => "wrapUnquotedString",
+  };
+}
+
 /** wrapBool
  *    create boolean evaluation node
  *    pattern: %TRUE | %FALSE
@@ -406,6 +427,7 @@ function wrapNull(operands) {
 function buildVariable(operands) {
   var varName = operands[0].text;
   return {
+    varName: varName,
     isLiteral: false,
     opNodes: [],
     command: new GetVariableCommand(varName),
@@ -651,12 +673,23 @@ function buildList(operands) {
   return {
     isLiteral: elements.every(x => x.isLiteral),
     opNodes: elements,
-    command: {
-      execute: function() {
-        return elements.map(opNode => opNode.command.execute());
-      },
-      undo: function() {},
-    },
+    command: new BuildListCommand(...elements),
+    // command: {
+    //   isAsync: true,
+    //   // must build synchronously 
+    //   execute: function() {
+    //     var evaluated = [];
+    //     return elements.reduce((prev, cur) => {
+    //       return prev.then(() => {
+    //         return liftCommand(cur.command).then(cmdRet => evaluated.push(cmdRet));
+    //       })
+    //     }, new Promise(resolve => resolve()))
+    //     .then(() => evaluated);
+
+    //     // return elements.map(opNode => opNode.command.execute());
+    //   },
+    //   undo: function() {},
+    // },
     clone: function() {
       return buildList(cloneOperands(operands));
     },
@@ -847,14 +880,23 @@ function buildNotEquals(operands) {
 
 /** buildDictArgs
  *    return array of [key, value] pair (arrays)
- *    
+ * 
+ *    dictPair -> %varName _ ":" _ expr        [d[0], d[4]]
+ *  
  *    dictArgs -> dictPair (_ "," _ dictPair):* 
+ * 
+ *    safe to execute because keys must be
+ *    number or str
  */
 function buildDictArgs(operands) {
-  var dictArgs = [operands[0]];
-  for (var idx in operands[1])
-    dictArgs.push(operands[1][idx][3]);
-  return dictArgs;
+  var keys = [operands[0][0].command.execute()];
+  var values = [operands[0][1]];
+
+  for (var idx in operands[1]) {
+    keys.push(operands[1][idx][3][0].command.execute());
+    values.push(operands[1][idx][3][1]);
+  }
+  return [keys, values];
 }
 
 /** buildDict
@@ -870,34 +912,72 @@ function buildDictArgs(operands) {
  *    d[3] still == "asdf" (not  d[5])
  *
  */
-function buildDict(operands, loc, rej, originalPairs) {
-  var pairs = [];
-  if (operands.length > 3) 
-    pairs = operands[2];
-
+function buildDict(operands) {
+  var keys = [];
+  var values = [];
+  if (operands.length > 3) {
+    keys = operands[2][0];
+    values = operands[2][1];
+  }
   return {
-    isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
-    opNodes: pairs,
-    command: {
-      execute: function() {
-        // evaluate keys only once
-        if (originalPairs) {
-          if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
-            originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
-          return new Dictionary(originalPairs);
-        }
-        var d = new Dictionary([]);
-        // set one by one while executing for short-circuiting
-        pairs.forEach(([k, v]) => { 
-          d.set(k.command.execute(), v.command.execute());
-        })
-        return d;
-      },
-      undo: function() {}
-    },
+    // isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
+    isLiteral: values.every(x => x.isLiteral),
+    opNodes: values,
+    command: new BuildDictCommand(keys, ...values),
+    //   isAsync: true,
+    //   execute: function() {
+    //     // evaluate keys only once
+    //     return new Promise((resolve, reject) => {
+    //       if (originalPairs) {
+    //         // if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
+    //         //   originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
+    //         // return new Dictionary(originalPairs);
+
+    //         // if opNode cloned before execution
+    //         if (originalPairs.some(([k, v]) => typeof k == "object")) {
+    //           var newPairs = [];
+    //           resolve(
+    //             originalPairs.reduce((prev, [k, v]) => {
+    //               return prev.then(() => {
+    //                 return liftCommand(k.command)
+    //                 .then(kret => { 
+    //                   return liftCommand(v.command)
+    //                   .then(vret => {
+    //                     newPairs.push([kret, vret]);
+    //                   });
+    //                 });
+    //               })
+    //             })
+    //             .then(() => new Dictionary(newPairs))
+    //           );
+    //         }
+    //         else  
+    //           resolve(new Dictionary(originalPairs));
+    //       }
+
+    //       var d = new Dictionary([]);
+    //       // set one by one while executing for short-circuiting
+    //       // pairs.forEach(([k, v]) => { 
+    //       //   d.set(k.command.execute(), v.command.execute());
+    //       // })
+    //       // return d;
+    //       resolve(
+    //         pairs.reduce((prev, [k, v]) => {
+    //           return prev.then(() => {
+    //             return liftCommand(k.command)
+    //             .then(kret => {
+    //               return liftCommand(v.command)
+    //               .then(vret => d.set(kret, vret));
+    //             })
+    //           })
+    //         }, new Promise(resolve => resolve()))
+    //       );
+    //     });
+    //   },
+    //   undo: function() {}
+    // },
     clone: function() {
-      return buildDict(
-        cloneOperands(operands), null, null, originalPairs || pairs);
+      return buildDict(cloneOperands(operands));
     },
     toString: () => "buildDict",
   };
@@ -933,7 +1013,7 @@ function buildFunctionDefinition(operands) {
       }
     },
     clone: function() {
-      return buildDict(cloneOperands(operands));
+      return buildFunctionDefinition(cloneOperands(operands));
     },
     toString: () => "buildFunctionDefinition",
   };
@@ -1195,14 +1275,15 @@ var grammar = {
     {"name": "nonQuote", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)]},
     {"name": "nonQuote", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)]},
     {"name": "nonQuote", "symbols": [(lexer.has("character") ? {type: "character"} : character)]},
+    {"name": "string$ebnf$1", "symbols": []},
+    {"name": "string$ebnf$1", "symbols": ["string$ebnf$1", "nonQuote"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "string", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "string$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
     {"name": "mathTerminal", "symbols": ["number"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["callable"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["accessor"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["list"], "postprocess": id},
     {"name": "mathTerminal", "symbols": ["dict"], "postprocess": id},
-    {"name": "mathTerminal$ebnf$1", "symbols": []},
-    {"name": "mathTerminal$ebnf$1", "symbols": ["mathTerminal$ebnf$1", "nonQuote"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "mathTerminal", "symbols": [(lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE), "mathTerminal$ebnf$1", (lexer.has("QUOTE") ? {type: "QUOTE"} : QUOTE)], "postprocess": wrapString},
+    {"name": "mathTerminal", "symbols": ["string"], "postprocess": id},
     {"name": "mathTerminal", "symbols": [(lexer.has("NULL") ? {type: "NULL"} : NULL)], "postprocess": wrapNull},
     {"name": "mathTerminal", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
     {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
@@ -1233,11 +1314,15 @@ var grammar = {
     {"name": "args$ebnf$1", "symbols": ["args$ebnf$1", "args$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "args", "symbols": ["funcarg", "args$ebnf$1"], "postprocess": buildFunctionArguments},
     {"name": "funcarg", "symbols": ["expr"], "postprocess": id},
+    {"name": "unquotedString", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": wrapUnquotedString},
+    {"name": "strOrNum", "symbols": ["unquotedString"], "postprocess": id},
+    {"name": "strOrNum", "symbols": ["number"], "postprocess": id},
+    {"name": "strOrNum", "symbols": ["string"], "postprocess": id},
     {"name": "dictArgs$ebnf$1", "symbols": []},
     {"name": "dictArgs$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "dictPair"]},
     {"name": "dictArgs$ebnf$1", "symbols": ["dictArgs$ebnf$1", "dictArgs$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "dictArgs", "symbols": ["dictPair", "dictArgs$ebnf$1"], "postprocess": buildDictArgs},
-    {"name": "dictPair", "symbols": ["expr", "_", {"literal":":"}, "_", "expr"], "postprocess": d => [d[0], d[4]]},
+    {"name": "dictPair", "symbols": ["strOrNum", "_", {"literal":":"}, "_", "expr"], "postprocess": d => [d[0], d[4]]},
     {"name": "dict", "symbols": [{"literal":"{"}, {"literal":"}"}], "postprocess": buildDict},
     {"name": "dict", "symbols": [{"literal":"{"}, "_", "dictArgs", "_", {"literal":"}"}], "postprocess": buildDict},
     {"name": "commaSepStatements$ebnf$1", "symbols": []},
