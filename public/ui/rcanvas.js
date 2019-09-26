@@ -116,18 +116,17 @@ class OptionMenu extends React.Component {
   }
 
   render() {
-    if (! (this.props.activeObj instanceof CanvasObject || this.props.activeObj instanceof CanvasChildObject )) return null; 
-
+    if (this.props.activeObj == null) return null;
+    if (this.props.activeObj.dcTimer == null) return null;
     var optionMap = this.props.activeObj.propTypes();
 
     // if no options, don't show menu
-    if (! Object.keys(optionMap).length)return null;
+    if (! Object.keys(optionMap).length) return null;
 
     return create(
       "div", 
       { 
         className: "OptionMenu",
-        id: "OptionMenu",
         style: this.menuStyle(),
         ref: r => $(r).draggable(),
       },
@@ -144,30 +143,29 @@ class ReactEditor extends React.Component {
     super(props);
     this.state = {
       activeObj: null,
+      groupSelected: false,
       drawMode: "SelectTool",
       playState: null, 
       postRecording: false, 
       mouseDown: { x: 0, y: 0},
 
+      canvasLocked: false,
+
+      showOptionMenu: false,
+
       // for inspect pane
       showCommandHistory: true,
       showEnvironment: true,
+      commandStack: [],
     };
   }
-
-  showMenuOptions() {
-    if (this.state.activeObj instanceof CanvasObject || this.state.activeObj instanceof CanvasChildObject) 
-      return this.state.activeObj.dcTimer != null;
-    return false;
-  }
-
 
   /** ReactEditor.optionsMenu
    *    Option menu componenet for canvas object settings.
    *    Activated by double click (managed in canvas-util.js). 
    */
   optionsMenu() {
-    if (! this.showMenuOptions()) return null;
+    if (! this.state.showOptionMenu) return;
 
     return create(
       OptionMenu,
@@ -190,6 +188,7 @@ class ReactEditor extends React.Component {
     return create(
       ReactInspectPane,
       {
+        commandStack: this.state.commandStack,
         postRecording: this.state.postRecording,
         showCommandHistory: this.state.showCommandHistory,
         showEnvironment: this.state.showEnvironment, 
@@ -203,8 +202,9 @@ class ReactEditor extends React.Component {
       create(
         ReactToolbar, 
         { 
-          toolbarType: "flowchart",
+          groupSelected: this.state.groupSelected,
           activeObj: this.state.activeObj,
+          toolbarType: "flowchart",
           drawMode: this.state.drawMode,
           recording: this.state.playState instanceof RecordState,
 
@@ -236,6 +236,14 @@ class ReactEditor extends React.Component {
       ),
       this.maybeInspectPane(),
       this.optionsMenu(),
+      // 
+      create(
+        "div",
+        { 
+          id : "lockDiv", 
+          hidden : ! this.state.canvasLocked
+        }
+      )
     );
   }
 }
