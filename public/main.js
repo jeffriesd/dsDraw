@@ -27,49 +27,165 @@ const mc = new MediaController(cState);
 const clientSocket = new ClientSocket(websock, mc, cState);
 const varEnv = new VariableEnvironment();
 
+
+const updateInspectPane = () => {
+  updateCommandStack();
+  VariableEnvironment.getInstance().updateEnvironmentDisplay();
+};
+
 // update command stack in side pane
 const updateCommandStack = () => {
-
-  // update command stack 
-  if (window.commandHistoryPane) {
-    // use past/future if already recorded
-    if (mc.postRecording) {
-      var past = mc.cmdRecorder.pastCmds;
-      var init = mc.cmdRecorder.initCmds;
-      window.commandHistoryPane.setState({ stack: init.concat(past) });
-    }
-    else {
-      // otherwise use undo/redo
-      window.commandHistoryPane.setState({ stack: mc.cmdRecorder.undoStack });
-    }
+  var stack;
+  // use past/future if already recorded
+  if (mc.postRecording) {
+    var past = mc.cmdRecorder.pastCmds;
+    // filter out CloneCanvas and CloneEnv
+    var init = mc.cmdRecorder.initCmds
+      .filter(ct => ! (ct.command instanceof CloneCanvasCommand || ct.command instanceof CloneEnvCommand))
+    stack = init.concat(past);
   }
+  else {
+    // otherwise use undo/redo
+    stack = mc.cmdRecorder.undoStack.map(cmd => { return { command: cmd, time: 0 }; } );
+  }
+  window.reactEditor.setState({ commandStack: stack });
 };
 
 // global wrapper to record command execution and repaint
-const executeCommand = (...args) => {
-  var ret = CommandRecorder.execute(...args);
-  repaint();
+// CommandRecorder.execute just calls execute
+// on the command object manages undo/redo stacks
+// and records command if actively recording
+const executeCommand = (cmd, isRedo, overrideLock) => {
+  if (contextLocked && ! overrideLock) return alert("Oops, context is locked")
 
-  updateCommandStack();
-  return ret;
-}
-const hotkeyUndo = () => { 
-  mc.hotkeyUndo();
-  repaint();
-  updateCommandStack();
+  return CommandRecorder.execute(cmd, isRedo, overrideLock)
+    .then(cmdRet => {
+      repaint();
+      updateInspectPane();
+      return cmdRet;
+    })
 };
 
-const hotkeyRedo = () => { 
-  mc.hotkeyRedo();
+
+/** liftCommand
+ *    lift commands to Promises 
+ *    
+ *    two versions:
+ *      default lifting lets animations/async commands
+ *      play out in real time by just returning their 
+ *      execute() (a Promise)
+ * 
+ *      second version is used for canvas state
+ *      fast-forward when we shouldn't see (wait for) 
+ *      the animatinon, but just see the results as
+ *      an atomic step
+ */
+const LIFT_ATOMIC = true;
+const LIFT_ASYNC = false;
+var liftingAtomically = LIFT_ASYNC;
+// global entry point for setting liftingAtomically
+const setCommandLifting = (level) => { 
+  return new Promise(resolve => { liftingAtomically = level; resolve(); });
+}
+const getCommandLifting = () => liftingAtomically;
+
+const liftCommand = (cmd) => {
+  if (cmd instanceof ConsoleCommand) {
+    if (liftingAtomically && cmd instanceof AsyncCommand)
+      return new Promise(resolve => resolve(cmd.atomicExecute()));
+    return cmd.execute();
+  }
+
+  return new Promise(resolve => resolve(cmd.execute()));
+}
+
+const liftUndo = (cmd) => { 
+  return new Promise(resolve => resolve(cmd.undo()));
+}
+
+const liftFunction = (f) => {
+  return new Promise(resolve => resolve(f()));
+}
+
+const hotkeyUndo = () => { 
+  if (canvasLocked()) return canvasLockedAlert();
+
+  mc.hotkeyUndo();
   repaint();
-  updateCommandStack();
+  updateInspectPane();
+};
+
+
+// redo a command but fast forward 
+// through animations
+const hotkeyRedoAtomic = () => {
+  if (canvasLocked()) return canvasLockedAlert();
+
+  var prevState = getCommandLifting();
+  setCommandLifting(LIFT_ATOMIC)
+  .then(() => hotkeyRedo())
+  .then(() => setCommandLifting(prevState));
+};
+
+// also lock context on hotkey 
+// redo for async commands
+const hotkeyRedo = () => { 
+  if (canvasLocked()) return canvasLockedAlert();
+
+  return mc.hotkeyRedo()
+  .then(() => {
+    repaint();
+    updateInspectPane();
+  });
 };
 
 const repaint = () => cState.repaint();
 
+
+/** lockContext
+ *    prevent any interaction with canvas/editor state
+ *    while synchronous commands execute. The only 
+ *    action possible is to cancel the command (animation)
+ *    or wait.
+ * 
+ *    bits of state to lock:
+ *      canvas -- no clicking (also disable delete button on toolbar)
+ *      console -- no entering code
+ *      clip menu -- no switching/deleting clips
+ */
+
+var contextLocked = false;
+const lockContext = () => {
+  window.reactEditor.setState({ canvasLocked : true });
+  contextLocked = true;
+};
+
+const unlockContext = () => {
+  window.reactEditor.setState({ canvasLocked : false });
+  contextLocked = false;
+};
+
+const canvasLocked = () => {
+  return mc.postRecording || contextLocked;
+};
+
+const clipMenuLocked = () => {
+  return mc.recording || contextLocked;
+};
+
+const consoleLocked = () => {
+  return mc.postRecording || contextLocked;
+};
+
+// if canvas is locked 
+const canvasLockedAlert = () => alert("The canvas can not currently be edited.")
+
+// if clip menu is locked return this alert
+const cmLockedAlert = () => alert("Clip can not be changed currently.")
+
 const parseLine = cmdStr => {
   this.nearleyParser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar), {});
-  var parseTree = this.nearleyParser.feed(cmdStr);
+  var parseTree = this.nearleyParser.feed(cmdStr.trim());
   if (parseTree.results.length > 1)
     throw "Ambiguous grammar";
   this.nearleyParser.finish();
@@ -91,7 +207,7 @@ const parseLine = cmdStr => {
  *  on console won't invoke canvas events)
  */
 editCanvas.onmousedown = (event) => { 
-  if (mc.postRecording) return;
+  if (canvasLocked()) return canvasLockedAlert();
   cState.eventHandler.mouseDown(event);
   repaint();
 };
@@ -103,7 +219,7 @@ editCanvas.onmousedown = (event) => {
  *  invoke canvas events)
  */
 document.onmousemove = (event) => { 
-  if (mc.postRecording) return;
+  if (canvasLocked()) return;
   cState.eventHandler.mouseMove(event);
   repaint();
 };
@@ -117,7 +233,7 @@ document.onmousemove = (event) => {
  *  is released over console, still invoke canvas event)
  */
 document.onmouseup = (event) => { 
-  if (mc.postRecording) return;
+  if (canvasLocked()) return;
   cState.eventHandler.mouseUp(event);
   repaint();
 };
