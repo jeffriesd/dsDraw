@@ -1,38 +1,52 @@
-
-const keywords = {
-  "TEMP": null,
-  "delete": null, 
-  "relabel": null,
-  "snap": null,
-  "truncate": null,
-  "show": null,
-  "export": null,
-  "add": null, // math ops
-  "sub": null,
-  "mult": null,
-  "div": null,
-  "exp": null,
-  "array": null,
-  "array1d": null, 
-  "linked": null,
-  "udgraph": null,
-  "ugraph": null,
-  "digraph": null,
-  "dgraph": null,
-  "image": null,
-  "tb": null,
-  "tbox": null,
-  "text": null,
-  "math": null,
-  "rectbox": null,
-  "rbox": null,
-  "roundbox": null,
-  "rdbox": null,
-  "dbox": null,
-  "pbox": null,
-  "conn": null,
-  "arrow": null,
+const mainCommands = {
+  "delete": ConsoleDestroyCommand, // maybe turn into inherited method
+  // "relabel": RelabelCommand,
+  // "snap": ExportToImageCommand, TODO move to button
+  "translate": TranslateCommand,
+  "repaint": RepaintCommand,
+  "wait": WaitCommand,
+  "dir": DirCommand,
+  "show": ShowCommand,
+  "hide": HideCommand, 
+  "rand": RandomFloatCommand,
+  "randn": RandomIntCommand,
+  "range": RangeCommand,
+  "interpolate": InterpolateCommand,
 };
+
+const constructors = {
+  "array":    Array1DConstructor,
+  "linked":   LinkedListConstructor,
+  "text":     TextBoxConstructor,
+  "math":     MathBoxConstructor,
+  "image":    ImageBoxConstructor,
+  "rectbox":  RectBoxConstructor,
+  "rbox":     RectBoxConstructor,
+  "roundbox": RoundBoxConstructor,
+  "rdbox":    RoundBoxConstructor,
+  "dbox":     DiamondBoxConstructor,
+  "pbox":     ParallelogramBoxConstructor,
+  "conn":     ConnectorConstructor,
+  "arrow":    CurvedArrowConstructor,
+  "bst":      BSTConstructor,
+  "bheap":    BinaryHeapConstructor,
+  "plot":     PlotlyPlotConstructor,
+  "ugraph":   UDGraphConstructor,
+  "udgraph":  UDGraphConstructor,
+  "dgraph":   DiGraphConstructor, 
+  "digraph":  DiGraphConstructor,
+};
+
+// built in function include functions and constructors
+const builtinFunctions = new Set(Object.keys(mainCommands).concat(Object.keys(constructors)));
+const builtinFunctionClasses = new Set(Object.values(mainCommands).concat(Object.values(constructors)));
+
+const keywords = new Set(
+  [
+    ...builtinFunctions,
+    ...["TEMP", "for", "while", "if", "else", "elif", "define", "return", "null", "true", "false"],
+  ]
+);
 
 const MAX_CAPACITY = 1000;
 const STACK_MAX = 1000;
@@ -43,6 +57,7 @@ class VariableEnvironment {
 
     this.functions = new Map();
     this.mainVariables = new Map();
+    this.canvasObjects = new Map(); // canvas object labels have global scope
     this.stack = [];
 
 
@@ -97,6 +112,7 @@ class VariableEnvironment {
       functions: new Map(this.functions),
       mainVariables: new Map(this.mainVariables),
       stack: this.stack.map(m => new Map(m)),
+      canvasObjects: new Map(this.canvasObjects),
       aliasOf: new Map(this.aliasOf),
       aliases: new Map(this.aliases),
     }
@@ -110,6 +126,7 @@ class VariableEnvironment {
     this.function = new Map(state["functions"]);
     this.mainVariables = new Map(state["mainVariables"]);
     this.stack = state["stack"].map(m => new Map(m));
+    this.canvasObjects = new Map(state["canvasObjects"]);
     this.aliasOf = new Map(state["aliasOf"]);
     this.aliases = new Map(state["aliases"]);
 
@@ -126,6 +143,7 @@ class VariableEnvironment {
   clearAll() {
     this.functions = new Map();
     this.mainVariables = new Map();
+    this.canvasObjects = new Map();
     this.stack = [];
 
     // keep track of alises
@@ -145,13 +163,13 @@ class VariableEnvironment {
    *    add (or update) it to map
    */
   setVar(varName, value) {
-    if (varName in keywords)
+    if (keywords.has(varName))
       throw `Cannot use keyword '${varName}'.`;
 
     if (this.variables.size > MAX_CAPACITY)
       throw "Cannot create any new variables, already at capacity";
 
-    if (this.hasVar(varName) && this.getVar(varName) instanceof FunctionDefinition)
+    if (this.hasVar(varName) && this.functions.has(varName))
       throw "Cannot reassign function name";
 
     if (value instanceof CanvasObject && value.label != varName) {
@@ -159,8 +177,11 @@ class VariableEnvironment {
       // for the canvas object (this.value)'s label
       this.addAlias(value.label, varName);
     }
-  
-    this.variables.set(varName, value);
+
+    if (value instanceof CanvasObject) 
+      this.canvasObjects.set(varName, value);
+    else
+      this.variables.set(varName, value);
 
     // update environment display
     this.updateEnvironmentDisplay();
@@ -185,9 +206,9 @@ class VariableEnvironment {
 
   getAllBindings() {
     return new Map(Array.from(this.variables.entries())
-      .concat(Array.from(this.functions.entries())));
+      .concat(Array.from(this.functions.entries()))
+      .concat(Array.from(this.canvasObjects.entries())));
   }
-
 
   static updateEnvironmentDisplay() {
     VariableEnvironment.getInstance().updateEnvironmentDisplay();
@@ -207,10 +228,12 @@ class VariableEnvironment {
   }
 
   /** VariableEnvironment.getVar
-   *    Always check for function because they 
+   *    Always check for canvas objects and then 
+   *    functions because they 
    *    have global scope, but check local scope first
    */
   getVar(varName) {
+    if (this.canvasObjects.has(varName)) return this.canvasObjects.get(varName);
     if (this.hasVar(varName)) return this.variables.get(varName);
     if (this.functions.has(varName)) return this.functions.get(varName); 
     throw `Undefined variable: '${varName}'.`;
@@ -221,7 +244,9 @@ class VariableEnvironment {
   }
 
   defineFunction(funcName, funcDef) {
-    if (this.functions.has(funcName) || this.variables.has(funcName))
+    if (this.canvasObjects.has(funcName) 
+       || this.functions.has(funcName) 
+       || this.variables.has(funcName))
       throw `Function definition error: ${funcName} already in use.`;
     this.functions.set(funcName, funcDef);
 
@@ -272,9 +297,19 @@ class VariableEnvironment {
     //  keep track of what got deleted
     var deleted = new Map();
 
+    // determine where k is stored,
+    // save it for undoing
+    // and delete it. 
     const deleteBinding = k => {
-      deleted.set(k, this.variables.get(k));
-      this.variables.delete(k);
+      var hasK;
+      if (this.variables.has(k)) 
+        hasK = this.variables;
+      else if (this.canvasObjects.has(k)) 
+        hasK = this.canvasObjects;
+      else return;
+
+      deleted.set(k, hasK.get(k));
+      hasK.delete(k);
     }
 
     if (! deleteAliases) 
@@ -311,7 +346,7 @@ class VariableEnvironment {
   }
 
   hasVar(varName) {
-    return this.variables.has(varName);
+    return this.variables.has(varName) || this.canvasObjects.has(varName);
   }
 }
 
