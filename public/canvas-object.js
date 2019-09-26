@@ -285,6 +285,10 @@ class CanvasObject {
     this.floatingChildren.forEach(x => x.move(deltaX, deltaY, true));
   }
 
+  moveTo(x, y) {
+    this.move(x - this.x, y - this.y);
+  }
+
   drag(deltaX, deltaY) {
   }
 
