@@ -1,8 +1,5 @@
 (function initDOM() {
 
-  // if clip menu is locked return this alert
-  const cmLockedAlert = () => alert("Clip can not be changed currently.")
-
   // initialize clip menu buttons
   $("#contButton").click((event) => {
     if (clipMenuLocked()) return cmLockedAlert()
