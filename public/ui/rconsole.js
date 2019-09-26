@@ -63,28 +63,28 @@ class ReactConsole extends React.Component {
    *    execute command using CommandRecorder
    *    and return value for Multiline config
    */
-  evaluate(cmdObj) {
-    try {
-      var ret = executeCommand(cmdObj);
-      if (cmdObj instanceof UtilCommand) return;
-      return ret;
-    }
-    catch (error) {
-      console.log("EXEC ERROR: " + error.stack);
-      return "[EXEC ERROR]: " + error.toString()
-    }
-  }
+  // evaluate(cmdObj) {
+  //   try {
+  //     var ret = executeCommand(cmdObj);
+  //     if (cmdObj instanceof UtilCommand) return;
+  //     return ret;
+  //   }
+  //   catch (error) {
+  //     console.log("EXEC ERROR: " + error.stack);
+  //     return "[EXEC ERROR]: " + error.toString()
+  //   }
+  // }
 
   // reset cycle idx and parse/execute line
   commandEntered() {
     // CommandRecorder.execute will check anyways
     // but this way the console contents are unaffected
-    if (consoleLocked()) return lockedAlert();
+    if (consoleLocked()) return canvasLockedAlert();
 
     var line = this.state.commandLineValue;
     this.setState({ cycleIdx: 0 });
     var cmdObj;
-    var parseErr, commandRet;
+    var parseErr;
 
     // try to parse line
     if (line) {
@@ -93,24 +93,48 @@ class ReactConsole extends React.Component {
       }
       catch (error) {
         parseErr = "[PARSE ERROR]: " + error.toString();
+        console.log(error)
       }
     }
+
+    // clear input line 
+    this.setState({ commandLineValue: "" });
 
     // add entered line to command history 
     if (line && line.trim())
       this.push(line, "command");
     if (parseErr)
       this.push(parseErr, "error");
-    else if (cmdObj)
-      commandRet = this.evaluate(cmdObj);
+    else if (cmdObj) {
+      lockContext();
+      executeCommand(cmdObj, false, true) // redo = false, overrideLock = true
+      .then(cmdRet => {
+        if (cmdObj instanceof UtilCommand) return;
+        var cmdRetStr = stringify(cmdRet);
+        if (cmdRet !== undefined && cmdRetStr != line)
+          this.push(cmdRetStr, "result");
+      })
+      .catch(error => {
+        console.log("EXEC ERROR: " + error.stack);
+        this.push("[EXEC ERROR]: " + error.toString(), "result");
+      })
+      .finally(() => {
+        unlockContext();
 
-    // print error or literal result
-    // TODO check for unexpected types like method objects
-    if (commandRet !== undefined && stringify(commandRet) != line)
-      this.push(stringify(commandRet), "result");
+        // update console state again to show results
+        this.setState({});
+      });
+    }
 
-    // keep history scrolled to bottom
-    this.setState({ commandLineValue: "" });
+
+
+    // // print error or literal result
+    // // TODO check for unexpected types like method objects
+    // if (commandRet !== undefined && stringify(commandRet) != line)
+    //   this.push(stringify(commandRet), "result");
+
+    // // keep history scrolled to bottom
+    // this.setState({ commandLineValue: "" });
   }
 
   scrollToBottom() {
@@ -267,8 +291,12 @@ class CommandLine extends React.Component {
         e.preventDefault(); // dont undo typing
         hotkeyUndo();
       }
-      if (kc == Y)
-        hotkeyRedo();
+      if (kc == Y) {
+        if (hotkeys[ALT])
+          hotkeyRedoAtomic();
+        else
+          hotkeyRedo();
+      }
       if (kc == C)
         this.props.clearConsole();
     }
