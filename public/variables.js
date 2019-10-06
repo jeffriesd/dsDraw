@@ -1,8 +1,10 @@
 const mainCommands = {
-  "delete": ConsoleDestroyCommand, // maybe turn into inherited method
   // "relabel": RelabelCommand,
   // "snap": ExportToImageCommand, TODO move to button
   "translate": TranslateCommand,
+  "tr": TranslateCommand,
+  "mt": MoveToCommand,
+  "moveTo": MoveToCommand,
   "repaint": RepaintCommand,
   "wait": WaitCommand,
   "dir": DirCommand,
@@ -12,6 +14,8 @@ const mainCommands = {
   "randn": RandomIntCommand,
   "range": RangeCommand,
   "interpolate": InterpolateCommand,
+  "$": BuckCommand,
+  "str": StringCommand,
 };
 
 const constructors = {
@@ -113,8 +117,8 @@ class VariableEnvironment {
       mainVariables: new Map(this.mainVariables),
       stack: this.stack.map(m => new Map(m)),
       canvasObjects: new Map(this.canvasObjects),
-      aliasOf: new Map(this.aliasOf),
-      aliases: new Map(this.aliases),
+      // aliasOf: new Map(this.aliasOf),
+      // aliases: new Map(this.aliases),
     }
   }
 
@@ -123,12 +127,13 @@ class VariableEnvironment {
   }
 
   setState(state) {
+    console.log("setting state of VENV")
     this.function = new Map(state["functions"]);
     this.mainVariables = new Map(state["mainVariables"]);
     this.stack = state["stack"].map(m => new Map(m));
     this.canvasObjects = new Map(state["canvasObjects"]);
-    this.aliasOf = new Map(state["aliasOf"]);
-    this.aliases = new Map(state["aliases"]);
+    // this.aliasOf = new Map(state["aliasOf"]);
+    // this.aliases = new Map(state["aliases"]);
 
     this.updateEnvironmentDisplay();
   }
@@ -145,10 +150,6 @@ class VariableEnvironment {
     this.mainVariables = new Map();
     this.canvasObjects = new Map();
     this.stack = [];
-
-    // keep track of alises
-    this.aliasOf = new Map(); // variable -> variable
-    this.aliases = new Map(); // variable -> Set(variable)
 
     this.updateEnvironmentDisplay();
   }
@@ -172,16 +173,17 @@ class VariableEnvironment {
     if (this.hasVar(varName) && this.functions.has(varName))
       throw "Cannot reassign function name";
 
-    if (value instanceof CanvasObject && value.label != varName) {
-      // note that variableName is now an alias
-      // for the canvas object (this.value)'s label
-      this.addAlias(value.label, varName);
-    }
 
-    if (value instanceof CanvasObject) 
-      this.canvasObjects.set(varName, value);
-    else
-      this.variables.set(varName, value);
+    // if (value instanceof CanvasObject && value.label != varName) {
+    //   // note that variableName is now an alias
+    //   // for the canvas object (this.value)'s label
+    //   this.addAlias(value.label, varName);
+    // }
+
+    // if (value instanceof CanvasObject) 
+    //   this.canvasObjects.set(varName, value);
+    // else
+    this.variables.set(varName, value);
 
     // update environment display
     this.updateEnvironmentDisplay();
@@ -191,23 +193,27 @@ class VariableEnvironment {
    *    keep track of aliases of canvas objects
    *    so they can be cleared when true label is cleared
    */
-  addAlias(canvasObjectName, newName) {
-    if (canvasObjectName == "") return; // first assignment
+  // addAlias(canvasObjectName, newName) {
+  //   if (canvasObjectName == "") return; // first assignment
 
-    // if canvasObjectName deleted, delete alias bindings
-    // as well 
-    if (! this.aliases.has(canvasObjectName)) this.aliases.set(canvasObjectName, new Set());
-    this.aliases.get(canvasObjectName).add(newName);
+  //   // if canvasObjectName deleted, delete alias bindings
+  //   // as well 
+  //   if (! this.aliases.has(canvasObjectName)) this.aliases.set(canvasObjectName, new Set());
+  //   this.aliases.get(canvasObjectName).add(newName);
 
-    // newName is an alias of canvasObjectName, 
-    // so if newName is deleted, delete aliases also
-    this.aliasOf.set(newName, canvasObjectName);
-  }
+  //   // newName is an alias of canvasObjectName, 
+  //   // so if newName is deleted, delete aliases also
+  //   this.aliasOf.set(newName, canvasObjectName);
+  // }
 
   getAllBindings() {
     return new Map(Array.from(this.variables.entries())
       .concat(Array.from(this.functions.entries()))
-      .concat(Array.from(this.canvasObjects.entries())));
+      .concat(
+        // put a $ in front of canvas Object labels
+        Array.from(this.canvasObjects.entries())
+        .map(([k, v]) => ["$" + k, v])
+      ));
   }
 
   static updateEnvironmentDisplay() {
@@ -233,7 +239,6 @@ class VariableEnvironment {
    *    have global scope, but check local scope first
    */
   getVar(varName) {
-    if (this.canvasObjects.has(varName)) return this.canvasObjects.get(varName);
     if (this.hasVar(varName)) return this.variables.get(varName);
     if (this.functions.has(varName)) return this.functions.get(varName); 
     throw `Undefined variable: '${varName}'.`;
@@ -270,12 +275,42 @@ class VariableEnvironment {
   }
 
   getCanvasObj(objLabel) {
-    var canvasObj = this.getVar(objLabel);    
+    var canvasObj = this.canvasObjects.get(objLabel);    
     
     if (! (canvasObj instanceof CanvasObject)) 
       throw `Variable '${objLabel}' does not refer to a canvas object.`;
 
     return canvasObj;
+  }
+
+  static hasCanvasObj(objLabel) { 
+    return VariableEnvironment.getInstance().hasCanvasObj(objLabel);
+  }
+
+  hasCanvasObj(objLabel) {
+    return this.canvasObjects.has(objLabel);
+  }
+
+  static setCanvasObj(objLabel, canvasObj) { 
+    return VariableEnvironment.getInstance().setCanvasObj(objLabel, canvasObj);
+  }
+
+  setCanvasObj(objLabel, canvasObj) {
+    if (this.canvasObjects.has(objLabel)) 
+      throw `Label ${objLabel} already taken`;
+    if (! (canvasObj instanceof CanvasObject))
+      throw `Invalid canvas object ${canvasObj}`;
+    this.canvasObjects.set(objLabel, canvasObj);
+  }
+
+  static deleteCanvasObj(objLabel, canvasObj) { 
+    return VariableEnvironment.getInstance().deleteCanvasObj(objLabel, canvasObj);
+  }
+
+  deleteCanvasObj(objLabel) {
+    if (! this.canvasObjects.has(objLabel))
+      throw `Cannot delete undefined canvas object ${objLabel}`;
+    this.canvasObjects.delete(objLabel);
   }
 
   static deleteVar(varName, deleteAliases) {
@@ -290,6 +325,7 @@ class VariableEnvironment {
     if (! this.hasVar(varName))
       throw `Cannot delete undefined variable '${varName}'.`;
 
+    deleteAliases = false;
     // default to always deleting aliases
     if (deleteAliases == undefined) 
       deleteAliases = true;
@@ -312,28 +348,27 @@ class VariableEnvironment {
       hasK.delete(k);
     }
 
-    if (! deleteAliases) 
-      deleteBinding(varName);
-    else {
+    deleteBinding(varName);
+    // else {
 
-      // varName is an alias of a canvas object
-      // with another name
-      if (this.aliasOf.has(varName)) {
-        var trueLabel = this.aliasOf.get(varName);
-        var otherNames = this.aliases.get(trueLabel);
-        otherNames.forEach(o => deleteBinding(o));
-        deleteBinding(trueLabel);
-      } 
-      else {
-        // varName is not an alias but it 
-        // has aliases
-        if (this.aliases.has(varName)) {
-          // delete aliases if they exist
-          this.aliases.get(varName).forEach(other => deleteBinding(other));
-        }
-        deleteBinding(varName);
-      }
-    }
+    //   // varName is an alias of a canvas object
+    //   // with another name
+    //   if (this.aliasOf.has(varName)) {
+    //     var trueLabel = this.aliasOf.get(varName);
+    //     var otherNames = this.aliases.get(trueLabel);
+    //     otherNames.forEach(o => deleteBinding(o));
+    //     deleteBinding(trueLabel);
+    //   } 
+    //   else {
+    //     // varName is not an alias but it 
+    //     // has aliases
+    //     if (this.aliases.has(varName)) {
+    //       // delete aliases if they exist
+    //       this.aliases.get(varName).forEach(other => deleteBinding(other));
+    //     }
+    //     deleteBinding(varName);
+    //   }
+    // }
 
     // update environment display
     this.updateEnvironmentDisplay();
@@ -346,7 +381,15 @@ class VariableEnvironment {
   }
 
   hasVar(varName) {
-    return this.variables.has(varName) || this.canvasObjects.has(varName);
+    return this.variables.has(varName);
+  }
+
+  static hasFunction(varName) {
+    return VariableEnvironment.getInstance().hasFunction(varName);
+  }
+
+  hasFunction(varName) {
+    return this.functions.has(varName);
   }
 }
 
