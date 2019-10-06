@@ -66,7 +66,6 @@ class LinearCanvasObject extends CanvasObject {
       displayStyle: this.displayStyle,
       indexPlacement: this.indexPlacement,
       cellSize: this.cellSize,
-      label: this.label, 
       showValues: this.showValues,
       showIndices: this.showIndices,
     };
