@@ -178,11 +178,9 @@ class CanvasState {
   }
 
   /** CanvasState.clearCanvas
-   *    used to destroy objects but leave aliases
-   *    in the venv unaffected
    */
   clearCanvas() {
-    this.objects.forEach(obj => obj.destroy(false));
+    this.objects.forEach(obj => obj.destroy());
   }
 
   /** CanvasState.setMode
@@ -257,10 +255,6 @@ class CanvasState {
     // add to list of redrawable objects
     this.objects.push(canvasObj);
   }
-
-  updateLabels() {
-    this.objects.forEach(obj => VariableEnvironment.setVar(obj.label, obj));
-  } 
 
   /** CanvasState.remove
    *    remove this object from list
