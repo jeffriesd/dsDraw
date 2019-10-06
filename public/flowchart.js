@@ -77,7 +77,6 @@ class FlowchartBox extends CanvasObject {
       verticalAlign: this.verticalAlign,
       fill: this.fill,
       strokeColor: this.strokeColor,
-      label: this.label,
     };
   }
 
@@ -781,7 +780,6 @@ class TextBox extends FlowchartBox {
       fontSize: this.fontSize,
       horizontalAlign: this.horizontalAlign,
       verticalAlign: this.verticalAlign,
-      label: this.label,
     }
   }
 
