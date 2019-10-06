@@ -64,6 +64,7 @@ function id(x) { return x[0]; }
     "]": "]",
     ":": ":",
     ";": ";",
+    "$": "$",
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
@@ -234,7 +235,7 @@ function buildExp(operands) {
  *    create unary negation node 
  *
  *    pattern:
- *    Negate -> "-" factor | factor
+ *    Negate -> "-" factor 
  */
 function buildNegate(operands) {
   var opNode = operands[1];
@@ -243,7 +244,7 @@ function buildNegate(operands) {
     opNodes: [opNode],
     command: new NegateNumberCommand(opNode),
     clone: function() {
-      return buildExp(cloneOperands(operands));
+      return buildNegate(cloneOperands(operands));
     },
     toString: () => "buildNegate",
   };
@@ -260,6 +261,7 @@ function buildNegate(operands) {
  *  pattern:
  *    function -> objExpr "(" _ args _ ")" 
  *              | objExpr "(" ")"      
+ *              | "$" "(" _ args _ ")" 
  *   
  */
 function buildFunctionCall(operands) {
@@ -267,7 +269,7 @@ function buildFunctionCall(operands) {
   var functionArgs = []; // default (no args function)
 
   // save function name for interpreter
-  var functionName = operands[0].varName || "";
+  var functionName = operands[0].varName || operands[0].text || "";
 
   if (operands.length == 6) 
     functionArgs = operands[3];
@@ -280,6 +282,47 @@ function buildFunctionCall(operands) {
       return buildFunctionCall(cloneOperands(operands));
     },
     toString: () => "buildFunctionCall",
+  };
+}
+
+/** buildBuckGet 
+ *    interpret this as $("objLabel")
+ *    by creating a function ast node
+ * 
+ *    "$" %varName 
+ */
+function buildBuckGet(operands) {
+  var functionName = operands[0].text;
+  var functionNode = operands[0]; // never gets executed because "$" is built-in
+  var functionArgs = [wrapUnquotedString([operands[1]])];
+
+  return {
+    isLiteral: false,
+    opNodes: functionArgs,
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    clone: function() {
+      return buildBuckGet(cloneOperands(operands));
+    },
+    toString: () => "buildBuckGet",
+  };
+}
+
+/**
+ *
+ *  "$" %varName _ "=" _ expr  
+ */
+function buildBuckSet(operands) {
+  var functionName = operands[0].text;
+  var functionNode = operands[0];
+  var functionArgs = [wrapUnquotedString([operands[1]]), operands[5]];
+  return {
+    isLiteral: false,
+    opNodes: functionArgs,
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    clone: function() {
+      return buildBuckSet(cloneOperands(operands));
+    },
+    toString: () => "buildBuckSet",
   };
 }
 
@@ -674,22 +717,6 @@ function buildList(operands) {
     isLiteral: elements.every(x => x.isLiteral),
     opNodes: elements,
     command: new BuildListCommand(...elements),
-    // command: {
-    //   isAsync: true,
-    //   // must build synchronously 
-    //   execute: function() {
-    //     var evaluated = [];
-    //     return elements.reduce((prev, cur) => {
-    //       return prev.then(() => {
-    //         return liftCommand(cur.command).then(cmdRet => evaluated.push(cmdRet));
-    //       })
-    //     }, new Promise(resolve => resolve()))
-    //     .then(() => evaluated);
-
-    //     // return elements.map(opNode => opNode.command.execute());
-    //   },
-    //   undo: function() {},
-    // },
     clone: function() {
       return buildList(cloneOperands(operands));
     },
@@ -924,58 +951,6 @@ function buildDict(operands) {
     isLiteral: values.every(x => x.isLiteral),
     opNodes: values,
     command: new BuildDictCommand(keys, ...values),
-    //   isAsync: true,
-    //   execute: function() {
-    //     // evaluate keys only once
-    //     return new Promise((resolve, reject) => {
-    //       if (originalPairs) {
-    //         // if (originalPairs.some(([k, v]) => typeof k == "object")) // if opNode cloned before execution
-    //         //   originalPairs = originalPairs.map(([k, v]) => [k.command.execute(), v.command.execute()]);
-    //         // return new Dictionary(originalPairs);
-
-    //         // if opNode cloned before execution
-    //         if (originalPairs.some(([k, v]) => typeof k == "object")) {
-    //           var newPairs = [];
-    //           resolve(
-    //             originalPairs.reduce((prev, [k, v]) => {
-    //               return prev.then(() => {
-    //                 return liftCommand(k.command)
-    //                 .then(kret => { 
-    //                   return liftCommand(v.command)
-    //                   .then(vret => {
-    //                     newPairs.push([kret, vret]);
-    //                   });
-    //                 });
-    //               })
-    //             })
-    //             .then(() => new Dictionary(newPairs))
-    //           );
-    //         }
-    //         else  
-    //           resolve(new Dictionary(originalPairs));
-    //       }
-
-    //       var d = new Dictionary([]);
-    //       // set one by one while executing for short-circuiting
-    //       // pairs.forEach(([k, v]) => { 
-    //       //   d.set(k.command.execute(), v.command.execute());
-    //       // })
-    //       // return d;
-    //       resolve(
-    //         pairs.reduce((prev, [k, v]) => {
-    //           return prev.then(() => {
-    //             return liftCommand(k.command)
-    //             .then(kret => {
-    //               return liftCommand(v.command)
-    //               .then(vret => d.set(kret, vret));
-    //             })
-    //           })
-    //         }, new Promise(resolve => resolve()))
-    //       );
-    //     });
-    //   },
-    //   undo: function() {}
-    // },
     clone: function() {
       return buildDict(cloneOperands(operands));
     },
@@ -1092,6 +1067,10 @@ function buildElseIf(operands) {
 function buildElse(operands) {
   return [wrapBool(["true"]), operands[2]];
 }
+
+
+
+
 var grammar = {
     Lexer: lexer,
     ParserRules: [
@@ -1202,6 +1181,7 @@ var grammar = {
     {"name": "assignment", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildAssignment},
     {"name": "assignment", "symbols": ["expr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildRangePropertyAssignment},
     {"name": "assignment", "symbols": ["expr", {"literal":"["}, "_", "expr", "_", {"literal":"]"}, "_", {"literal":"="}, "_", "expr"], "postprocess": buildListAssignment},
+    {"name": "assignment", "symbols": [{"literal":"$"}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"="}, "_", "expr"], "postprocess": buildBuckSet},
     {"name": "expr", "symbols": ["bool"], "postprocess": id},
     {"name": "bool", "symbols": ["bool", "_", (lexer.has("AND") ? {type: "AND"} : AND), "_", "disj"], "postprocess": buildConjunction},
     {"name": "bool", "symbols": ["disj"], "postprocess": id},
@@ -1271,6 +1251,7 @@ var grammar = {
     {"name": "nonQuote", "symbols": [{"literal":"]"}]},
     {"name": "nonQuote", "symbols": [{"literal":";"}]},
     {"name": "nonQuote", "symbols": [{"literal":":"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"$"}]},
     {"name": "nonQuote", "symbols": [(lexer.has("number") ? {type: "number"} : number)]},
     {"name": "nonQuote", "symbols": [(lexer.has("methodName") ? {type: "methodName"} : methodName)]},
     {"name": "nonQuote", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)]},
@@ -1286,6 +1267,7 @@ var grammar = {
     {"name": "mathTerminal", "symbols": ["string"], "postprocess": id},
     {"name": "mathTerminal", "symbols": [(lexer.has("NULL") ? {type: "NULL"} : NULL)], "postprocess": wrapNull},
     {"name": "mathTerminal", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
+    {"name": "mathTerminal", "symbols": [{"literal":"$"}, (lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildBuckGet},
     {"name": "mathTerminal", "symbols": [{"literal":"("}, "_", "bool", "_", {"literal":")"}], "postprocess": d => d[2]},
     {"name": "mathTerminal", "symbols": ["propGet"], "postprocess": id},
     {"name": "number", "symbols": [(lexer.has("number") ? {type: "number"} : number)], "postprocess": wrapNumber},
@@ -1305,10 +1287,13 @@ var grammar = {
     {"name": "objExpr", "symbols": ["list"], "postprocess": id},
     {"name": "objExpr", "symbols": ["propGet"], "postprocess": id},
     {"name": "objExpr", "symbols": [(lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildVariable},
+    {"name": "objExpr", "symbols": [{"literal":"$"}, (lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildBuckGet},
     {"name": "propGet", "symbols": ["objExpr", (lexer.has("DOT") ? {type: "DOT"} : DOT), (lexer.has("varName") ? {type: "varName"} : varName)], "postprocess": buildPropGet},
     {"name": "callable", "symbols": ["function"], "postprocess": id},
+    {"name": "buck", "symbols": [{"literal":"$"}, {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildFunctionCall},
     {"name": "function", "symbols": ["objExpr", {"literal":"("}, "_", "args", "_", {"literal":")"}], "postprocess": buildFunctionCall},
     {"name": "function", "symbols": ["objExpr", {"literal":"("}, {"literal":")"}], "postprocess": buildFunctionCall},
+    {"name": "function", "symbols": ["buck"], "postprocess": id},
     {"name": "args$ebnf$1", "symbols": []},
     {"name": "args$ebnf$1$subexpression$1", "symbols": ["_", {"literal":","}, "_", "funcarg"]},
     {"name": "args$ebnf$1", "symbols": ["args$ebnf$1", "args$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},

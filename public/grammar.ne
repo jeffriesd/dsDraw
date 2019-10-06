@@ -60,6 +60,7 @@
     "]": "]",
     ":": ":",
     ";": ";",
+    "$": "$",
     QUOTE: "\"",
     FOR: "for",
     WHILE: "while",
@@ -98,6 +99,7 @@ statement -> assignment {% id %}
 assignment -> %varName _ "=" _ expr                   {% buildAssignment %}
             | expr  %DOT %varName _ "=" _ expr        {% buildRangePropertyAssignment %}
             | expr "[" _ expr _ "]" _ "=" _ expr      {% buildListAssignment %} 
+            | "$" %varName _ "=" _ expr               {% buildBuckSet %}
 
 expr -> bool {% id %}
 
@@ -149,7 +151,7 @@ unaryNeg -> "-" mathTerminal {% buildNegate %}
 
 nonQuote -> " " | "\t" | "-" | "+" | "*" | "/" | "^" | %LESSEQ | %GREATEQ | %EQEQ 
           | %DOT | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "=" | "{" 
-          | "}" | "[" | "]" | ";" | ":"
+          | "}" | "[" | "]" | ";" | ":" | "$"
           | %number 
           | %methodName 
           | %varName 
@@ -165,6 +167,7 @@ mathTerminal -> number            {% id %}
        | string                   {% id %}
        | %NULL                    {% wrapNull   %}
        | %varName                 {% buildVariable %}
+       | "$" %varName             {% buildBuckGet %}
        | "(" _ bool _ ")"         {% d => d[2] %}     # drop parens
        | propGet                  {% id %}
 
@@ -194,14 +197,19 @@ objExpr -> callable {% id %}
          | list     {% id %}
          | propGet  {% id %}
          | %varName {% buildVariable %}
+         | "$" %varName {% buildBuckGet %}
 
 # dot operator
 propGet -> objExpr %DOT %varName {% buildPropGet %}
 
 callable -> function {% id %} 
 
+buck -> "$" "(" _ args _ ")"         {% buildFunctionCall %}
+
 function -> objExpr "(" _ args _ ")" {% buildFunctionCall %}
-          | objExpr "(" ")"      {% buildFunctionCall %}
+          | objExpr "(" ")"          {% buildFunctionCall %}
+          | buck                     {% id %}
+
 
 # note no spaces before or after bookend args
 args -> funcarg (_ "," _ funcarg):* {% buildFunctionArguments %}
@@ -402,7 +410,7 @@ function buildExp(operands) {
  *    create unary negation node 
  *
  *    pattern:
- *    Negate -> "-" factor | factor
+ *    Negate -> "-" factor 
  */
 function buildNegate(operands) {
   var opNode = operands[1];
@@ -411,7 +419,7 @@ function buildNegate(operands) {
     opNodes: [opNode],
     command: new NegateNumberCommand(opNode),
     clone: function() {
-      return buildExp(cloneOperands(operands));
+      return buildNegate(cloneOperands(operands));
     },
     toString: () => "buildNegate",
   };
@@ -428,6 +436,7 @@ function buildNegate(operands) {
  *  pattern:
  *    function -> objExpr "(" _ args _ ")" 
  *              | objExpr "(" ")"      
+ *              | "$" "(" _ args _ ")" 
  *   
  */
 function buildFunctionCall(operands) {
@@ -435,7 +444,7 @@ function buildFunctionCall(operands) {
   var functionArgs = []; // default (no args function)
 
   // save function name for interpreter
-  var functionName = operands[0].varName || "";
+  var functionName = operands[0].varName || operands[0].text || "";
 
   if (operands.length == 6) 
     functionArgs = operands[3];
@@ -448,6 +457,47 @@ function buildFunctionCall(operands) {
       return buildFunctionCall(cloneOperands(operands));
     },
     toString: () => "buildFunctionCall",
+  };
+}
+
+/** buildBuckGet 
+ *    interpret this as $("objLabel")
+ *    by creating a function ast node
+ * 
+ *    "$" %varName 
+ */
+function buildBuckGet(operands) {
+  var functionName = operands[0].text;
+  var functionNode = operands[0]; // never gets executed because "$" is built-in
+  var functionArgs = [wrapUnquotedString([operands[1]])];
+
+  return {
+    isLiteral: false,
+    opNodes: functionArgs,
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    clone: function() {
+      return buildBuckGet(cloneOperands(operands));
+    },
+    toString: () => "buildBuckGet",
+  };
+}
+
+/**
+ *
+ *  "$" %varName _ "=" _ expr  
+ */
+function buildBuckSet(operands) {
+  var functionName = operands[0].text;
+  var functionNode = operands[0];
+  var functionArgs = [wrapUnquotedString([operands[1]]), operands[5]];
+  return {
+    isLiteral: false,
+    opNodes: functionArgs,
+    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    clone: function() {
+      return buildBuckSet(cloneOperands(operands));
+    },
+    toString: () => "buildBuckSet",
   };
 }
 
@@ -1192,4 +1242,8 @@ function buildElseIf(operands) {
 function buildElse(operands) {
   return [wrapBool(["true"]), operands[2]];
 }
+
+
+
+
 %}
