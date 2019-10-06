@@ -107,7 +107,8 @@ function createFunctionCommand(functionName, functionNode, args, runtimeOverride
         return liftCommand(this.command);
       },
       undo: function() {
-        return this.command.undo();
+        if (this.command)
+          return this.command.undo();
       }
     }  
   }
