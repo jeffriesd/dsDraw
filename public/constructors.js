@@ -61,8 +61,19 @@ class CanvasObjectConstructor extends ConsoleCommand {
     this.styleOptions = this.args[0];
   }
 
-  undoSelf() {
-    this.newObj.destroy();
+  // undoSelf() {
+  //   this.newObj.destroy();
+  // }
+
+  saveState() {
+    return {
+      objAlive: this.newObj != null && ! this.newObj.dead,
+    };
+  }
+
+  restoreState(state) {
+    if (state.objAlive) this.newObj.restore();
+    else this.newObj.destroy();
   }
 
   argsError(errMessage) {
