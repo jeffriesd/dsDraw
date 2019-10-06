@@ -121,8 +121,9 @@ class ReactConsole extends React.Component {
       .finally(() => {
         unlockContext();
 
+        repaint();
         // update console state again to show results
-        this.setState({});
+        updateInspectPane();
       });
     }
 
