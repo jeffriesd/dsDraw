@@ -16,6 +16,37 @@ class LanguageObject {
   }
 }
 
+
+/**
+ * Just used as a special case to define
+ * list commands instead of actually 
+ * wrapping the Array objects 
+ * in this type. (would require
+ * rewriting a lot)
+ */
+class DsList extends LanguageObject {
+
+  static propNames() {
+    return {};
+  }
+
+  static methodNames() {
+    return {
+      "length" : ListLengthCommand,
+      "push" : ListPushCommand,
+      "pop" : ListPopCommand, 
+      "empty" : ListEmptyCommand
+    };
+  }
+
+  static propMethodNames() {
+    return {
+      ...DsList.propNames(),
+      ...DsList.methodNames(),
+    }
+  }
+}
+
 class Dictionary extends LanguageObject {
   constructor(keyValueList) {
     super();
