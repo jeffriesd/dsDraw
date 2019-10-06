@@ -112,7 +112,10 @@ class MediaController {
     };
 
     this.recorder.onstart = (event) => {
-      this.cmdRecorder.startRecording();
+      // moved this to MediaState because
+      // there was a delay in the event firing
+
+      // this.cmdRecorder.startRecording();
     };
 
     /** 
@@ -299,9 +302,12 @@ class MediaController {
     var cloneCommand = new CloneCanvasCommand(this.cState); 
     var cloneEnvCommand = new CloneEnvCommand(this.cState);
 
-    // this destroys some aliases
+    // clear the canvas
+    // and clone the objects
     this.cState.clearCanvas();
     cloneCommand.cloneObjects(); // clone after clearing so labels can persist
+
+    // then clone env so variables refer to cloned objects
     cloneEnvCommand.cloneEnv();
 
     var cmdRec = new CommandRecorder(this);
@@ -441,7 +447,11 @@ class MediaController {
       var nextCommand = redoStack.pop();
       lockContext();
       return executeCommand(nextCommand, true, true) // redo = true, overrideLock = true
-        .then(() => unlockContext());
+        .catch(err => {
+          // errors get handled by executeCommand
+          console.warn("uncaught err in redo: ", err);
+        })
+        .finally(() => unlockContext());
     }
     return new Promise(resolve => resolve());
   }
@@ -594,6 +604,7 @@ class PauseState extends MediaState {
       context.clips.get(context.activeClipId).recorded = true;
 
       context.recorder.start(context.timeSlice); 
+      context.cmdRecorder.startRecording();
       context.setState(context.recordState);
     }
     else if (! context.clips.get(context.activeClipId).recorded) 
@@ -655,6 +666,10 @@ class CommandRecorder {
     // using another field to indicate when recording stops,
     // becuase this.recording = false is ambiguous (pre or post recording)
     this.postRecording = false;
+
+    // set recording state and startTime before recording
+    // commands to avoid race conditions with getTime
+    this.settingRecordPromise = new Promise(resolve => resolve());
   }
 
   /** CommandRecorder.getTime
@@ -663,8 +678,9 @@ class CommandRecorder {
   getTime() {
     if (this.recording) 
       return (new Date().getTime() - this.startTime) / 1000;
-    // return this.player.video.duration;
-    throw "getTime should only be called while recording";
+    // console.log("thisst = ", this.startTime)
+    throw "bad time";
+    return 0;
   }
 
   stopRecording() {
@@ -673,8 +689,13 @@ class CommandRecorder {
   }
 
   startRecording() {
-    this.startTime = new Date().getTime();
-    this.recording = true;
+    this.settingRecordPromise = new Promise(resolve => {
+      this.startTime = new Date().getTime();
+      this.recording = true;
+      console.log("set record")
+      // but only do this once
+      resolve(this.settingRecordPromise = new Promise(resolve => resolve()));;
+    });
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -719,7 +740,8 @@ class CommandRecorder {
 
     // return ret;
 
-    return liftCommand(cmdObj)
+    return this.settingRecordPromise
+    .then(() => liftCommand(cmdObj))
     .then(cmdRet => {
       this.mc.updateThumbnail();
       if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
@@ -888,7 +910,7 @@ class CommandRecorder {
     return setCommandLifting(LIFT_ATOMIC)
     .then(() => {
       return this.initCmds.reduce((prev, cur) => {
-        // console.log("INIT CMD: ", cur.command.constructor.name, cur.command);
+        console.log("INIT CMD: ", cur.command.constructor.name); // cur.command);
         return prev.then(() => {
           if (cur.type == "execute") 
             return liftCommand(cur.command);
