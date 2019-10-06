@@ -129,7 +129,6 @@ class UserFunctionCommand extends ConsoleCommand {
     VariableEnvironment.pushNamespace(this.namespace);
     try {
       this.executed.slice().reverse().forEach(cmd => { 
-        console.log("undo ", cmd.constructor.name)
         cmd.undo();
       });
       VariableEnvironment.popNamespace(this.namespace);
