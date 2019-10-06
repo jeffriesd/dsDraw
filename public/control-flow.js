@@ -48,14 +48,20 @@ class ControlFlowCommand {
     if (! this.storedStack) this.executed.push(command);
   }
 
-  executeStatements(statements) {
+  executeStatements(statements, cloneCommands) {
+    if (cloneCommands == undefined) cloneCommands = true;
     return statements.reduce((prev, cur) => {
       return prev.then(() => {
         // limit number of computations
         if (this.steps++ > LOOP_MAX) throw "Loop too long";
 
         // clone ast nodes for each new iteration to update references
-        var cl = cur.clone().command;
+        var cl;
+        if (cloneCommands)
+          cl = cur.clone().command;
+        else 
+          cl = cur.command;
+
         this.pushCmd(cl);
         repaint();
         return liftCommand(cl);
@@ -67,11 +73,25 @@ class ControlFlowCommand {
     return this.executeStatements(this.loopStatements);
   }
 
+  /** ControlFlowCommand.execute
+   *    Only clone loop commands the first time through 
+   *    (to be clear, each loop iteration gets cloned commands,
+   *     but when somebody does undo then redo, the same commands)
+   *     are used as in the original)
+   */
+  execute() {
+    if (this.storedStack) {
+      // executeStatements takes ast nodes so 
+      // give the input the correct structure
+      var statements = this.executed.map(cmd => { return { command : cmd } });
+      return this.executeStatements(statements, false);
+    }
+    return this.executeSelf();
+  }
 
   undo() {
     this.executed.slice().reverse().forEach(cmd => cmd.undo());
   }
-
 }
 
 /** WhileLoopCommand
@@ -101,7 +121,7 @@ class WhileLoopCommand extends ControlFlowCommand {
     });
   }
 
-  execute() {
+  executeSelf() {
     return this.maybeContinue();
   }
 }
@@ -154,7 +174,7 @@ class ForLoopCommand extends ControlFlowCommand {
     return this.executeStatements(this.incrStatements);
   }
 
-  execute() {
+  executeSelf() {
     return this.doInit().then(() => this.maybeContinue());
   }
 }
@@ -187,11 +207,11 @@ class IfBlockCommand extends ControlFlowCommand {
     }, new Promise(resolve => resolve()));
   }
 
-  /** IfBlockCommand.execute
+  /** IfBlockCommand.executeSelf
    *    try conditions until one evaluates true, then
    *    execute all the lines in that block and break
    */
-  execute() {
+  executeSelf() {
     return this.untilFirstTrue();
   }
 }
