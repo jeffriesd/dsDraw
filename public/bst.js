@@ -344,8 +344,6 @@ class BST {
    */
   _remove(node, value) {
     if (node == null) return null;
-    console.log("at ", node.value, "removing", value)
-    repaint();
     if (node.value == value) {
       if (node.left == null) return node.right;
       if (node.right == null) return node.left;
@@ -411,7 +409,7 @@ class BSTCanvasObject extends LinearCanvasObject {
     this.minSep = 2;
     this.depthSep = 30;
 
-    BSTCanvasObject.defaultSize = 5;
+    BSTCanvasObject.defaultSize = 15;
   }
 
   toString() {
