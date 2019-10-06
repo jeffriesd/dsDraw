@@ -40,6 +40,7 @@ class ReactToolbar extends React.Component {
           activeObj: this.props.activeObj,
           groupSelected: this.props.groupSelected,
           drawMode: this.props.drawMode,
+          contextLocked: this.props.contextLocked,
         },
         null
       ),
@@ -68,6 +69,12 @@ class ToolbarButtons extends React.Component {
     return [];
   }
 
+  cancelButton() {
+    if (this.props.contextLocked)
+      return [cancelButton];
+    return [];
+  }
+
   render() {
     return create(
       "div",
@@ -75,6 +82,7 @@ class ToolbarButtons extends React.Component {
       ...mainButtons,
       ...buttons[this.props.toolbarType],
       ...this.deleteButton(),
+      ...this.cancelButton(),
     );
   }
 }
@@ -123,6 +131,15 @@ const deleteButton = create(
     },
   }
 );
+
+const cancelButton = create(
+  "button",
+  {
+    className: "toolbarButton",
+    id: "cancelButton",
+    onClick: () => cancelAsync(),
+  }
+)
 
 
 const toolbarSettingsStrings = [
