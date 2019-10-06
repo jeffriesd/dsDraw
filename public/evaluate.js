@@ -52,9 +52,10 @@ class MultCommand extends MathCommand {
     // just copy values, don't evaluate astnodes again
     // so [f()] * x causes f to be evaluated only once
     if (this.op1 instanceof Array) {
+      var original = this.op1.slice();
       var extended = this.op1.slice();
       for (var i = 1; i < this.op2; i++) 
-        extended = extended.concat(extended);
+        extended = extended.concat(original);
       return extended;
     }
     return this.op1 * this.op2;
