@@ -126,16 +126,14 @@ class BinaryHeapDecreaseKeyCommand extends BinaryHeapCommand {
   }
 
   getChildValues() {
-     
-    this.receiverNode = this.args[0];
+    this.receiverIndex = this.args[0];
     this.newKey = this.args[1];
   }
 
   checkArguments() {
-    if (! (this.receiverNode instanceof BinaryHeapNode))
-      throw "Cannot decrease key of non BinaryHeapNode";
-    if (this.receiverNode.parentObject !== this.receiver)
-      throw "BinaryHeap can only decrease keys of its own nodes";
+    this.receiverNode = this.receiver.ids.get(this.receiverIndex);
+    if (this.receiverNode == null)
+      throw `Cannot decrease key of unknown BinaryHeapNode ${this.receiverIndex}`;
   }
 
   executeSelf() {
