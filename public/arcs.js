@@ -411,6 +411,10 @@ class ChildArrow extends CanvasChildObject {
     this.toAnchorAlive = () => true;
   }
 
+  toString() {
+    return "ChildArrow";
+  }
+
   /** ChildArrow.active
    *    override default implementation 
    *    (active iff (this.active || parent.active)
