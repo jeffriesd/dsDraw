@@ -52,7 +52,28 @@ class CanvasObject {
     // hashStr = hashStr.split(")")[0];
     // var hashCode = hashStr.replace(/[,\s]/g, "");
     // this.label = this.constructor.name.substring(0,1).toLowerCase() + "_" + hashCode;
-    this.label = this.constructor.name.substring(0,1).toLowerCase();
+    this.label = this.newLabel(this.constructor.name.substring(0,1).toLowerCase());
+  }
+
+  // generate an initial label
+  newLabel(label) {
+    // if 'myname1' already exists, 
+    // set to 'myname2' unless user 
+    while (VariableEnvironment.hasCanvasObj(label)) {
+      if (VariableEnvironment.getCanvasObj(label) === this) break;
+      // console.log("[WARNING]: label already in use: ", label);
+      var numPattern = /\d*$/;
+      var match = label.match(numPattern);
+      var matchStr = match[0];
+      var num = parseInt(matchStr);
+
+      // matched number at end
+      if (matchStr) 
+        label = label.substr(0, match.index) + (num+1);
+      else
+        label = label + "1";
+    }
+    return label;
   }
 
   toString() {
@@ -67,49 +88,23 @@ class CanvasObject {
       new this.constructor(this.cState, this.x1, this.y1, this.x2, this.y2);
 
     Object.assign(copy, this.config());
+
+    // update label and reserve it
+    copy.label = copy.newLabel(this.label);
+    VariableEnvironment.setCanvasObj(copy.label, copy);
+
     this._cloneRef = copy; 
     copy.cloneHandle = cloneHandle;
+
     return copy;
   }
 
-  set label(value) {
-    if (! value.match(variablePattern))
+  set label(newLabel) {
+    if (! newLabel.match(variablePattern)) 
       throw "Variable name must consists of only alphanumeric (or _) characters" 
         + " and begin with an alphabetic character";
 
-    // if 'myname1' already exists, 
-    // set to 'myname2' unless user 
-    // tries to rename object by its current name (don't change it)
-    while (VariableEnvironment.hasVar(value)) {
-      if (VariableEnvironment.getVar(value) === this) break;
-      // console.log("[WARNING]: label already in use: ", value);
-      var numPattern = /\d*$/;
-      var match = value.match(numPattern);
-      var matchStr = match[0];
-      var num = parseInt(matchStr);
-
-      // matched number at end
-      if (matchStr) 
-        value = value.substr(0, match.index) + (num+1);
-      else
-        value = value + "1";
-    }
-
-    if (value == this._label) return;
-    
-    if (VariableEnvironment.hasVar(value))
-      throw `Variable '${value}' already in use.`;
-
-    // if previous name is already mapping to this object, 
-    // clear that mapping
-    if (VariableEnvironment.hasVar(this.label)) {
-      VariableEnvironment.deleteVar(this.label);
-      // console.log("clearing label for ", this.label);
-    }
-
-    VariableEnvironment.setVar(value, this);
-
-    this._label = value;
+    this._label = newLabel;
   }
 
   get label() {
@@ -196,12 +191,11 @@ class CanvasObject {
    *    repaintable objects and also clear
    *    labeling (remove from variable environment)
    */
-  destroy(deleteAliases) {
-    if (deleteAliases == undefined) deleteAliases = true;
+  destroy() {
     this.hide();
 
-    if (VariableEnvironment.hasVar(this.label))
-      VariableEnvironment.deleteVar(this.label, deleteAliases);
+    if (VariableEnvironment.hasCanvasObj(this.label))
+      VariableEnvironment.deleteCanvasObj(this.label);
   }
 
   hide() {
@@ -215,11 +209,14 @@ class CanvasObject {
   }
 
   /** CanvasObject.restore
-   *    restore to canvas and restore binding
+   *    restore to canvas and restore binding 
+   *    if it doesnt already exist
    */
   restore() {
     this.unhide();
-    VariableEnvironment.setVar(this.label, this);
+    if (! (VariableEnvironment.hasCanvasObj(this.label)
+      && VariableEnvironment.getCanvasObj(this.label) === this))
+      VariableEnvironment.setCanvasObj(this.label, this);
   }
 
   /** CanvasObject.active
@@ -407,7 +404,7 @@ class CanvasChildObject {
     this.cState.registerCanvasObj(this);
   }
 
-  /** CanvasObject.objectCenter
+  /** CanvasChildObject.objectCenter
    *    return center of object 
    */
   objectCenter() {
