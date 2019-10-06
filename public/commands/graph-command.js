@@ -134,12 +134,6 @@ class GraphRenderCommand extends GraphCommand {
     this.maybeRender();
   }
 
-  // only restore coordinates
-  // undoSelf() {
-  //   this.restoreCoords(this.oldCoords);
-  //   this.restoreArrows(this.oldArrowCoords);
-  // }
-
   saveState() {
     return {
       arrowCoords : this.saveArrows(),
@@ -279,5 +273,43 @@ class GraphDeleteEdgeCommand extends GraphCommand {
     this.maybeUpdateAdj(() => {
       this.receiver.deleteEdge(this.fromId, this.toId);
     });
+  }
+}
+
+
+class GraphNodeCommand extends CanvasObjectMethod {
+  getOutgoing() {
+    var graphCO = this.receiver.getParent();
+    var graph = graphCO.graph;
+    var ids = Array.from(graph.adjacency.get(this.receiver.index));
+    return ids.map(id => graphCO.ids.get(id));
+  }
+
+  getIncoming() {
+    var graphCO = this.receiver.getParent();
+    var graph = graphCO.graph;
+    var incoming = [];
+    graph.adjacency.forEach((neighbors, idx) => {
+      if (neighbors.has(this.receiver.index)) incoming.push(idx);
+    });
+    return incoming.map(id => graphCO.ids.get(id));
+  }
+}
+
+class GraphNodeIncomingCommand extends GraphNodeCommand {
+  executeSelf() {
+    var graphCO = this.receiver.getParent();
+    if (graphCO instanceof DiGraphCanvasObject)
+      return super.getIncoming();
+    return super.getIncoming().concat(super.getOutgoing());
+  }
+}
+
+class GraphNodeOutgoingCommand extends GraphNodeCommand {
+  executeSelf() {
+    var graphCO = this.receiver.getParent();
+    if (graphCO instanceof DiGraphCanvasObject)
+      return super.getOutgoing();
+    return super.getIncoming().concat(super.getOutgoing());
   }
 }
