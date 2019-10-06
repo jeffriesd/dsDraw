@@ -282,6 +282,11 @@ button:focus , button::-moz-focus-inner {
   background-position: center;
 }
 
+#cancelButton {
+  background-image: url("../images/cancel.png");
+  background-position: center;
+}
+
 #selectTool { 
   background-image: url("../images/select.png");
 }
