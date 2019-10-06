@@ -124,7 +124,6 @@ class CloneEnvCommand {
   }
 
   execute() {
-    console.log("exec cloneenv")
     if (this.env == null) this.cloneEnv();
 
     VariableEnvironment.setState(this.env);
@@ -257,18 +256,18 @@ class ConsoleCommand {
       this.undoSelf();
     }
     catch(err) {
-      console.warn("failed to undo", this.constructor.name);
+      console.warn("failed to undo", this.constructor.name, ": " , err);
     }
     finally {
       this.argNodes.slice().reverse()
-        .filter(cmd => cmd != undefined)
-        .forEach(cmd => cmd.command.undo());
+        .filter(node => node != undefined)
+        .forEach(node => node.command.undo());
     }
   }
 
   undoSelf() { 
-    console.log("using default undo");
-    this.restoreState(this.prevState);
+    if (this.prevState)
+      this.restoreState(this.prevState);
   }
 
   // safeUndo() {
@@ -664,7 +663,7 @@ class GetPropertyCommand extends ConsoleCommand {
 
   /** GetPropertyCommand.checkArguments
    *    receiver object must be a CanvasObject,
-   *    CanvasChildObject, or an Array
+   *    CanvasChildObject, or list (interpreted as Array)
    *
    *    if Canvas object, convert provided property
    *    name to actual property e.g. "bg" => "fill"
@@ -673,9 +672,19 @@ class GetPropertyCommand extends ConsoleCommand {
   checkArguments() {
     if (this.receiver == null) throw "Cannot perform access on null";
     if (this.receiver instanceof Array) {
-      if (! this.receiver.hasOwnProperty(this.propName))
+      // array getOwnPropertyNames() = [...indices, "length"]
+
+      // if integer argument, it's an index
+      if (typeof this.propName == "number") {
+        if (Number.isInteger(this.propName))
+          this.property = this.propName;
+        else throw `Invalid list index ${this.propName}`;
+      }
+
+      // otherwise it's a method on lists (length(), etc.)
+      this.property = DsList.propMethodNames()[this.propName];
+      if (this.property == undefined)
         throw `Undefined property '${this.propName}' for lists.`;
-      this.property = this.propName;
     }
     else if (this.receiver instanceof CanvasObject 
         || this.receiver instanceof CanvasChildObject
@@ -989,8 +998,15 @@ class DirCommand extends ConsoleCommand {
 
   executeSelf() {
     var keys = c => Array.from(Object.keys(c));
-    var propNames = keys(this.canvasObject.propNames());
-    var methNames = keys(this.canvasObject.methodNames());
+    var propNames, methodNames;
+    if (this.canvasObject instanceof Array) {
+      propNames = [];
+      methNames = keys(DsList.methodNames());
+    }
+    else {
+      var propNames = keys(this.canvasObject.propNames());
+      var methNames = keys(this.canvasObject.methodNames());
+    }
     methNames = methNames.map(s => `${s}()`);
 
     return (propNames.concat(methNames)).map(s => `'${s}'`);
@@ -1160,11 +1176,12 @@ class BuckSetCommand extends ConsoleCommand {
       this.argsError("canvasObject argument must refer to a canvas object");
 
     // check that new label isn't already taken
-    if (VariableEnvironment.hasCanvasObj(this.objLabel)) 
+    if (VariableEnvironment.hasCanvasObj(this.objLabel)
+      && VariableEnvironment.getCanvasObj(this.objLabel) !== this.canvasObject)
       throw `Label ${this.objLabel} is already taken.`;
   }
 
-  /** BuckCommand.saveState
+  /** BuckSetCommand.saveState
    *    
    */
   saveState() { 
@@ -1173,20 +1190,63 @@ class BuckSetCommand extends ConsoleCommand {
     }
   }
 
-  /** BuckCommand.restoreState
+  /** BuckSetCommand.restoreState
    *    delete binding for canvas object's current label
    *    and create a new binding with the new label
+   * 
+   *    assign the label "a" to $b i.e. $("a", $b)
+   *    $a = $b
+   *    if checkArgs fails, canvasObject.label = "b"
+   *    
+   *    undo needs to delete "a" -> $b binding 
+   *    and restore "b" -> $b binding
+   * 
+   *    previousLabel = "b"
    */
   restoreState(state) {
-    VariableEnvironment.deleteCanvasObj(this.canvasObject.label);
+    if (VariableEnvironment.hasCanvasObj(this.canvasObject.label)) {
+      VariableEnvironment.deleteCanvasObj(this.canvasObject.label);
+    }
     VariableEnvironment.setCanvasObj(state.label, this.canvasObject);
     this.canvasObject.label = state.label;
   }
 
+  /** BuckSetCommand.executeSelf
+   *    set the label of a canvas object 
+   *    e.g.
+   *    $("z", myArray)
+   *    $("z", array())
+   *    $z = array()
+   *    
+   *    normal procedure: delete the existing label
+   *    for the canvas object on the right
+   *    and assign the new label to it.
+   * 
+   *    special case: 
+   *    $z = $x
+   *    
+   */
   executeSelf() {
     VariableEnvironment.deleteCanvasObj(this.canvasObject.label);
     VariableEnvironment.setCanvasObj(this.objLabel, this.canvasObject);
     this.canvasObject.label = this.objLabel;
+
+    return this.canvasObject;
+  }
+
+}
+
+class StringCommand extends ConsoleCommand {
+  constructor(cState, ...args) {
+    super(...args);
+  }
+
+  getChildValues() {
+    this.receiver = this.args[0];
+  }
+
+  executeSelf() {
+    return stringify(this.receiver);
   }
 
 }
