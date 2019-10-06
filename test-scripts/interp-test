@@ -1,0 +1,96 @@
+// should throw exception because unknown CObj 'c'
+// -- works as of 9/25/19
+define test1() {
+  b = bst();
+  a = array();
+
+  interpolate({
+    a : { endPos : { x : 300, y : 400 }, endTime :  3  },
+    b : { endPos : { x : 300, y : 400 }, endTime :  3  },
+    c : { endPos : { x : 300, y : 400 }, endTime :  3  }
+  });
+}
+
+
+// regular function (should work)
+define test2() {
+  
+  b = bst();
+  a = array();
+
+  interpolate({
+    a : { endPos : { x : 300, y : 400 }, endTime :  3  },
+    b : { endPos : { x : 300, y : 400 }, endTime :  3  }
+  });
+}
+
+
+// test condition startTime > endtime (should fail)
+// works as of 9/25/19
+define test3() {
+  a = array();
+
+  interpolate({
+    a : { endPos : { x : 300, y : 400 }, startTime : 5, endTime :  3  }
+  });
+}
+
+define test2() {
+  
+  b = bst();
+  a = array();
+
+  interpolate({
+    a : { endPos : { x : 500, y : 400 }, endTime :  3  },
+    b : { endPos : { x : 500, y : 400 }, startTime : 2, endTime :  2.3  }
+  });
+}
+
+define test2() {
+  a = array();
+
+  interpolate({
+    a : { 
+      endPos : { x : 400, y : 500 }, 
+      ctrl1 : { x : 200, y : 650 },
+      ctrl2 : { x : 300, y : 350 },
+      startTime : 0,
+      endTime : 1
+    }
+  }, 20);
+}
+
+// translate towards -pi/4
+// in a timed sequence
+
+
+
+define test() {
+  n = 10;
+  xs = [0] * 10;
+  ids = [0] * n;
+  x_space = 200;
+  y_space = 200;
+
+  for (i = 0; i < n; i = i + 1) {
+    ids[i] = "c" + str(i);
+    xs[i] = $(ids[i], conn());
+    tr(xs[i], -x_space*i, 0);
+  }
+  repaint();
+
+
+  ps = [0] * n;
+  pds = {};
+
+  for (i = 0; i < n; i = i + 1) {
+    ps[i] = {};
+    ps[i]["startTime"] = i / 10;
+    ps[i]["endTime"] = 0.5 + i / 10;
+    ps[i]["endPos"] = { x : 400, y : 100 };
+    pds[ids[i]] = ps[i];
+  }
+
+  interpolate(pds);
+  return ids;
+}

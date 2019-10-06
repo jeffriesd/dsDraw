@@ -1,0 +1,28 @@
+
+// user define functions should
+// undo their child commands
+// even when exceptions occur
+define test() {
+  b = bst();
+  z = 9;
+  $("z", a);
+}
+
+define test2() {
+  $("z", bst().x);
+}
+
+// more exception testing
+// with interpolations
+define test1() {
+  b = bst();
+  a = array();
+
+  interpolate({
+    a : { endPos : { x : 300, y : 400 }, endTime :  3  },
+    b : { endPos : { x : 300, y : 400 }, endTime :  3  },
+    c : { endPos : { x : 300, y : 400 }, endTime :  3  }
+  });
+
+  q = bst();
+}

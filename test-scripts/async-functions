@@ -1,0 +1,24 @@
+define w() {
+  wait(1000);
+}
+
+define f() { 
+  b = bst();
+
+  node = b[8];
+  while (node != null) {
+    node.bg = "red";
+    w(); 
+    node = node.parent();
+  }
+}
+
+define f() { 
+  b = bst();
+  b.asdf();
+}
+
+// interp test
+define f() {
+  
+}

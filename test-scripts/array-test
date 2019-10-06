@@ -1,0 +1,12 @@
+// test whether resize undo/redo works
+define test() {
+  a = array([1, 2, 3, 4]);
+  c = array([]);
+  b = array([5, 6, 7]);
+
+  a.copy(c);
+  wait(1000);
+  a.copy(b);
+}
+
+
