@@ -16,7 +16,7 @@ Once video has been recorded for a clip, it is no longer editable. Recorded vide
 
 ## Basic mouse controls
 To __move__ an existing object, hold control and drag the object.  
-To _clone__ an existing object, hold alt and drag the object.  
+To __clone__ an existing object, hold alt and drag the object.  
 To __delete__ any object, click on it to bring up the options and click the red X.   
 To change the settings of an existing object, click on it
 and select new options or configure it from the console.
@@ -29,19 +29,3 @@ __Control-Z:__ Undo
 __Control-Y:__ Redo  
 __T:__ Show console   
 __Escape:__ Hide console   
-
-
-## Data Structures
-
-### Arrays
-###### Methods: resize, swap, arc, copy, sort, length
-
-### Linked Lists
-###### Methods: insert, remove, link, cut
-
-### BST
-###### Methods: insert, remove, find, inorder, preorder, postorder, min, max, root, range
-
-### Binary Heap
-###### Methods: insert, pop, find, decr, root
-
