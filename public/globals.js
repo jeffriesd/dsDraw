@@ -1,5 +1,5 @@
 const expressionChars = /^[a-zA-Z0-9\s\(\)\=\*\+\-\/\^,\."]+$/;
-const variablePattern = /^[a-z]\w*$/;
+const variablePattern = /^[a-zA-Z]\w*$/;
 const numberPattern = /^\d+(|\.\d+)$/;
 const assignmentPattern = /^[a-zA-Z]\w*\s*\=\s*/;
 const methodPattern = /^[\w\[\],]+\.[a-zA-Z]+\(/;
