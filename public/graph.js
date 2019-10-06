@@ -197,7 +197,7 @@ class GraphCanvasObject extends LinearCanvasObject {
     this.bboxStroke = "#aaaa";
     this.bboxThickness = 2;
     
-    GraphCanvasObject.defaultSize = 5;
+    GraphCanvasObject.defaultSize = 15;
 
     this.resizePoint = new ResizePoint(this.cState, this, this.x2, this.y2);
   }
@@ -590,6 +590,8 @@ class GraphNode extends NodeObject {
 
   methodNames() {
     return {
+      "incoming" : GraphNodeIncomingCommand,
+      "outgoing" : GraphNodeOutgoingCommand, 
     };
   }
 
