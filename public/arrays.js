@@ -217,7 +217,7 @@ class Array1D extends LinearCanvasObject {
       ...super.propTypes(),
       "displayStyle": ["tower", "cell"],
       "maxTowerHeight": "int",
-      "seed": "int",
+      "randomSeed": "int",
       "showTree": "bool",
       "treeVertSep": "int",
     }
