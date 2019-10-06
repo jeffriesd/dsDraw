@@ -60,10 +60,16 @@ const executeCommand = (cmd, isRedo, overrideLock) => {
 
   return CommandRecorder.execute(cmd, isRedo, overrideLock)
     .then(cmdRet => {
-      repaint();
-      updateInspectPane();
       return cmdRet;
     })
+    .catch(err => {
+      cmd.undo();
+      throw err;
+    })
+    .finally(() => {
+      repaint();
+      updateInspectPane();
+    });
 };
 
 
@@ -133,7 +139,7 @@ const hotkeyRedo = () => {
   if (canvasLocked()) return canvasLockedAlert();
 
   return mc.hotkeyRedo()
-  .then(() => {
+  .finally(() => {
     repaint();
     updateInspectPane();
   });
@@ -141,10 +147,15 @@ const hotkeyRedo = () => {
 
 const repaint = () => cState.repaint();
 
+// async commands can be canceled by the click of a button
+var commandCanceled = false;
+const cancelAsync = () => commandCanceled = true;
+const asyncCanceled = () => commandCanceled;
+
 
 /** lockContext
  *    prevent any interaction with canvas/editor state
- *    while synchronous commands execute. The only 
+ *    while asynchronous commands execute. The only 
  *    action possible is to cancel the command (animation)
  *    or wait.
  * 
@@ -152,17 +163,20 @@ const repaint = () => cState.repaint();
  *      canvas -- no clicking (also disable delete button on toolbar)
  *      console -- no entering code
  *      clip menu -- no switching/deleting clips
+ * 
+ *    async commands can also be canceled
  */
 
 var contextLocked = false;
 const lockContext = () => {
-  window.reactEditor.setState({ canvasLocked : true });
+  window.reactEditor.setState({ contextLocked : true });
   contextLocked = true;
 };
 
 const unlockContext = () => {
-  window.reactEditor.setState({ canvasLocked : false });
+  window.reactEditor.setState({ contextLocked : false });
   contextLocked = false;
+  commandCanceled = false;
 };
 
 const canvasLocked = () => {
