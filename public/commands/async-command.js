@@ -31,6 +31,10 @@ class AsyncCommand extends ConsoleCommand {
   atomicExecute() {
     throw `Atomic redo not implemented for ${this.constructor.name}.`;
   }
+
+  checkCancel() {
+    if (asyncCanceled()) throw "Animation canceled";
+  }
 }
 
 class WaitCommand extends AsyncCommand {
@@ -288,10 +292,13 @@ class InterpolateCommand extends AsyncCommand {
     var nextFrame = new Promise(resolve => resolve(firstMovingFrame));
 
     while (frameNum <= finalMovingFrame) {
+
       // this frame number is just used to control while loop
       frameNum++;
       nextFrame = nextFrame.then(fn => {
         // get frame number from previous promise
+
+        this.checkCancel();
 
         // for next object, check if starting frame number is less than current frame number
         // (i.e. this object should start moving)
@@ -326,7 +333,7 @@ class InterpolateCommand extends AsyncCommand {
         });
 
         repaint();
-        return sleep(this.msPerFrame).then(() => fn+ 1);
+        return sleep(this.msPerFrame).then(() => fn + 1);
       });
     }
     
