@@ -117,11 +117,15 @@ class OptionMenu extends React.Component {
 
   render() {
     if (this.props.activeObj == null) return null;
-    if (this.props.activeObj.dcTimer == null) return null;
     var optionMap = this.props.activeObj.propTypes();
 
     // if no options, don't show menu
     if (! Object.keys(optionMap).length) return null;
+
+    // name at top of option menu should match
+    // what is printed by console i.e. 'BST(4, 3, 5, ...)' 
+    // but without the entries
+    var menuLabel = this.props.activeObj.toString().match("[^\(]*")[0];
 
     return create(
       "div", 
@@ -130,7 +134,7 @@ class OptionMenu extends React.Component {
         style: this.menuStyle(),
         ref: r => $(r).draggable(),
       },
-      create("div", { className: "OptionMenuTypeLabel" }, this.props.activeObj.constructor.name),
+      create("div", { className: "OptionMenuTypeLabel" }, menuLabel),
       create("div", {className: "OptionList"} ,
         Object.entries(optionMap).map(([k, v]) => this.createOptionPair(k, v)) // option labels + inputs
       ),
@@ -149,7 +153,7 @@ class ReactEditor extends React.Component {
       postRecording: false, 
       mouseDown: { x: 0, y: 0},
 
-      canvasLocked: false,
+      contextLocked: false,
 
       showOptionMenu: false,
 
@@ -202,6 +206,7 @@ class ReactEditor extends React.Component {
       create(
         ReactToolbar, 
         { 
+          contextLocked: this.state.contextLocked, // for cancel button
           groupSelected: this.state.groupSelected,
           activeObj: this.state.activeObj,
           toolbarType: "flowchart",
@@ -241,7 +246,7 @@ class ReactEditor extends React.Component {
         "div",
         { 
           id : "lockDiv", 
-          hidden : ! this.state.canvasLocked
+          hidden : ! this.state.contextLocked,
         }
       )
     );
