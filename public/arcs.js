@@ -5,7 +5,7 @@
  */
 
 class Arrow {
-  static init(self, x1, y1, x2, y2) {
+  static init(self, x1, y1, x2, y2, fromAnchor, toAnchor) {
       self.x1 = x1;
       self.y1 = y1;
       self.x2 = x2;
@@ -20,7 +20,7 @@ class Arrow {
       self.lineDash = [10, 10];
 
       // default hit thickness
-      self.hitThickness = 20;
+      self.hitThickness = 10;
 
       // head options
       self.hollow = true;
@@ -32,13 +32,28 @@ class Arrow {
 
       // initialize control points at
       // start and end points
-      var midX = Math.floor((self.x1 + self.x2) / 2);
-      var midY = Math.floor((self.y1 + self.y2) / 2);
+      var fromX = fromAnchor ? fromAnchor.x : self.x1;
+      var toX = toAnchor ? toAnchor.x : self.x2;
+      var fromY = fromAnchor ? fromAnchor.y : self.y1;
+      var toY = toAnchor ? toAnchor.y : self.y2;
+      var midX = Math.floor((fromX + toX) / 2);
+      var midY = Math.floor((fromY + toY) / 2);
       
       self.cp1 = new ControlPoint(self.cState, self, midX, midY);
       self.cp2 = new ControlPoint(self.cState, self, midX, midY);
 
       self.head = new ArrowHead(self.cState, self);
+      self.hasHead = true;
+      
+      // arrow may be 'locked' into place by parents
+      if (fromAnchor || toAnchor) {
+        self.locked = {
+          from: fromAnchor,
+          to: toAnchor,
+        };
+      }
+
+      self.straighten();
   }
 
   static propTypes() {
@@ -111,6 +126,7 @@ class Arrow {
       headHeight: self.headHeight,
       label: self.label,
       strokeColor: self.strokeColor,
+      hasHead: self.hasHead,
     };
   }
 
@@ -155,8 +171,26 @@ class Arrow {
 
 
   static straighten(self) {
-    var mx = (self.x2 + self.x1) / 2 | 0;
-    var my = (self.y2 + self.y1) / 2 | 0;
+    var fromX, fromY, toX, toY;
+    if (self.locked) {
+      if (self.locked.from) {
+        var center = self.locked.from.objectCenter();
+        fromX = center.x;
+        fromY = center.y;
+      }
+      if (self.locked.to) {
+        var center = self.locked.to.objectCenter();
+        toX = center.x;
+        toY = center.y;
+      }
+    }
+    fromX = fromX || self.x1;
+    fromY = fromY || self.y1;
+    toX   = toX   || self.x2;
+    toY   = toY   || self.y2;
+
+    var mx = (fromX + toX) / 2 | 0;
+    var my = (fromY + toY) / 2 | 0;
     self.cp1.x = mx;
     self.cp2.x = mx;
     self.cp1.y = my;
@@ -203,9 +237,9 @@ class Arrow {
     }
 
     // configAndDraw head so it appears on top
-    self.head.configAndDraw();
+    if (self.hasHead)
+      self.head.configAndDraw();
   }
-
 
 }
 
@@ -219,16 +253,7 @@ class CurvedArrow extends CanvasObject {
 
   constructor(canvasState, x1, y1, x2, y2, fromAnchor, toAnchor) {
     super(canvasState, x1, y1, x2, y2);
-    Arrow.init(this, x1, y1, x2, y2);
-    console.log("arrow cp1 = ", this.cp1);
-
-    // arrow may be 'locked' into place by parents
-    if (fromAnchor || toAnchor) {
-      this.locked = {
-        from: fromAnchor,
-        to: toAnchor,
-      };
-    }
+    Arrow.init(this, x1, y1, x2, y2, fromAnchor, toAnchor);
 
     this.fromAnchorAlive = () => this.locked && this.locked.from && ! this.locked.from.dead;
 
@@ -236,6 +261,27 @@ class CurvedArrow extends CanvasObject {
   }
 
   /** FOLLOWING METHODS IMPLEMENTED BY ARROW CLASS */
+
+
+  /**
+   *  hasHead is only exposed to user in CurvedArrow
+   *  (users shouldnt be able to make directed graphs
+   *   out of undirected graphs)
+   */
+  propTypes() {
+    return {
+      ...Arrow.propTypes(),
+      "hasHead": "bool",
+    };
+  }
+
+  propNames() {
+    return {
+      ...Arrow.propNames(),
+      "hasHead": "hasHead",
+      "head": "hasHead",
+    };
+  }
 
   /** 
    *  moving arrow x1, y1 should move startPoint as well
@@ -356,13 +402,23 @@ class CurvedArrow extends CanvasObject {
  */
 class ChildArrow extends CanvasChildObject {
 
-  constructor(canvasState, parentObject, cpx1, cpy1, cpx2, cpy2) {
+  constructor(canvasState, parentObject, cpx1, cpy1, cpx2, cpy2, fromAnchor, toAnchor) {
     super(canvasState); 
     this.parentObject = parentObject;
-    Arrow.init(this, cpx1, cpy1, cpx2, cpy2);
+    Arrow.init(this, cpx1, cpy1, cpx2, cpy2, fromAnchor, toAnchor);
 
     this.fromAnchorAlive = () => true;
     this.toAnchorAlive = () => true;
+  }
+
+  /** ChildArrow.active
+   *    override default implementation 
+   *    (active iff (this.active || parent.active)
+   *    because too many arcs/control points shown
+   *    at once becomes cluttered and hard to click
+   */
+  active() {
+    return this.cState.isActive(this) || this.cState.isActive(this.cp1) || this.cState.isActive(this.cp2);
   }
 
   getParent() {
@@ -514,6 +570,15 @@ class ArrowHead extends CanvasChildObject {
     this.height = this.parentArrow.headHeight;
   }
 
+  /** ArrowHead.active
+   *    override default implementation 
+   *    (active iff (this.active || parent.active)
+   *    because ChildArrow differs from CurvedArrow here
+   */
+  active() {
+    return this.parentArrow.active();
+  }
+
   /** ArrowHead.draw
    */
   draw() {
@@ -610,11 +675,6 @@ class DragPoint extends CanvasChildObject {
     
     // don't draw if locked to parent
     if (this.getParent().fromAnchorAlive()) return;
-
-    this.ctx.fillStyle = this.hashColor;
-    this.ctx.beginPath();
-    this.ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
-    this.ctx.fill();
 
     this.hitCtx.fillStyle = this.hashColor;
     this.hitCtx.beginPath();
