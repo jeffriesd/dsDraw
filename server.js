@@ -12,6 +12,7 @@ const app = express();
 const expressWS = require("express-ws")(app);
 
 // clean up temporary files
+console.log("cleaning temp files");
 util.cleanTempDir();
 
 // set public dir
