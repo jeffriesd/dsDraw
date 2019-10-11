@@ -15,7 +15,7 @@ function cleanDir(tempdir) {
     
     if (fs.existsSync(subdir) && fs.lstatSync(subdir).isDirectory()) {
       // remove now-empty folder 
-      fs.rmdirSync(tempdir);
+      fs.rmdirSync(subdir);
     }
   });
 
