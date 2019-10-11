@@ -78,3 +78,37 @@
   margin-left: 1%;
   margin-right: 1%;
 }
+
+#truncateButton {
+  background: none;
+  border: none;
+  background-repeat: no-repeat;
+  background-image: url("../images/truncate.png");
+  background-size: 35% 70%;
+  background-position: center;
+  width: 5%;
+  height: 100%;
+  float: left;
+}
+
+#truncateButton:hover {
+  opacity: .5;
+}
+
+
+
+#fastForwardButton {
+  background: none;
+  border: none;
+  background-repeat: no-repeat;
+  background-image: url("../images/fastforward.png");
+  background-size: 35% 40%;
+  background-position: center;
+  width: 5%;
+  height: 100%;
+  float: left;
+}
+
+#fastForwardButton:hover {
+  opacity: .5;
+}

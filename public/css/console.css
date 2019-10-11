@@ -3,6 +3,7 @@
   z-index: var(--consoleZ);
   position: absolute;
   background: var(--blacko70);
+  /* opacity: .7;*/
   scrollbar-width: none;
   display: flex;
   flex-direction: column;
@@ -16,7 +17,7 @@
   padding: 0px;
   background: transparent;
   border: none;
-  color: var(--white);
+  /* color: var(--white); */
   left: var(--console-fs);
   margin-left: 10px; /* bit of extra space to align history with input */
   width: 85%;
@@ -31,19 +32,21 @@
   padding-left: 5px;
   overflow: hidden;
 
-  color: white;
-  font-size: var(--console-fs);
-  font-family: var(--console-ff);
+  /* color: white; */
+  /* font-size: var(--console-fs); 
+  font-family: var(--console-ff); */
 
   width: 100%;
 }
 #commandHistory {
   position: absolute;
+  /*
   font-size: var(--console-fs);
+  */
   padding-bottom: 5px;
   width: 100%;
   height: calc(100% - 1.5*var(--console-fs));
-  color: var(--white);
+  /* color: var(--white); */
   border: 0;
   resize: none;
   pointer-events: none;
@@ -55,7 +58,7 @@
   border-bottom: 2px solid var(--dgray7);
 }
 
-#commandConsole::-webkit-scrollbar, #commandHistory::-webkit-scrollbar {
+#commandConsole::-webkit-scrollbar, textarea::-webkit-scrollbar {
   display: none;
 }
 
@@ -65,22 +68,32 @@
   background: none;
 }
 
-#commandConsoleSettingsButton {
-  float: right;
-  background: none;
+#commandTopBar button {
   width: 30px;
   height: 30px;
-
-  background: none;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  background-image: url("../images/settings.png");
   border: none;
   opacity: .5;
 }
 
-#commandConsoleSettingsButton:hover {
-  opacity: 1;
+#commandConsoleSettingsButton {
+  float: right;
+  background: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-image: url("../images/settings.png");
+}
+
+#commandConsoleRunButton {
+  float: left;
+  background: none;
+  background-size: 50% 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/play.png");
+}
+
+#commandTopBar button:hover {
+  opacity: .8;
 }
 
 #commandConsoleSettingsButton:active {
@@ -94,13 +107,27 @@
   height: 100%;
   background: var(--blacko70);
   border-left: 3px solid var(--dgray7);
+  display: flex;
+  flex-direction: column;
+}
+
+#commandSettings {
+  overflow-y:  auto;
+  height: calc(100% - 25px);
+  width: 100%;
 }
 
 #commandSettingsClose {
+  float: top;
+  width: 100%;
+  min-height: 25px;
+}
+
+#commandSettingsCloseButton {
   float: right;
-  width: 12px;
-  height: 12px;
-  margin: 5px;
+  width: 15px;
+  height: 15px;
+  margin: 2%;
   background: none;
   background-size: 100% 100%;
   background-repeat: no-repeat;
@@ -119,4 +146,45 @@
 #commandLine:focus {
   outline: 0;
   border: none;
+}
+
+
+#commandSettings div {
+  margin-top: 5%;
+  display: flex;
+  flex-direction: column;
+  margin-left: 5%;
+  font-family: var(--console-ff);
+  font-size: 12px;
+}
+
+#commandSettings div input {
+  background: transparent;
+  /* color: var(--white); */
+  margin-right: 10%;
+}
+
+#commandSettings div button {
+  background-color: transparent;
+  padding: 1%;
+  margin-right: 10%;
+  margin-top: 10%;
+  width: auto;
+  border: 1px solid var(--white);
+}
+
+#commandTextBox {
+  height: 100%;
+  /* color: var(--white); */
+  box-sizing: border-box;
+  resize: none;
+  scrollbar-width: none;
+  background-color: var(--blacko30);
+}
+
+#commandTextBoxOutput {
+  background-color: var(--blacko30);
+  border: 1px solid var(--lgray);
+  box-sizing: border-box;
+  resize: vertical;
 }

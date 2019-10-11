@@ -47,3 +47,60 @@ Seeking is performed when the user drags the seeker in the video control bar. It
 
 #### Undo/Redo 
 CommandRecorder also maintains two stacks for undoing and redoing commands. This functionality is distinct from the seeking functionality in that undo (ctrl + z) and redo (ctrl + y) aren't bound to specific timestamps. Commands can be undone during recording or before, but if a clip has already been recorded, these hotkeys do nothing.
+
+
+
+## MediaController
+
+-- waiting property:
+used in: pause -> rec transition, pause -> play, 
+
+  pause -> rec: don't transition to rec state if waiting on video
+            
+  pause -> play: dont transition to play if waiting on video
+
+set to true before sending video requests to server
+set to false in setVideoURL, setVideoDownload, and possibly in transition to record
+
+## lockContext()
+set global var contextLocked to true in 
+main.js. this is used to control when
+canvas, console, keyboard etc. is disabled
+while commands are allowed to execute. 
+
+called in: MC.hotkeyRedo() 
+        and Console.commandEntered
+
+
+### canvasLocked()
+used to disable the canvas from taking any input. 
+previously locked after recording but now 
+we allow continuous recording-pause-recording.
+
+new definition: 
+canvas locked iff contextLocked 
+i.e. some async command is currently executing
+
+used to cancel/block:
+- hotkeyUndo
+- hotkeyRedo/Atomic
+- mouse input
+- Console.commandEntered
+- hide delete button in toolbar
+
+
+## State Pattern for MediaState (Pause, Play, Record) 
+
+### PauseState
+
+__record__:
+transition from not recording to recording.
+If context (MC) is not waiting, 
+
+
+
+
+
+
+
+

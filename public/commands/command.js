@@ -983,7 +983,7 @@ class GetVariableCommand {
 
 // for debugging
 
-class DirCommand extends ConsoleCommand {
+class HelpCommand extends ConsoleCommand {
   constructor(cState, ...args) {
     super(...args);
   }
@@ -1009,7 +1009,7 @@ class DirCommand extends ConsoleCommand {
     }
     methNames = methNames.map(s => `${s}()`);
 
-    return (propNames.concat(methNames)).map(s => `'${s}'`);
+    return (propNames.concat(methNames));
   }
 }
 

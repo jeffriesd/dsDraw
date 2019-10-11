@@ -36,7 +36,7 @@ function processClientMessage(ws, req, message) {
       req.session.vm.selectClip(body.clipId);
       break;
     case "merge":
-      req.session.vm.mergeClips(body.clipIds);
+      req.session.vm.mergeClipsForDL(body.clipIds);
       break;
     case "renderMath":
       math.renderFormula(body.text, (data) => {
@@ -47,6 +47,14 @@ function processClientMessage(ws, req, message) {
     case "deleteClip":
       req.session.vm.deleteClipFiles(msgObj.body.clipIds);
       break;
+    case "requestPromise": 
+      // process the request and then send a message
+      // back to the client to resolve the it made promise
+      processClientMessage(ws, req, 
+        JSON.stringify({type: body.reqType, body : body.reqBody }));
+      sendMessage(ws, { reqNum: body.reqNum }, "resolvePromise");
+      break;
+
   }
 }
 

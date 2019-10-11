@@ -65,6 +65,8 @@ define test2() {
 
 
 
+// all collapse to one point 
+// with delays
 define test() {
   n = 10;
   xs = [0] * 10;

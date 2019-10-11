@@ -37,7 +37,7 @@ const updateInspectPane = () => {
 const updateCommandStack = () => {
   var stack;
   // use past/future if already recorded
-  if (mc.postRecording) {
+  if (mc.hasRecorded()) {
     var past = mc.cmdRecorder.pastCmds;
     // filter out CloneCanvas and CloneEnv
     var init = mc.cmdRecorder.initCmds
@@ -63,6 +63,7 @@ const executeCommand = (cmd, isRedo, overrideLock) => {
       return cmdRet;
     })
     .catch(err => {
+      console.log("caught cancel err")
       cmd.undo();
       throw err;
     })
@@ -89,7 +90,20 @@ const executeCommand = (cmd, isRedo, overrideLock) => {
 const LIFT_ATOMIC = true;
 const LIFT_ASYNC = false;
 var liftingAtomically = LIFT_ASYNC;
-// global entry point for setting liftingAtomically
+/** global entry point for setting liftingAtomically
+ *  
+ *  called in the following places:
+ *    - main.hotkeyRedoAtomic
+ *    - CommandRecorder.seekTo
+ *    - CommandRecorder.fullRewind
+ *    - CommandRecorder.init
+ *      
+ *    TODO 
+ *    - PauseState.record() and RecordState.record()
+ * 
+ *      effect: Async commands executed while paused
+ *            between recordings will execute atomically
+ */
 const setCommandLifting = (level) => { 
   return new Promise(resolve => { liftingAtomically = level; resolve(); });
 }
@@ -106,7 +120,10 @@ const liftCommand = (cmd) => {
 }
 
 const liftUndo = (cmd) => { 
-  return new Promise(resolve => resolve(cmd.undo()));
+  return new Promise(resolve => { 
+    cmd.undo();
+    resolve();
+  });
 }
 
 const liftFunction = (f) => {
@@ -119,6 +136,7 @@ const hotkeyUndo = () => {
   mc.hotkeyUndo();
   repaint();
   updateInspectPane();
+
 };
 
 
@@ -143,13 +161,18 @@ const hotkeyRedo = () => {
     repaint();
     updateInspectPane();
   });
+
 };
 
-const repaint = () => cState.repaint();
+const repaint = () => { 
+  cState.repaint();
+}
 
 // async commands can be canceled by the click of a button
 var commandCanceled = false;
-const cancelAsync = () => commandCanceled = true;
+const cancelAsync = () => { 
+   commandCanceled = true;
+};
 const asyncCanceled = () => commandCanceled;
 
 
@@ -179,16 +202,22 @@ const unlockContext = () => {
   commandCanceled = false;
 };
 
+/** When is the canvas disabled? 
+ * 
+ *    Well, the canvas can only be edited while recording
+ *    or while paused between recordings in the final 
+ *    frame of the most recent recording (i.e., you can't
+ *    rewind to an arbitrary point and make edits. Changes can
+ *    only appear after previously recorded content.)
+ */
 const canvasLocked = () => {
-  return mc.postRecording || contextLocked;
+  return contextLocked 
+    || (mc.isPlaying())
+    || (mc.hasRecorded() && mc.isPaused() && ! mc.atEndOfClip());
 };
 
 const clipMenuLocked = () => {
-  return mc.recording || contextLocked;
-};
-
-const consoleLocked = () => {
-  return mc.postRecording || contextLocked;
+  return contextLocked || mc.isRecording() || mc.isPlaying();
 };
 
 // if canvas is locked 
@@ -199,6 +228,7 @@ const cmLockedAlert = () => alert("Clip can not be changed currently.")
 
 const parseLine = cmdStr => {
   this.nearleyParser = new nearley.Parser(nearley.Grammar.fromCompiled(grammar), {});
+
   var parseTree = this.nearleyParser.feed(cmdStr.trim());
   if (parseTree.results.length > 1)
     throw "Ambiguous grammar";
@@ -233,10 +263,22 @@ editCanvas.onmousedown = (event) => {
  *  invoke canvas events)
  */
 document.onmousemove = (event) => { 
+  // forward event to canvas so it still gets input
+  // when dragging over console
+  var mouseMove = new Event("mousemove");
+  mouseMove.offsetX = event.offsetX;
+  mouseMove.offsetY = event.offsetY;
+  editCanvas.dispatchEvent(mouseMove);
+
   if (canvasLocked()) return;
   cState.eventHandler.mouseMove(event);
-  repaint();
 };
+
+// add handler to (not overwrite) canvas.mousemove
+editCanvas.addEventListener("mousemove", () => {
+  repaint();
+});
+
 
 // drag console even if mouse moves away from it 
 // window.onmousemove = (event) => commandConsole.dragConsole(event);

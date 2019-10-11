@@ -37,7 +37,10 @@ function mergeVideos(clipPaths, destPath, stdErrCallback) {
   return new Promise((resolve, reject) => {
     writeListFile(tempFile, clipPaths).then(() => {
       var ffmpeg = spawn("ffmpeg", args);
-      // ffmpeg.stderr.on("data", (data) => null);
+      console.log("ffmpeg args", args)
+      console.log("trying to merge")
+      ffmpeg.on("error", e => console.log("ffmpeg err", e))
+      ffmpeg.on("exit", e => console.log("ffmpeg exit ", e))
       ffmpeg.on("close", (event) => resolve());
     }).catch((err) => {
       console.log("Error merging:", err);
@@ -57,6 +60,7 @@ function truncateVideo(clipPath, destFile, timeStamp) {
   var args = truncateArgs(clipPath, destFile, timeStamp); 
   return new Promise((resolve, reject) => {
     var ffmpeg = spawn("ffmpeg", args);
+    console.log("ffmpeg args: ", args);
     ffmpeg.on("close", (event) => resolve());
   });
 }

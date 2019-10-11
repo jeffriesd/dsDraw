@@ -2,20 +2,30 @@
 const scrollSpeed = 8;
 const consolePromptStr = "> ";
 
+const CLINE_MODE = "commandLineMode";
+const TEXT_MODE = "textMode";
+
 class ReactConsole extends React.Component {
 
   constructor(props) {
     super(props);
     this.state = {
+      text: "",
+      consoleOutput: "", // used only in text-editor mode
       historyStack: [],
       printStack: [],
       numLines: 15,
       hidden: true,
       cycleIdx: 0,
-      lineHeight: 24,
+      fontSize: this.props.style.fontSize,
+      fontFamily: this.props.style.fontFamily,
       commandLineValue: "",
       showSettings: false,
+      consoleMode: CLINE_MODE,
+      bgColor: "rgba(0, 0, 0, .7)",
+      fgColor: "white",
     }
+
     this.size = { width: this.props.width, height: this.props.height };
     this.pos = { left: this.props.left, top: this.props.top };
   }
@@ -29,7 +39,7 @@ class ReactConsole extends React.Component {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    if (!this.state.hidden)
+    if (!this.state.hidden && this.commandLine)
       this.commandLine.focus();
     this.scrollToBottom();
   }
@@ -55,8 +65,12 @@ class ReactConsole extends React.Component {
       this.state.historyStack.push(line);
       this.state.printStack.push(consolePromptStr + line);
     }
-    else
+    else {
+      // just a result or error
       this.state.printStack.push(line);
+      // also print to text-edit output
+      this.setState({ consoleOutput : line });
+    }
   }
 
   /** evaluate
@@ -76,13 +90,13 @@ class ReactConsole extends React.Component {
   // }
 
   // reset cycle idx and parse/execute line
-  commandEntered() {
+  commandEntered(line) {
     // CommandRecorder.execute will check anyways
     // but this way the console contents are unaffected
-    if (consoleLocked()) return canvasLockedAlert();
+    if (canvasLocked()) return canvasLockedAlert();
 
-    var line = this.state.commandLineValue;
     this.setState({ cycleIdx: 0 });
+    this.setState({ consoleOutput: "" });
     var cmdObj;
     var parseErr;
 
@@ -116,7 +130,7 @@ class ReactConsole extends React.Component {
       })
       .catch(error => {
         console.log("EXEC ERROR: " + error.stack);
-        this.push("[EXEC ERROR]: " + error.toString(), "result");
+        this.push("[EXEC ERROR]: " + error.toString(), "error");
       })
       .finally(() => {
         unlockContext();
@@ -126,16 +140,6 @@ class ReactConsole extends React.Component {
         updateInspectPane();
       });
     }
-
-
-
-    // // print error or literal result
-    // // TODO check for unexpected types like method objects
-    // if (commandRet !== undefined && stringify(commandRet) != line)
-    //   this.push(stringify(commandRet), "result");
-
-    // // keep history scrolled to bottom
-    // this.setState({ commandLineValue: "" });
   }
 
   scrollToBottom() {
@@ -150,30 +154,39 @@ class ReactConsole extends React.Component {
 
   renderSettingsPane() {
     // TODO implement settings
-    return null;
-
     if (! this.state.showSettings) return null;
     return create(
       "div",
       { 
         id: "commandSettingsPane",
-        style: {
+        style: { 
+          backgroundColor: this.state.bgColor,
+          color: this.state.fgColor,
           left: this.size.width,
         },
       },
-      create(
-        "div",
-        { 
-          id: "commandSettingsClose",
-          onClick: e => { 
-            this.setState({ showSettings: false });
-          },
-        },
-      ),
+      // create(
+      //   "div",
+      //   { 
+      //     id: "commandSettingsClose",
+      //     onClick: e => { 
+      //       this.setState({ showSettings: false });
+      //     },
+      //   },
+      //   create("div", { id: "commandSettingsCloseButton" }),
+      // ),
       create(
         CommandSettings,
         { 
-          updateSettingsCallback: state => this.setState(state),
+          updateSettingsCallback: state => { 
+            console.log("upd", state)
+            this.setState(state);
+          },
+          fgColor: this.state.fgColor,
+          bgColor: this.state.bgColor,
+          consoleMode: this.state.consoleMode,
+          fontFamily: this.state.fontFamily,
+          fontSize: this.state.fontSize,
         },
       )
     );
@@ -210,59 +223,158 @@ class ReactConsole extends React.Component {
           }
         },
         onWheel: e => {
-          var newScrollTop = this.history.scrollTop + (scrollSpeed * e.deltaY);
-          this.history.scrollTo(0, newScrollTop);
+          if (this.history) {
+            var newScrollTop = this.history.scrollTop + (scrollSpeed * e.deltaY);
+            this.history.scrollTo(0, newScrollTop);
+          }
         },
-        onClick: e => this.commandLine.focus(),
-        style: {
+        onClick: e => { 
+          // don't steal focus from something else such as 
+          // settings input
+          if ((e.target.id == "commandConsole" || e.target.id == "commandBg")
+              && this.commandLine != null)
+            this.commandLine.focus() 
+        },
+        style: { // styling commandConsole
+          backgroundColor: this.state.bgColor, 
+          color: this.state.fgColor,
           left: this.pos.left,
           top: this.pos.top,
           width: this.size.width,
           height: this.size.height,
         },
       },
-      create(
-        CommandTopBar,
-        { 
-          showSettingsCallback: () => this.toggleSettingsPane(),
-        },
-      ),
-      create(
-        CommandLine,
-        {
-          commandEnteredCallback: () => this.commandEntered(),
-          valueCallback: v => this.setState({ commandLineValue: v }),
-          clearConsole: () => this.setState({ printStack: [] }),
-          cycleCommands: d => this.cycleCommands(d),
-          toggleVisible: v => this.toggleVisible(v),
-          getRef: r => this.commandLine = r,
-          commandLineValue: this.state.commandLineValue,
-        },
-      ),
-      create(
-        "div",
-        { id: "commandBg" }, 
-        consolePromptStr
-      ),
-      create(
-        CommandHistory,
-        {
-          getRef: r => this.history = r,
-          lineHeight: this.state.lineHeight,
-          printStack: this.state.printStack,
-          consoleHeight: this.size.height - this.state.lineHeight,
-        },
-      ),
+      ...this.renderConsole(),
       this.renderSettingsPane(),
-    )
+      );
+    }
+
+    renderConsole() {
+      if (this.state.consoleMode == CLINE_MODE)
+        return [
+          create(
+            CommandTopBar,
+            { 
+              consoleMode: this.state.consoleMode,
+              showSettingsCallback: () => this.toggleSettingsPane(),
+            },
+          ),
+          create(
+            CommandLine,
+            {
+              fgColor: this.state.fgColor,
+              commandEnteredCallback: (cmdText) => this.commandEntered(cmdText),
+              valueCallback: v => this.setState({ commandLineValue: v }),
+              clearConsole: () => this.setState({ printStack: [] }),
+              cycleCommands: d => this.cycleCommands(d),
+              toggleVisible: v => this.toggleVisible(v),
+              getRef: r => this.commandLine = r,
+              commandLineValue: this.state.commandLineValue,
+            },
+          ),
+          create(
+            "div",
+            { id: "commandBg" }, 
+            consolePromptStr
+          ),
+          create(
+            CommandHistory,
+            {
+              style: { color: this.state.fgColor, fontSize: this.state.fontSize, fontFamily: this.state.fontFamily },
+              getRef: r => this.history = r,
+              lineHeight: 1.25 * this.state.fontSize, // give a little extra space
+              printStack: this.state.printStack,
+              consoleHeight: this.size.height - this.state.fontSize,
+            },
+          )
+        ];
+
+      // otherwise in text mode
+      const runCodeCallback = () => this.commandEntered(this.commandTextBox.value);
+
+      return [
+        create(
+          CommandTopBar,
+          { 
+            showSettingsCallback: () => this.toggleSettingsPane(),
+            consoleMode: this.state.consoleMode,
+            runCodeCallback: runCodeCallback,
+          },
+        ),
+
+        // text editor
+        create(
+          "textarea",
+          {
+            spellCheck: false,
+            ref: r => this.commandTextBox = r,
+            id: "commandTextBox",
+            onKeyDown: e => { 
+              // CTRL+Enter executes code
+              var kc = e.keyCode;
+              if (hotkeys[CTRL]) {
+                if (kc == Z) {
+                  e.preventDefault(); // dont undo typing
+                  hotkeyUndo();
+                }
+                if (kc == Y) {
+                  if (hotkeys[ALT])
+                    hotkeyRedoAtomic();
+                  else
+                    hotkeyRedo();
+                }
+                if (kc == ENTER)
+                  runCodeCallback();
+              }
+
+              // lift state up
+              if (kc == ESC)
+                this.toggleVisible(false);
+            },
+            // save text if going back and forth between modes
+            onChange: e => { this.setState({ text: e.target.value }) },
+            style: { color: this.state.fgColor, fontSize: this.state.fontSize, fontFamily : this.state.fontFamily },
+            defaultValue: this.state.text,
+          }
+        ),
+
+        // console output
+        (this.state.consoleOutput !== "" 
+          ? 
+          create(
+            "textarea",
+            {
+              spellCheck: false,
+              id: "commandTextBoxOutput",
+              disabled: true,
+              defaultValue: "> " + this.state.consoleOutput,
+              style: { color: this.state.fgColor },
+            },
+          )
+          : null),
+
+
+      ]
   }
 }
 
 class CommandTopBar extends React.Component {
+  runButton() {
+    if (this.props.consoleMode === TEXT_MODE)
+      return create(
+        "button",
+        {
+          id: "commandConsoleRunButton",
+          onClick: e => this.props.runCodeCallback(),
+        },
+      )
+  }
+
   render() {
     return create(
       "div",
       { id: "commandTopBar" },
+      this.runButton(),
       create(
         "button",
         { 
@@ -304,7 +416,7 @@ class CommandLine extends React.Component {
 
     // lift state up
     if (kc == ENTER)
-      this.props.commandEnteredCallback();
+      this.props.commandEnteredCallback(this.props.commandLineValue);
     if (kc == ESC)
       this.props.toggleVisible(false);
     if (kc == UP)
@@ -317,6 +429,7 @@ class CommandLine extends React.Component {
     return create(
       "input",
       {
+        style: { color: this.props.fgColor },
         id: "commandLine",
         ref: r => this.props.getRef(r),
         onChange: e => this.props.valueCallback(e.target.value),
@@ -348,19 +461,48 @@ class CommandHistory extends React.Component {
     return create(
       "textarea",
       {
+        spellCheck: false,
         onChange: () => { },
         id: "commandHistory",
         value: this.renderText(),
-        style: { lineHeight: this.props.lineHeight + "px" },
+        style: { ...this.props.style, lineHeight: this.props.lineHeight + "px" },
         ref: r => this.props.getRef(r),
       },
     )
   }
 }
 
-
-// TODO implement settings tab
 class CommandSettings extends React.Component {
+  settingsInput(text, propName, wrapper, defaultValue) {
+    return create(
+      "div", {},
+      text,
+      create("input", {
+        onKeyDown: e => {
+          if (e.keyCode === ENTER) 
+            this.props.updateSettingsCallback({ [propName] : wrapper(e.target.value)});
+        },
+        defaultValue: defaultValue,
+        style: { color: this.props.fgColor },
+      })
+    );
+  }
+
+  fontSize() {
+    return this.settingsInput("Font size", "fontSize", x => x, this.props.fontSize);
+  }
+
+  fontFamily() {
+    return this.settingsInput("Font family", "fontFamily", x => x, this.props.fontFamily);
+  }
+
+  bgColor() {
+    return this.settingsInput("Background color", "bgColor", x => x, this.props.bgColor);
+  }
+  fgColor() {
+    return this.settingsInput("Foreground color", "fgColor", x => x, this.props.fgColor);
+  }
+
   render() {
     return create(
       "div",
@@ -368,11 +510,27 @@ class CommandSettings extends React.Component {
         id: "commandSettings"
       },
       // change font size
-      create(),
-      // change font 
-      create(),
-      // change colors
-      create(),
+      this.fontSize(),
+      // change font family
+      this.fontFamily(),
+      // adjust colors
+      this.bgColor(),
+      this.fgColor(),
+      // switch modes
+      create(
+        "div", {},
+        create("button",
+          {
+            style: { color: this.props.fgColor },
+            // switch modes
+            onClick: e => {
+              var newMode = this.props.consoleMode == CLINE_MODE ? TEXT_MODE : CLINE_MODE;
+              this.props.updateSettingsCallback({ consoleMode : newMode });
+            }
+          },
+          "Switch to " + (this.props.consoleMode == CLINE_MODE ? "text editor" : "command line"),
+        )
+      )
     )
   }
 }

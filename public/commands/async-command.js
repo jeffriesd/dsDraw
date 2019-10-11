@@ -31,10 +31,6 @@ class AsyncCommand extends ConsoleCommand {
   atomicExecute() {
     throw `Atomic redo not implemented for ${this.constructor.name}.`;
   }
-
-  checkCancel() {
-    if (asyncCanceled()) throw "Animation canceled";
-  }
 }
 
 class WaitCommand extends AsyncCommand {
@@ -56,7 +52,17 @@ class WaitCommand extends AsyncCommand {
   }
 
   executeSelf() {
-    return sleep(this.ms);
+    return new Promise((resolve, reject) => {
+      this.cancel = setInterval(() => {
+        if (asyncCanceled()) {
+          clearInterval(this.cancel);
+          reject("Command canceled");
+        }
+      });
+
+      setTimeout(() => resolve(), this.ms);
+    })
+    .then(() => clearInterval(this.cancel));
   }
 
   atomicExecute() {
@@ -298,8 +304,6 @@ class InterpolateCommand extends AsyncCommand {
       nextFrame = nextFrame.then(fn => {
         // get frame number from previous promise
 
-        this.checkCancel();
-
         // for next object, check if starting frame number is less than current frame number
         // (i.e. this object should start moving)
         while (futureLabels.peek()) {
@@ -391,9 +395,18 @@ class InterpolateCommand extends AsyncCommand {
    *      
    */
   executeSelf() {
-    // if (this.prevCoords == undefined) this.prevCoords = this.saveCoords();
-    return this.interpolate().then(() => {
-      if (this.newState == undefined) this.newState = this.saveState();
+    return new Promise((resolve, reject) => {
+      this.cancel = setInterval(() => {
+        if (asyncCanceled()) {
+          clearInterval(this.cancel);
+          reject("Command canceled");
+        }
+      });
+
+      this.interpolate().then(() => {
+        if (this.newState == undefined) this.newState = this.saveState();
+        resolve();
+      });
     });
   }
 

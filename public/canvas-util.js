@@ -332,12 +332,12 @@ class CanvasState {
 
     // dispatch mouseMove event even when mouse is stationary 
     // for hover actions
-    if (this.mouseMove) {
-      var mouseMove = new Event("mousemove");
-      mouseMove.offsetX = this.mouseMove.x;
-      mouseMove.offsetY = this.mouseMove.y;
-      this.editCanvas.dispatchEvent(mouseMove);
-    }
+    // if (this.mouseMove) {
+    //   var mouseMove = new Event("mousemove");
+    //   mouseMove.offsetX = this.mouseMove.x;
+    //   mouseMove.offsetY = this.mouseMove.y;
+    //   this.editCanvas.dispatchEvent(mouseMove);
+    // }
   }
 
   /** CanvasState.isActive

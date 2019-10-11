@@ -1,12 +1,17 @@
+const MIMETYPE = "video/webm; codecs=vp8";
+
 class MediaController {
   constructor(canvasState) {
     if (MediaController.instance) return MediaController.instance;
     this.cState = canvasState;
 
-    // update at 60fps
+    // update at 60fps (about 16ms per frame)
     this.framerate = 60;
 
+    // map from clipId -> obj with keys: {"recorded", "url", "thumbnail"}
     this.clips = new Map();
+
+    // map from clipId -> CommandRecorder
     this.commandRecorders = new Map();
 
     // keep track of currently selected clip
@@ -21,28 +26,32 @@ class MediaController {
     this.requestAudio();
 
     this.recorder = new MediaRecorder(this.cStream, 
-      { mimeType: "video/webm;codecs=vp8,opus"});
+      { mimeType: MIMETYPE });
     this.init();
 
     this.playState = new PlayState();
     this.pauseState = new PauseState();
     this.recordState = new RecordState();
 
+    // wrappers for state transitions
+    this.togglePlayback = () => this.state.togglePlayback(this);
+    this.record = () => this.state.record(this);
+
+    this.isPaused = () => this.state === this.pauseState;
+    this.isPlaying = () => this.state === this.playState;
+    this.isRecording = () => this.state === this.recordState;
+
     this.state = this.pauseState;
     
     this.chunks = [];
-    this.chunks2 = [];
-
-    // send a blob every 2 seconds
-    this.timeSlice = 2000;
 
     MediaController.instance = this;
   }
 
-  /** MediaController.ms
+  /** MediaController.msPerFrame
    *    return framerate in ms per frame
    */
-  get ms() {
+  get msPerFrame() {
     return 1000 / this.framerate;
   }
 
@@ -59,9 +68,27 @@ class MediaController {
       (acc, val) => Math.max(acc, val), -1) + 1;
   }
 
-  // is recording done yet
-  get postRecording() {
-    if (this.cmdRecorder) return this.cmdRecorder.postRecording;
+  /** MediaController.hasRecorded
+   *    has any clip been recorded yet?
+   *    use CommandRecorder.recordingElapsed
+   *    which gets set the first time recording is paused.
+   */
+  hasRecorded() {
+    if (this.cmdRecorder) return this.cmdRecorder.recordingElapsed > 0;
+    return false;
+  }
+
+  /** MediaController.atEndOfClip
+   *    if recording has occurred, is the 
+   *    current time set to the end of the clip?
+   *    
+   *    this is important for considering 
+   *    when the canvas should be mutated 
+   *    (only while recording or at the end of current clip)
+   */
+  atEndOfClip() {
+    return (this.hasRecorded() && this.player.video && this.player.video.currentTime
+      && this.player.video.currentTime === this.player.video.duration);
   }
 
   /** MediaController.cmdRecorder
@@ -85,6 +112,54 @@ class MediaController {
       .catch((err) => console.log("[AUDIO ERROR]:", err));
   }
 
+  
+  /** MediaController.videoFromChunks
+   *    render chunks to video
+   *    
+   *    this is called whenever recording stops
+   *    or video is truncated
+   *  
+   *    behavior by case: 
+   *    - recording stops:
+   *      -   MediaRecorder API chunks are not individually playable in a sense.
+   *          A video source is created by sending a Blob to the server 
+   *          which is instantiated with chunks from the recording. 
+   *              
+   *          Recording can be paused/resumed and video renders as expected, 
+   *          but a sequence of record-truncate-record results in unexpected behavior.
+   *          If the chunks are timestamped and the chunks corresponding to the truncated
+   *          segment are removed, then the resulting video should not include the truncated segment,
+   *          but this is not the case, at least in Firefox as of 10/08/19. Instead
+   *          the video consists of the first segment, nothing happening for the truncated segment, 
+   *          and then the second segment. Something about the MediaRecorder pause/resume 
+   *          doesn't support slicing like ffmpeg does. 
+   * 
+   *         Thus when recording stops there are two cases:
+   *         1. this is the first recorded segment for this clip, so 
+   *            a new video is rendered. 
+   *         2. there is a previously recorded video, 
+   *            and they must be merged on the backend with ffmpeg.
+   *            This is just handled by case in video.js/addClip
+   * 
+   *    - current clip is truncated
+   *      - this can just be handled client side by cutting out some chunks 
+   * 
+   * 
+   */
+  videoFromChunks() {
+    this.blob = new Blob(this.chunks, { "type" : MIMETYPE });
+
+    ClientSocket.sendServer("setClipId", { id: this.activeClipId } );
+
+    ClientSocket.sendBlob(this.blob);
+
+    this.chunks = [];
+  
+    // wait for merge/write to complete before updating 
+    // video src url
+    this.waiting = true;
+  }
+
   /** MediaController.init
    *    bind events to recorder and video 
    */
@@ -93,22 +168,13 @@ class MediaController {
      *  MediaRecorder bindings
      */
     this.recorder.ondataavailable = (event) => {
-      this.chunks.push(event.data);
+      // annotate with time for truncating 
+      event.data.ttime = this.cmdRecorder.getTime();
+      this.chunks.push(event.data)
     };
 
     this.recorder.onstop = (event) => {
-      var blob = new Blob(this.chunks, { "type" : "video/webm; codecs=vp8" });
-
-      ClientSocket.sendServer("setClipId", { id: this.activeClipId } );
-      ClientSocket.sendBlob(blob);
-      this.chunks = [];
-
-      // wait for merge/write to complete before updating 
-      // video src url
-      this.waiting = true;
-
-      // stop command recorder
-      this.cmdRecorder.stopRecording();
+      this.videoFromChunks();
     };
 
     this.recorder.onstart = (event) => {
@@ -126,7 +192,6 @@ class MediaController {
     this.player.video.onended = (event) => {
       if (this.getState() === this.playState)
         this.togglePlayback();
-      this.cmdRecorder.seekTo(this.player.video.currentTime); 
     };
 
     // update controls while video plays
@@ -154,7 +219,7 @@ class MediaController {
     // when user drags seek bar
     // seek video and set video time
     this.player.seeker.onchange = (event) => {
-      if (! this.cmdRecorder.postRecording) return;
+      if (this.isRecording()) return;
 
       // seeker bar has range of 100
       var frac = this.player.seeker.value / this.player.seeker.max;
@@ -163,12 +228,59 @@ class MediaController {
       var secs = Math.min(dur, Math.round(frac * dur * 100) / 100);
       if (frac == 1) secs = dur;
 
+      // avoid exception 
+      if (isNaN(secs)) { 
+        console.warn("attempted to seek to : ", secs);
+        this.player.queryDuration();
+        return;
+      }
+
       // suppress firefox AbortError bug
-      // if (this.player.video.readyState > 1)
-      this.player.video.currentTime = secs;
+      if (this.player.video.readyState > 1)
+        this.player.video.currentTime = secs;
 
       // seek commands
       this.cmdRecorder.seekTo(secs);
+    };
+
+    this.player.video.onseeked = (event) => {
+        // show video frame briefly 
+        this.cState.ctx.drawImage(this.player.video, 0, 0,
+          this.cState.width, this.cState.height);
+    }
+
+    // truncate button 
+    this.player.truncate.onclick = (event) => {
+      // waiting on video render 
+      if (this.waiting) return;
+      // if nothing has been recorded yet, there's nothing to truncate
+      if (! this.hasRecorded()) return;
+
+      var t = this.player.video.currentTime;
+      
+      // if truncate is clicked too fast in succession, it may
+      // give bogus values for video.currentTime (1000 for some reason)
+      if (t > this.cmdRecorder.recordingElapsed) return;
+
+      // need to update recordingElapsed: 
+      this.cmdRecorder.recordingElapsed -= (this.player.video.duration - this.player.video.currentTime);
+
+      // truncate the recorded commands beyond the current time 
+      this.cmdRecorder.seekTo(t)
+      .then(() => this.cmdRecorder.truncate(t))
+      .then(() => {
+        // request that server truncate the video 
+        var body = { clipId : this.activeClipId, timeStamp: t };
+        this.waiting = true;
+        this.chunks = [];
+        ClientSocket.sendServer("truncate", body);
+      });
+    };
+
+    this.player.fastForward.onclick = (event) => {
+      // if nothing has been recorded yet, there's nothing to fast forward
+      if (! this.hasRecorded()) return;
+      return this.cmdRecorder.fastForward();
     };
   }
 
@@ -222,7 +334,8 @@ class MediaController {
           .then(() => repaint())
           .catch(err => console.log("ERROR initializing canvas:", err))
           .then(() => updateInspectPane());
-      });
+    })
+    .then(() => this.cmdRecorder.fastForward());
   }
 
   /** MediaController.setCurrentClip
@@ -394,18 +507,8 @@ class MediaController {
     // update react
     window.reactEditor.setState(
       { playState : this.state,
-        postRecording: this.cmdRecorder.postRecording,
       });
   }
-
-  record() {
-    if (canvasLocked()) return canvasLockedAlert();
-    this.state.record(this);
-  }
-
-  togglePlayback() {
-    this.state.togglePlayback(this);
-  } 
 
   /** MediaController.hotkeyUndo
    *    grabs current command recorder and undoes
@@ -416,9 +519,7 @@ class MediaController {
    *    after recording has occurred. 
    */
   hotkeyUndo() {
-    if (this.getState() !== this.recordState 
-      && this.clips.get(this.activeClipId).recorded)
-      throw "Can't undo; clip has already been recorded.";
+    if (canvasLocked()) return canvasLockedAlert();
     if (this.getState() === this.playState)
       throw "Can't undo while playing.";
 
@@ -436,9 +537,7 @@ class MediaController {
    *   lock context before redoing for async commands
    */
   hotkeyRedo() {
-    if (this.getState() !== this.recordState 
-      && this.clips.get(this.activeClipId).recorded)
-      throw "Can't redo; clip has already been recorded.";
+    if (canvasLocked()) return canvasLockedAlert();
     if (this.getState() === this.playState)
       throw "Can't redo while playing.";
 
@@ -473,6 +572,8 @@ class VideoPlayer {
     this.durationLabel = document.getElementById("duration");
     this.playButton = document.getElementById("playPause");
     this.volume = document.getElementById("volume");
+    this.truncate = document.getElementById("truncateButton");
+    this.fastForward = document.getElementById("fastForwardButton");
 
     this.init();
   }
@@ -545,9 +646,9 @@ class VideoPlayer {
   }
 
   play() {
-    if (this.video.src) 
-      this.video.play();
+    this.video.play();
     this.drawToCanvas();
+    
 
     // set icon
     this.playButton.style.backgroundImage = PAUSEBTN;
@@ -598,17 +699,38 @@ class PauseState extends MediaState {
    */
   record(context) {
     if (! context.waiting) {
-      if (context.clips.get(context.activeClipId).recorded)
-        return alert("Already recorded this clip!");
+      // if already recorded once, resume 
+      if (context.hasRecorded()) {
+        // previously disallowed recording more than once
+        // return alert("Already recorded this clip!");
 
-      context.clips.get(context.activeClipId).recorded = true;
-
-      context.recorder.start(context.timeSlice); 
-      context.cmdRecorder.startRecording();
-      context.setState(context.recordState);
+        // recording should only continue from the END of current clip
+        if (context.player.video.currentTime !== context.player.video.duration) {
+          return alert("Warning: recording can only continue from the end of a clip. To continue from here, truncate the clip first.")
+        }
+        else if (canvasLocked()) return canvasLockedAlert();
+        else {
+          // pause state in between recording uses atomic async commands.
+          // restore to regular async/animation mode
+          setCommandLifting(context.prevLiftingMode)
+          .then(() => {
+            context.recorder.start(context.msPerFrame);
+            context.cmdRecorder.continueRecording();
+            context.setState(context.recordState);
+          });
+        }
+      }
+      else {
+        context.clips.get(context.activeClipId).recorded = true;
+        context.cmdRecorder.startRecording();
+        context.recorder.start(context.msPerFrame);
+        context.setState(context.recordState);
+      }
     }
-    else if (! context.clips.get(context.activeClipId).recorded) 
+    else if (! context.hasRecorded()) { 
+      // current clip has nothing to wait on
       context.waiting = false;
+    }
     else
       alert("waiting...");
   }
@@ -616,6 +738,8 @@ class PauseState extends MediaState {
   togglePlayback(context) {
     if (context.player.video.src.endsWith("null"))
       return alert("No video to play");
+    if (context.player.video.readyState <= 1)
+      return alert("Error: video is not playable");
     if (! context.waiting) {
       context.player.play();
       context.setState(context.playState);
@@ -634,14 +758,24 @@ class PlayState extends MediaState {
 } 
 
 class RecordState extends MediaState {
+  /** RecordState.record
+   *    pause recording and 
+   *    turn atomic lifting on 
+   *    so async commands work instantly
+   * */
   record(context) {
-    context.recorder.stop();
-    context.setState(context.pauseState);
+    // disallow animations/async while paused.
+    // previous state gets restored when recording begins again
+    context.prevLiftingMode = getCommandLifting();
+    setCommandLifting(LIFT_ATOMIC)
+    .then(() => {
+      context.recorder.stop();
+      context.cmdRecorder.pauseRecording();
+      context.setState(context.pauseState);
+    });
   }
 
   togglePlayback(context) {
-    context.recorder.stop();
-    context.setState(context.pauseState);
   }
 } 
 
@@ -662,10 +796,8 @@ class CommandRecorder {
     this.undoStack = [];
     this.redoStack = [];
 
-    this.recording = false;
-    // using another field to indicate when recording stops,
-    // becuase this.recording = false is ambiguous (pre or post recording)
-    this.postRecording = false;
+    // total amount of recording time elapsed
+    this.recordingElapsed = 0;
 
     // set recording state and startTime before recording
     // commands to avoid race conditions with getTime
@@ -674,28 +806,40 @@ class CommandRecorder {
 
   /** CommandRecorder.getTime
    *    seconds since timer started
+   * 
+   *    but recording may have paused and continued,
+   *    and we only want the total elapsed time during recording
    */
   getTime() {
-    if (this.recording) 
-      return (new Date().getTime() - this.startTime) / 1000;
-    // console.log("thisst = ", this.startTime)
-    throw "bad time";
-    return 0;
+    if (this.mc.isRecording())
+      return this.recordingElapsed + (new Date().getTime() - this.startTime) / 1000;
+    return this.recordingElapsed;
   }
 
-  stopRecording() {
-    this.recording = false;
-    this.postRecording = true; // don't record any more commands
+  pauseRecording() {
+    this.recordingElapsed = this.getTime();
+    if (this.repainter) clearInterval(this.repainter);
   }
 
   startRecording() {
     this.settingRecordPromise = new Promise(resolve => {
-      this.startTime = new Date().getTime();
-      this.recording = true;
+      this.continueRecording();
       console.log("set record")
       // but only do this once
       resolve(this.settingRecordPromise = new Promise(resolve => resolve()));;
     });
+  }
+
+  continueRecording() {
+    // manually touch canvas so every frame gets
+    // recorded
+    this.repainter = setInterval(
+      // this works for chrome and firefox and is faster than a whole repaint
+      () => { var ctx = this.mc.cState.ctx; ctx.beginPath(); ctx.rect(0, 0, 0, 0), ctx.stroke() },
+      this.mc.timeSlice,
+    );
+
+    this.startTime = new Date().getTime();
   }
 
   /** static wrapper -- grabs and dispatches call to
@@ -714,31 +858,8 @@ class CommandRecorder {
    *    only called from one place -- global executeCommand
    */
   execute(cmdObj, redo) {
-    if (this.postRecording) return canvasLockedAlert();
     if (cmdObj instanceof UtilCommand)
       return liftCommand(cmdObj);
-
-    // may throw exec error
-    // var ret = cmdObj.execute();
-
-    // // only update undo stack and other state
-    // // if execution succeeds      
-
-    // this.mc.updateThumbnail();
-
-    // // don't record state of pure expressions
-    // if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
-    //   this.undoStack.push(cmdObj);
-    //   if (! redo) this.redoStack = [];
-
-    //   // if clip hasn't been recorded yet
-    //   if (this.mc.getState() !== this.mc.recordState)
-    //     this.initCmds.push({ type: "execute", command: cmdObj });
-    //   else
-    //     this.recordCommand(cmdObj, "execute");
-    // }
-
-    // return ret;
 
     return this.settingRecordPromise
     .then(() => liftCommand(cmdObj))
@@ -750,9 +871,11 @@ class CommandRecorder {
 
         // TODO maybe record when animation begins 
 
-        // if clip hasn't been recorded yet
-        if (this.mc.getState() !== this.mc.recordState)
+        // recording hasnt begun yet
+        if (! this.mc.hasRecorded() && this.mc.isPaused()) {
           this.initCmds.push({ type: "execute", command: cmdObj });
+          console.log("init cmd")
+        }
         else
           this.recordCommand(cmdObj, "execute");
       }
@@ -774,7 +897,6 @@ class CommandRecorder {
    *    if clip hasn't been recorded over yet
    */
   undo(cmdObj) {
-    if (this.postRecording) return canvasLockedAlert();
     if (cmdObj instanceof UtilCommand)
       return cmdObj.undo();
 
@@ -784,7 +906,7 @@ class CommandRecorder {
     this.redoStack.push(cmdObj);
 
     // if clip hasn't been recorded yet
-    if (this.mc.getState() !== this.mc.recordState)
+    if (! this.mc.hasRecorded() && this.mc.isPaused()) 
       this.initCmds.push({ type: "undo", command: cmdObj });
     else
       this.recordCommand(cmdObj, "undo");
@@ -796,7 +918,7 @@ class CommandRecorder {
   }
 
   recordCommand(cmdObj, type) {
-    console.log("recording ", cmdObj.constructor.name, " cmd at ", this.getTime());
+    // console.log("recording ", cmdObj.constructor.name, " cmd at ", this.getTime());
     this.pastCmds.push(
       { command: cmdObj, 
         time: this.getTime(), 
@@ -810,7 +932,7 @@ class CommandRecorder {
    *    which instantly set the state to their final frame
    */
   seekTo(secs) {
-    if (this.recording)
+    if (this.mc.isRecording())
       throw "Cannot seek while recording";
 
     // use atomic command lifting so
@@ -858,6 +980,26 @@ class CommandRecorder {
 
   }
 
+  /** CommandRecorder.fastForward
+   *    Fast forward all commands and move seeker 
+   *    to end of video
+   */
+  fastForward() {
+    if (! this.mc.hasRecorded()) return;
+
+    return this.seekTo(Number.POSITIVE_INFINITY)
+    .then(() => {
+      if (this.player.video.src != null) {
+        this.player.queryDuration()
+        .then(() => {
+          if (this.player.video.readyState > 1)
+            this.player.video.currentTime = this.player.video.duration;
+          this.player.updateSeeker();
+        });
+      }
+    });
+  }
+
   /** CommandRecorder.fullRewind
    *    first 
    *      call seekTo(-1) to undo all the commands that were
@@ -866,25 +1008,28 @@ class CommandRecorder {
    *    then clear the contents of the canvas
    */
   fullRewind() {
-    return this.seekTo(-1)
-      .then(() => {
-        // new edition: just clear canvas and VEnv
-        // this.mc.cState.clearCanvas();
+    var prevLiftingMode = getCommandLifting();
+    return setCommandLifting(LIFT_ATOMIC)
+    .then(() => this.seekTo(-1))
+    .then(() => {
+      // new edition: just clear canvas and VEnv
+      // this.mc.cState.clearCanvas();
 
-        // VariableEnvironment.clearAll();
-      })
-      .then(() => {
-        // also undo init commands (in reverse) to restore state
-        // of altered data structures, etc.
-        return this.initCmds.reduceRight((prevCT, curCT) => {
-          return prevCT.then(() => {
-            var lift;
-            if (curCT.type == "execute") lift = liftUndo;
-            if (curCT.type == "undo") lift = liftCommand;
-            return lift(curCT.command);
-          })
-        }, new Promise(resolve => resolve()));
-      });
+      // VariableEnvironment.clearAll();
+    })
+    .then(() => {
+      // also undo init commands (in reverse) to restore state
+      // of altered data structures, etc.
+      return this.initCmds.reduceRight((prevCT, curCT) => {
+        return prevCT.then(() => {
+          var lift;
+          if (curCT.type == "execute") lift = liftUndo;
+          if (curCT.type == "undo") lift = liftCommand;
+          return lift(curCT.command);
+        })
+      }, new Promise(resolve => resolve()));
+    })
+    .then(() => setCommandLifting(prevLiftingMode));
   }
 
   printStacks() {

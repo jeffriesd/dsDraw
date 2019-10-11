@@ -25,7 +25,6 @@
       <button id="contButton">Continue</button>
       <button id="deleteClipButton">Delete</button>
       <button id="exportClipButton">Export</button>
-      <button id="testButton">test</button>
       </div>
       <div id="clipMenu"> 
       </div>
@@ -42,6 +41,8 @@
     </video>
     <div id="controlBar">
       <button id="playPause"></button>
+      <button id="fastForwardButton"></button>
+      <button id="truncateButton"></button>
       <div id="controlBg"> </div>
       <span id="currentTime">0:00</span>
       <input id="seeker" type="range" 
@@ -64,7 +65,9 @@
 
   <script src="lib/jquery-3.3.1.min.js"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
-  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css"> 
+
+  <!-- using this for faster loading -- use remote version in production -->
+  <link rel="stylesheet" type="text/css" href="lib/jquery-ui.css"> 
 
   <script src="lib/mousetrap.min.js"></script>
   <script src="lib/plotly-latest.min.js"></script>

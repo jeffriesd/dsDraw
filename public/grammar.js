@@ -36,6 +36,7 @@ function id(x) { return x[0]; }
   const lexer = moo.compile({
     " ": " ",
     "\t": "\t",
+    "\n": "\n",
     "-": "-",
     "+": "+",
     "*": "*",
@@ -982,9 +983,11 @@ function buildFunctionDefinition(operands) {
     command: { 
       execute: function() {
         createFunctionDefinition(funcName, argNames, funcStatements);
+        this.defined = true;
       },
       undo: function() {
-        undoFunctionDefinition(funcName);
+        if (this.defined)
+          undoFunctionDefinition(funcName);
       }
     },
     clone: function() {
@@ -1068,6 +1071,26 @@ function buildElse(operands) {
   return [wrapBool(["true"]), operands[2]];
 }
 
+/** buildCodeBlock
+ *    return array of line opNodes
+ *    pattern: 
+ *      block -> (line _):* 
+ */
+function buildCodeBlock(operands) {  
+  var lines = [];
+  for (var idx in operands[0])
+    lines.push(operands[0][idx][0]);
+
+  return { 
+    isLiteral: false,
+    opNodes: lines,
+    command: new CodeBlockCommand(lines),
+    clone: function() {
+      return buildCodeBlock(cloneOperands(operands));
+    },
+    toString: () => "buildCodeBlock",
+  }
+}
 
 
 
@@ -1167,8 +1190,12 @@ var grammar = {
     {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
+    {"name": "codeblock$ebnf$1", "symbols": []},
+    {"name": "codeblock$ebnf$1$subexpression$1", "symbols": ["code", "_"]},
+    {"name": "codeblock$ebnf$1", "symbols": ["codeblock$ebnf$1", "codeblock$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "codeblock", "symbols": ["codeblock$ebnf$1"], "postprocess": buildCodeBlock},
+    {"name": "codeblock", "symbols": ["statement"], "postprocess": id},
     {"name": "code", "symbols": ["line"], "postprocess": id},
-    {"name": "code", "symbols": ["statement"], "postprocess": id},
     {"name": "code", "symbols": ["funcdef"], "postprocess": id},
     {"name": "line", "symbols": ["statement", "_", {"literal":";"}], "postprocess": id},
     {"name": "line", "symbols": ["controlBlock"], "postprocess": id},
@@ -1347,7 +1374,7 @@ var grammar = {
     {"name": "funcdef", "symbols": [(lexer.has("DEF") ? {type: "DEF"} : DEF), {"literal":" "}, (lexer.has("varName") ? {type: "varName"} : varName), "_", {"literal":"("}, {"literal":")"}, "_", "block"], "postprocess": buildFunctionDefinition},
     {"name": "return", "symbols": [(lexer.has("RET") ? {type: "RET"} : RET), {"literal":" "}, "expr"], "postprocess": buildReturn}
 ]
-  , ParserStart: "code"
+  , ParserStart: "codeblock"
 }
 if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
    module.exports = grammar;

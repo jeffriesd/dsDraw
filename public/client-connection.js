@@ -18,6 +18,16 @@ class ClientSocket {
     this.init();
 
     ClientSocket.instance = this;
+
+    // some actions wait on a response from 
+    // the server by making a request with unique
+    // id and waiting on a server messages
+    // that signifies completion of that request
+    // 
+    // a map from uniqueId to Promise resolve functions
+    // allows server messages to resolve the promise
+    this.requestNum = 0;
+    this.requestPromises = new Map();
   }
 
   static getInstance() {
@@ -49,8 +59,20 @@ class ClientSocket {
         var textBox = VariableEnvironment.getCanvasObj(msgObj.body.label);
         textBox.setMath(msgObj.body.mathSVG);
         break;
+      case "resolvePromise":
+        var res = this.requestPromises.get(msgObj.body.reqNum);
+        if (res) { 
+          // resolve promise and delete it from map 
+          res();
+          this.requestPromises.delete(msgObj.body.reqNum);
+        }
+        else alert("Error resolving promise");
+        break;
       case "error":
         alert("Error: " + msgObj.body.error);
+        break;
+      case "log": 
+        console.log("Message log from server:", msgObj.body);
         break;
     }
   }
@@ -64,12 +86,27 @@ class ClientSocket {
     this.websock.send(JSON.stringify({type: type, body: body}));
   }
 
-  static sendBlob(blob) {
+  static sendBlob(...args) {
     var wsInstance = ClientSocket.getInstance();
-    wsInstance.sendBlob(blob);
+    wsInstance.sendBlob(...args);
   }
 
   sendBlob(blob) {
+    // blob can only be sent by itself (not stringified)
+    // so any metadata message must precede it
     this.websock.send(blob);
+  }
+
+  /** ClientSocket.requestPromise
+   *    used to create a promise that 
+   *    waits on a response from the server
+   *    using an increasing unique id 
+   */
+  requestPromise(msgType, msgBody) {
+    var reqNum = this.requestNum++;
+    return new Promise(resolve => {
+      this.requestPromises.set(reqNum, resolve);
+      this.sendServer("requestPromise", { reqType: msgType, reqNum: reqNum, reqBody: msgBody });
+    });
   }
 }

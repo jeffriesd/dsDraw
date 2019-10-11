@@ -32,6 +32,7 @@
   const lexer = moo.compile({
     " ": " ",
     "\t": "\t",
+    "\n": "\n",
     "-": "-",
     "+": "+",
     "*": "*",
@@ -81,8 +82,10 @@
 @builtin "number.ne"
 @builtin "whitespace.ne"
 
+codeblock -> (code _ ):* {% buildCodeBlock %} 
+          | statement    {% id %}
+
 code -> line {% id %} 
-      | statement {% id %}
       | funcdef   {% id %}
 
 line -> statement _ ";" {% id %} 
@@ -1157,9 +1160,11 @@ function buildFunctionDefinition(operands) {
     command: { 
       execute: function() {
         createFunctionDefinition(funcName, argNames, funcStatements);
+        this.defined = true;
       },
       undo: function() {
-        undoFunctionDefinition(funcName);
+        if (this.defined) // don't undo unless it was successfully defined
+          undoFunctionDefinition(funcName);
       }
     },
     clone: function() {
@@ -1243,6 +1248,26 @@ function buildElse(operands) {
   return [wrapBool(["true"]), operands[2]];
 }
 
+/** buildCodeBlock
+ *    return array of line opNodes
+ *    pattern: 
+ *      block -> (line _):* 
+ */
+function buildCodeBlock(operands) {  
+  var lines = [];
+  for (var idx in operands[0])
+    lines.push(operands[0][idx][0]);
+
+  return { 
+    isLiteral: false,
+    opNodes: lines,
+    command: new CodeBlockCommand(lines),
+    clone: function() {
+      return buildCodeBlock(cloneOperands(operands));
+    },
+    toString: () => "buildCodeBlock",
+  }
+}
 
 
 

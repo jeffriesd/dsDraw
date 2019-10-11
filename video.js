@@ -27,7 +27,8 @@ const sendMessage = require("./server-connection").sendMessage;
 const BITRATE = 1000;
 
 const clipNamePattern = /\/\d+\.webm$/;
-const tempFile = () => new Date().getTime() + ".webm";
+var uniqueFileID = new Date().getTime();
+const tempFile = () => uniqueFileID++;
 
 // convert Buffer to ReadableStream
 const Duplex = require('stream').Duplex;  
@@ -61,75 +62,82 @@ class VideoManager {
     return clips.map((c) => path.join(this.dir, c));
   }
 
-  writeVideo(clipPath, buffer, callback) { 
-    fs.writeFile(clipPath, buffer, callback);
-    // var stream = bufferToStream(this.buffer);
-    // ffmpeg(stream).videoBitrate(BITRATE)
-    //   .save(this.clipPath)
-    //   .on("end", onEnd);
-  }
-
-  /** VideoManager.addClip
-   *    create new VideoClip object, which writes a new webm file,
-   *    and merge it existing clips
-   */
-  // addClip(buffer) {
-  //   var vid = new VideoClip(this.clientId, buffer);   
-  //   var clipPath = vid.clipPath;
-  //   if (! fs.existsSync(vid.dir))
-  //     throw `Directory does not exist: ${vid.dir}`;
-
-  //   var clips = fs.readdirSync(vid.dir);
-  //   clips = clips.map((c) => path.join(vid.dir, c));
-
-  //   // write video and either reply to client with new URL 
-  //   // or merge clips and then reply
-  //   if (clips.length == 0) 
-  //     vid.writeVideo(() => this.sendClient(vid.clipPath));
-  //   else  {
-  //     clips.push(vid.clipPath);
-  //     vid.writeVideo(() => this.mergeClips(clips));
-  //   }
-  // }
-
   /** VideoManager.addClip
    *    adds clip to map
    *    and writes video file 
    *    (with sendClient setVideoURL as callback)
+   *    
+   *    !! if previous recording exists, merge them.
    */
   addClip(clipId, buffer) {
     console.log("adding clip: ", clipId);
-    var clipPath = this.idToPath(clipId);
 
-    // add clip to map
-    this.clips.set(clipId, clipPath);
-
-    // write clip and send URL once complete
-    if (buffer != null) {
-      this.writeVideo(clipPath, buffer,
-        () => this.sendClient(clipId, "setVideoURL"));
+    // merge with existing clip {clipId} (unless it doesn't exist yet)
+    if (this.clips.has(clipId)) {
+      console.log("MERGING")
+      this.mergeOverwrite(clipId, buffer);
     }
-
-    return clipId;
+    else {
+      // otherwise add clip to map and write a new video file 
+      var clipPath = this.idToPath(clipId);
+      this.clips.set(clipId, clipPath);
+      // write clip and send URL once complete
+      if (buffer != null) {
+        fs.writeFile(clipPath, buffer,
+          () => this.sendClient(clipId, "setVideoURL"));
+      }
+    }
   }
 
-  /** VideoManager.mergeClips
-   *    accepts array of file paths and 
+  /** VideoManager.mergeOverwrite
+   *    given a clipId corresponding to an existing
+   *    video and a buffer of new content to merge
+   *    with it, merge the two and write 
+   *    it to the path of the original clip 
+   */
+  mergeOverwrite(clipId, appendBuffer) {
+    var clipPath = this.clips.get(clipId);
+
+    // create temp clip id for new buffer 
+    var newBufferId = tempFile();
+    var newBufferPath = this.idToPath(newBufferId);
+
+    var mergedId = tempFile();
+    var mergedPath = this.idToPath(mergedId);
+    console.log("pls write")
+    fs.writeFile(newBufferPath, appendBuffer,
+      // callback after writing temp video for 2nd component
+      () => {
+        fu.mergeVideos([clipPath, newBufferPath], mergedPath)
+        .then(() => { 
+          var crop = s => s.match(/[^/]*\.webm$/)[0];
+          sendMessage(this.ws, "log", "merge " + crop(clipPath)+ ", " +  crop(newBufferPath));
+
+          this.sendClient(clipId, "setVideoURL", mergedPath);
+          this.clips.set(clipId, mergedPath);
+        })
+        .catch(err => console.log("Merge overwrite error:", err, this.clipIds));
+      }
+    );
+  }
+
+  /** VideoManager.mergeClipsForDL
+   *    takes array of clip ids and 
    *    merges videos together
    *
    *    sends merged file path over websocket server
    *    for video download
    */
-  mergeClips(clipIds) {
+  mergeClipsForDL(clipIds) {
     if (clipIds.some((e) => ! this.clips.has(e))) 
-      throw "Cannot merge clips; some ids are invalid.";
+      throw "Cannot merge clips; some clips have not yet been recorded.";
 
     if (clipIds.length == 0)
       return;
     if (clipIds.length == 1)
       return this.sendClient(clipIds[0], "setVideoDownload");
 
-    var filePaths = clipIds.map(x => this.idToPath(x));
+    var filePaths = clipIds.map(x => this.clips.get(x));
 
     // create new clip id
     var mergedId = tempFile();
@@ -138,6 +146,8 @@ class VideoManager {
     fu.mergeVideos(filePaths, mergedPath)
       .then(() => {
         console.log("done merging", mergedPath);
+
+        this.clips.set(mergedId, mergedPath);
 
         this.sendClient(mergedId, "setVideoDownload");
       })
@@ -152,7 +162,7 @@ class VideoManager {
   deleteClipFiles(clipIds) {
     clipIds.forEach((id) => {
       if (! this.clips.has(id)) return;
-      fs.unlinkSync(this.idToPath(id), (err) => console.log("Cleanup error:", err));
+      fs.unlinkSync(this.clips.get(id), (err) => console.log("Cleanup error:", err));
     });
   }
 
@@ -164,24 +174,20 @@ class VideoManager {
    *    original file with the truncated version 
    */
   truncateClip(clipId, timeStamp) {
-    var clipPath = this.idToPath(clipId);
+    var clipPath = this.clips.get(clipId);
 
     var truncId = tempFile();
     var truncPath = this.idToPath(truncId);
 
-    console.log("clip map = ", this.clips);
     fu.truncateVideo(clipPath, truncPath, timeStamp)
-      .then(() => {
-        this.deleteClipFiles([clipId]);
-      })
-      .then(() => {
-        fs.rename(truncPath, clipPath, 
-          (err) => { if (err) console.log("File rename error:", err) });
-      }).then(() => {
-        this.sendClient(clipId, "setVideoURL");
-      }).catch((err) => {
-        console.log("Error truncating:", err);
-      });
+    .then(() => {
+      // update id -> clipPath mapping
+      this.clips.set(clipId, truncPath);
+      this.sendClient(clipId, "setVideoURL", truncPath)
+    })
+    .catch(err => {
+      console.log("Error truncating:", err);
+    })
   }
 
   selectClip(clipId) {
@@ -194,14 +200,14 @@ class VideoManager {
   /** VideoManager.sendClient
    *    sends clip id and URL via websocket connection
    */
-  sendClient(clipId, messageType) {
+  sendClient(clipId, messageType, alternatePath) {
     if (messageType == null)
       throw "sendClient requires 'messageType' parameter";
 
     if (this.clips.get(clipId) == null && messageType != "setVideoDownload")
       throw `No clip with id '${clipId}' in map.`;
 
-    var filePath = this.idToPath(clipId);
+    var filePath = alternatePath || this.clips.get(clipId);
 
     var body = { id: clipId, url: filePath };
     sendMessage(this.ws, body, messageType);

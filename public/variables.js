@@ -7,7 +7,7 @@ const mainCommands = {
   "moveTo": MoveToCommand,
   "repaint": RepaintCommand,
   "wait": WaitCommand,
-  "dir": DirCommand,
+  "help": HelpCommand,
   "show": ShowCommand,
   "hide": HideCommand, 
   "rand": RandomFloatCommand,
@@ -127,7 +127,6 @@ class VariableEnvironment {
   }
 
   setState(state) {
-    console.log("setting state of VENV")
     this.function = new Map(state["functions"]);
     this.mainVariables = new Map(state["mainVariables"]);
     this.stack = state["stack"].map(m => new Map(m));
@@ -249,9 +248,10 @@ class VariableEnvironment {
   }
 
   defineFunction(funcName, funcDef) {
-    if (this.canvasObjects.has(funcName) 
-       || this.functions.has(funcName) 
+    if ((this.canvasObjects.has(funcName) 
        || this.variables.has(funcName))
+          || 
+       this.functions.has(funcName) && this.functions.get(funcName) !== funcDef)
       throw `Function definition error: ${funcName} already in use.`;
     this.functions.set(funcName, funcDef);
 

@@ -12,8 +12,8 @@ class FlowchartBox extends CanvasObject {
     this.fill = "#fff";
     this.strokeColor =  "#000";
     this.fontStyle = null;
-    this.fontFamily = "Purisa";
-    this.fontSize = 12;
+    this.fontFamily = "Monospace";
+    this.fontSize = 20;
 
     this.horizontalAlign = "left";
     this.verticalAlign = "top";
@@ -46,6 +46,7 @@ class FlowchartBox extends CanvasObject {
       "verticalAlign": ["top", "middle"],
       "horizontalAlign": ["left", "right", "center"],
       "fill": "color",
+      "fg": "color",
     };
   }
 
@@ -172,6 +173,7 @@ class FlowchartBox extends CanvasObject {
     this.editor.style.backgroundColor = this.fill;
 
     this.ctx.fillStyle = this.fill;
+    this.ctx.lineWidth = 1;
     
     var font = "";
     if (this.fontStyle)

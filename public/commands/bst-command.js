@@ -9,6 +9,7 @@ class BSTCommand extends CanvasObjectMethod {
   saveState() {
     if (this.receiver.bst.root)
       return { bst : this.receiver.bst.root.deepCopy() };
+    return { bst : null };
   }
 
   /** BSTCommand.restoreState
@@ -17,6 +18,11 @@ class BSTCommand extends CanvasObjectMethod {
    * @param bstRoot previous state to restore to
    */
   restoreState(state) {
+
+    if (state.bst == null) {
+      this.receiver.bst.root = null;
+      return;
+    }
     this.receiver.bst.root = state.bst.deepCopy();
 
     // extra step here because 
@@ -25,6 +31,13 @@ class BSTCommand extends CanvasObjectMethod {
     // the cloned BST
     for (var node of this.receiver.bst.root.inorder()) 
       this.receiver.bst.ids.set(node.index, node);
+
+    // for some reason, this has the
+    // side effect of making the save/restore
+    // work properly -- otherwise 
+    // the bst doesn't get updated properly
+    // when redoing the remove command. 
+    this.receiver.inorder();
   }
 }
 
@@ -65,21 +78,18 @@ class BSTRemoveCommand extends BSTCommand {
     if (typeof this.value !== "number")
       throw "BST only supports numeric values";
     if (this.receiver.find(this.value) == null)
-      throw `Cannot remove '${this.value}': not present in tree.`;
+      throw `Cannot remove '${this.value}': not present in tree: ${this.receiver.inorder().map(n => n.value)}`;
   }
 
   executeSelf() {
     if (this.newTree == undefined) {
       this.receiver.remove(this.value);
       this.newTree = this.saveState();
+
+      this.newTree.deleted = this.value;
     }
     this.restoreState(this.newTree);
   }
-
-  // undoSelf() {
-  //   this.restoreState(this.oldTree);
-  // }
-
 }
 
 

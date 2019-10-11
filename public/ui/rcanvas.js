@@ -150,7 +150,6 @@ class ReactEditor extends React.Component {
       groupSelected: false,
       drawMode: "SelectTool",
       playState: null, 
-      postRecording: false, 
       mouseDown: { x: 0, y: 0},
 
       contextLocked: false,
@@ -193,7 +192,6 @@ class ReactEditor extends React.Component {
       ReactInspectPane,
       {
         commandStack: this.state.commandStack,
-        postRecording: this.state.postRecording,
         showCommandHistory: this.state.showCommandHistory,
         showEnvironment: this.state.showEnvironment, 
       }
@@ -235,8 +233,12 @@ class ReactEditor extends React.Component {
           ref: r => window.reactConsole = r ,
           left:   400,
           top:    100,
-          width:  300,
-          height: 250,
+          width:  350,
+          height: 300,
+          style: { 
+            fontSize: 16,
+            fontFamily: "monospace"
+          }
         },
       ),
       this.maybeInspectPane(),

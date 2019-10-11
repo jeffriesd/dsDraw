@@ -22,8 +22,6 @@ class ReactInspectPane extends React.Component {
     return create(
         CommandHistoryPane,
         {
-          // needed for timestamps
-          postRecording: this.props.postRecording,
           commandStack: this.props.commandStack,
         }
     );
@@ -111,20 +109,23 @@ class EnvironmentPane extends React.Component {
 
   render() {
     return create(
+      "div", { id: "environmentPaneContainer" }, 
+
+      // title 
+      create(
+        "span", { className: "paneTitle" }, 
+        "Environment",
+      ),
+
+      create(
       "div", 
       {
         id: "environmentPane",
       },
 
-      // title 
-      create(
-        "span", { id: "environmentTitle" },
-        "Environment",
-      ),
-
-
       // table of bindings
       this.environmentTable(),
+      )
 
     );
   }
@@ -153,7 +154,7 @@ class CommandHistoryPane extends React.Component {
       var prefix = "";
       if (cmdTime.time != undefined) 
         prefix = cmdTime.time.toFixed(1) + "s ";
-      else if (this.props.postRecording) 
+      else 
         prefix = "0s ";
       return create("td", {}, prefix + getName(cmdTime.command));
     };
@@ -177,22 +178,24 @@ class CommandHistoryPane extends React.Component {
 
   render() {
     return create( 
-      "div",
-      {
-        id: "commandHistoryPane",
-      },
-
+      "div", { id: "commandHistoryPaneContainer" },
       // title
       create(
         "span",
         {
-          id: "commandHistoryTitle",
+          className: "paneTitle",
         },
         "Command History",
       ),
 
+      create("div",
+      {
+        id: "commandHistoryPane",
+      },
+
       // contents
       this.renderTable(),
+      ),
     );
   }
 }

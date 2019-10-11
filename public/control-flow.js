@@ -40,6 +40,7 @@ class ControlFlowCommand {
     this.storedStack = false;
     this.steps = 0;
   }
+
   /** ControlFlowCommand.pushCmd
    *    execute command and push it onto stack for undo
    *    if this is first call to execute
@@ -91,6 +92,18 @@ class ControlFlowCommand {
 
   undo() {
     this.executed.slice().reverse().forEach(cmd => cmd.undo());
+  }
+}
+
+class CodeBlockCommand extends ControlFlowCommand {
+  constructor(statements) {
+    super();
+    this.loopStatements = statements;
+  }
+
+  executeSelf() {
+    return this.doBody()
+      .then(() => { this.storedStack = true } );
   }
 }
 
