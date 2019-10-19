@@ -154,6 +154,10 @@ class ConsoleCommand {
     this.savedChildren = [];
   }
 
+  numArguments() {
+    return this.argNodes.length;
+  }
+
   /** ConsoleCommand.checkArgsLength
    *    check number of arguments with inclusive
    *    bounds 
@@ -163,7 +167,7 @@ class ConsoleCommand {
    */
   checkArgsLength(lo, hi) {
     hi = hi || lo;
-    if (this.argNodes.length < lo || this.argNodes.length > hi) {
+    if (this.numArguments() < lo || this.numArguments() > hi) {
       if (hi == lo)
         throw (`Expected number of arguments: ${hi}`);
       else
@@ -204,8 +208,7 @@ class ConsoleCommand {
       this.args = [];
 
       resolve(
-        // filter is necessary at least for interpreation of arr[:]
-        this.argNodes.filter(node => node != undefined)
+        this.argNodes 
         .reduce((prev, current) => {
           return prev.then(_ => {
             return liftCommand(current.command)
@@ -241,7 +244,6 @@ class ConsoleCommand {
       return this.executeSelf();
     })
   }
-
   
   /** ConsoleCommand.undo
    *    undo the earliest actions first, so 
@@ -260,7 +262,6 @@ class ConsoleCommand {
     }
     finally {
       this.argNodes.slice().reverse()
-        .filter(node => node != undefined)
         .forEach(node => node.command.undo());
     }
   }
@@ -735,7 +736,7 @@ class RangeConfigCommand extends ConsoleCommand {
     if (! (this.receivers instanceof Array))
       this.receivers = [this.receivers];
 
-    // must be passed to ConfigCommand as an opNode
+    // RHS of assignment
     this.rValueNode = this.argNodes[1];
 
     if (this.configCommands.length == 0) {
@@ -942,7 +943,7 @@ class BuildDictCommand extends ConsoleCommand {
   }
 
   precheckArguments() {
-    if (this.keys.length != this.argNodes.length)
+    if (this.keys.length != this.numArguments())
       throw "Dictionary requires same number of keys and values";
   }
 
