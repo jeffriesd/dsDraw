@@ -49,6 +49,17 @@ class ControlFlowCommand {
     if (! this.storedStack) this.executed.push(command);
   }
 
+  /** ControlFlowCommand.liftAndPush
+   *    wrapper to (possibly) save command and then  
+   *    execute it 
+   */
+  liftAndPush(command) {
+    return new Promise(resolve => {
+      this.pushCmd(command);
+      resolve(liftCommand(command));
+    });
+  }
+
   executeStatements(statements, cloneCommands) {
     if (cloneCommands == undefined) cloneCommands = true;
     return statements.reduce((prev, cur) => {
@@ -63,9 +74,7 @@ class ControlFlowCommand {
         else 
           cl = cur.command;
 
-        this.pushCmd(cl);
-        repaint();
-        return liftCommand(cl);
+        return this.liftAndPush(cl);
       });
     }, new Promise(resolve => resolve()));
   }
@@ -87,6 +96,8 @@ class ControlFlowCommand {
       var statements = this.executed.map(cmd => { return { command : cmd } });
       return this.executeStatements(statements, false);
     }
+
+    // otherwise execute as normal
     return this.executeSelf();
   }
 
@@ -125,7 +136,7 @@ class WhileLoopCommand extends ControlFlowCommand {
     if (this.condition == null) 
       return new Promise(resolve => resolve());
 
-    return liftCommand(this.condition.clone().command).then(condRet => {
+    return this.liftAndPush(this.condition.clone().command).then(condRet => {
       if (condRet)
         return this.doBody()
           .then(() => this.maybeContinue());
@@ -169,7 +180,7 @@ class ForLoopCommand extends ControlFlowCommand {
     if (this.condition == null) 
       return new Promise(resolve => resolve());
 
-    return liftCommand(this.condition.clone().command).then(condRet => {
+    return this.liftAndPush(this.condition.clone().command).then(condRet => {
       if (condRet)
         return this.doBody()
         .then(() => this.doIncr()
@@ -206,15 +217,18 @@ class IfBlockCommand extends ControlFlowCommand {
       // if previous block evaluated to true, 
       // then subsequent else ifs should fall through
       return prev.then(prevCondRet => {
+        // exit after first true condition 
         if (prevCondRet) return;
-        return liftCommand(cond.clone().command)
+
+        return this.liftAndPush(cond.clone().command)
           .then(curCondRet => {
             // if false, don't execute block
             if (! curCondRet) { 
               this.storedStack = true;
               return;
             }
-            return this.executeStatements(lines);
+            // return true so subsequent else-blocks don't get eval'd
+            return this.executeStatements(lines).then(() => true);
           })
       })
     }, new Promise(resolve => resolve()));
