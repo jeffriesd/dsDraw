@@ -30,13 +30,17 @@ class UserFunctionCommand extends ConsoleCommand {
     this.executed = [];
   }
 
+  precheckArguments() {
+    if (this.argNames.length != this.numArguments())  {
+      throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
+    }
+  }
+
   /** UserFunctionCommand.setArguments
    *    evaluate arguments and map to local names
    */
   setArguments() {
-    if (this.argNames.length != this.argNodes.length)  {
-      throw `${this.funcName} requires ${this.argNames.length} arguments. Argnames = '${this.argNames}'`;
-    }
+    this.precheckArguments();
 
     if (this.namespace == undefined) {
       var namespace = new Map(VariableEnvironment.getInstance().variables);
@@ -61,42 +65,44 @@ class UserFunctionCommand extends ConsoleCommand {
     if (! this.storedStack) this.executed.push(command);
   }
 
-  executeAllStatements() {
+  executeSelf() {
     return this.statements.reduce((prev, cur) => { 
       return prev.then(() => {
         this.pushCmd(cur.command);
-        return liftCommand(cur.command)
-          .then(ret => {
-            // don't push to saved stack
-            // unless execution is successful
-            // this.pushCmd(cur.command);
-            return ret;
-          })
+        return liftCommand(cur.command);
       })
     }, new Promise(resolve => resolve()));
+  }
+
+  executeSelfPromise() {
+    // no need to call getChildren, checkArgs, etc. 
+    return this.executeSelf();
   }
 
   execute() {
     return this.setArguments()
     .then(() => {
       VariableEnvironment.pushNamespace(this.namespace);
+      return this.executeSelf()
+        .then(() => { 
+          VariableEnvironment.popNamespace(this.namespace);
 
-      return this.executeAllStatements()
-            .then(() => { 
-              VariableEnvironment.popNamespace(this.namespace);
+          // indicate that further calls to execute
+          // should no longer update stack
+          this.storedStack = true;
+        })
+        .catch(e => {
+          VariableEnvironment.popNamespace(this.namespace);
+          this.storedStack = true;
 
-              // indicate that further calls to execute
-              // should no longer update stack
-              this.storedStack = true;
-            })
-            .catch(e => {
-              VariableEnvironment.popNamespace(this.namespace);
-              // quick easy way to return value from any nested call
-              if (e instanceof FunctionReturn)
-                return e.value; 
-              else // some other error
-                throw e;
-            })
+          // quick easy way to return value from any nested call
+          if (e instanceof FunctionReturn) {
+            console.log("fr = ",e.value)
+            return e.value; 
+          }
+          else // some other error
+            throw e;
+        })
     });
   }
 
