@@ -122,7 +122,7 @@ class InterpolateCommand extends AsyncCommand {
     this.pathDict = this.args[0];
     this.receiverLabels = Array.from(this.pathDict.keys());
 
-    if (this.argNodes.length == 2)
+    if (this.numArguments() == 2)
       this.msPerFrame = this.args[1];
     else
       this.msPerFrame = INTERP_DEFAULT_MS;
