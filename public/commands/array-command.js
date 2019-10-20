@@ -100,10 +100,6 @@ class Array1DSwapCommand extends Array1DCommand {
     this.receiver.array[this.i2] = t;
   }
 
-  // undoSelf() {
-  //   this.executeSelf();
-  // }
-
   usage() {
     return "array.swap [index1] [index2]";
   }
@@ -149,7 +145,7 @@ class Array1DCopyCommand extends Array1DCommand {
 
   checkArguments() {
     if (! (this.destArr instanceof Array1D))
-      this.argsError(`'${this.argNodes[0]}' is not an array.`);
+      this.argsError(`'${this.args[0]}' is not an array.`);
     if (this.destStart < 0 || this.destStart >= this.destArr.array.length)
       this.argsError(`Invalid index: ${this.destStart}`);
 
