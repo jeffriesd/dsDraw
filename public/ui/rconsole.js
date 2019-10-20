@@ -21,9 +21,10 @@ class ReactConsole extends React.Component {
       fontFamily: this.props.style.fontFamily,
       commandLineValue: "",
       showSettings: false,
-      consoleMode: CLINE_MODE,
+      consoleMode: TEXT_MODE,
       bgColor: "rgba(0, 0, 0, .7)",
       fgColor: "white",
+      debugMode: false, 
     }
 
     this.size = { width: this.props.width, height: this.props.height };
@@ -140,6 +141,24 @@ class ReactConsole extends React.Component {
         updateInspectPane();
       });
     }
+  }
+
+  createProgramTrace(line) {
+    if (canvasLocked()) return canvasLockedAlert();
+
+    var cmdObj;
+    if (line) {
+      try {
+        cmdObj = parseLine(line);
+      }
+      catch (error) {
+        alert(parseErr);
+      }
+    }
+
+    if (cmdObj !== undefined) 
+      this.programTrace = getCommandIterator(cmdObj);
+    else this.programTrace = undefined;
   }
 
   scrollToBottom() {
@@ -292,6 +311,55 @@ class ReactConsole extends React.Component {
       // otherwise in text mode
       const runCodeCallback = () => this.commandEntered(this.commandTextBox.value);
 
+      const cancelDebug = () => { 
+        // undo effects of program trace up to the current point 
+        if (this.programTrace)
+          this.programTrace.command.undo();
+        repaint();
+        updateInspectPane();
+
+        this.setState({ debugMode: false });
+      };
+
+      const startDebug = () => { 
+        if (this.commandTextBox.value) {
+          this.setState({ debugMode: true });
+          this.createProgramTrace(this.commandTextBox.value);
+        }
+      };
+
+      const stepInto = () => { 
+        this.programTrace.stepInto()
+          .then(() => {
+            if (this.programTrace.finishedExecuting) {
+              this.programTrace = null;
+
+              // TODO record command here (without executing again, obviously)
+
+              cancelDebug();
+            }
+          })
+          .catch(err => {
+            console.warn("Error stepping into: ", err)
+            cancelDebug();
+          });
+      };
+
+      const stepOver = () => { 
+        this.programTrace.stepOver()
+          .then(() => {
+            if (this.programTrace.finishedExecuting) {
+              this.programTrace = null;
+              cancelDebug();
+            }
+          })
+          .catch(err => {
+            console.warn("Error stepping over: ", err)
+            cancelDebug();
+          });
+      };
+
+
       return [
         create(
           CommandTopBar,
@@ -299,6 +367,11 @@ class ReactConsole extends React.Component {
             showSettingsCallback: () => this.toggleSettingsPane(),
             consoleMode: this.state.consoleMode,
             runCodeCallback: runCodeCallback,
+            startDebugCb: startDebug,
+            cancelDebugCb: cancelDebug,
+            stepIntoCb: stepInto,
+            stepOverCb: stepOver,
+            debugMode: this.state.debugMode, 
           },
         ),
 
@@ -360,21 +433,56 @@ class ReactConsole extends React.Component {
 
 class CommandTopBar extends React.Component {
   runButton() {
-    if (this.props.consoleMode === TEXT_MODE)
-      return create(
-        "button",
-        {
-          id: "commandConsoleRunButton",
-          onClick: e => this.props.runCodeCallback(),
+    return create(
+      "button",
+      {
+        id: "commandConsoleRunButton",
+        onClick: e => this.props.runCodeCallback(),
+      },
+    )
+  }
+
+  startDebug() {
+    return create(
+      "button",
+      { 
+        id: "commandConsoleDebugButton",
+        onClick: e => { 
+          this.props.startDebugCb();
         },
-      )
+      }
+    )
+  }
+
+  stepInto() {
+    return create("button", 
+      { id : "commandConsoleStepIntoButton", onClick: e => this.props.stepIntoCb() });
+  }
+
+  stepOver() {
+    return create("button", 
+      { id : "commandConsoleStepOverButton", onClick: e => this.props.stepOverCb() });
+  }
+
+  cancelDebug() {
+    return create("button", 
+      { id : "commandConsoleDebugCancelButton", onClick: e => this.props.cancelDebugCb() });
   }
 
   render() {
+    var buttons = [];
+    if (this.props.consoleMode === TEXT_MODE) {
+      if (this.props.debugMode) 
+        buttons = [this.stepInto(), this.stepOver(), this.cancelDebug()];
+      else 
+        buttons = [this.runButton(), this.startDebug()];
+    }
+
+
     return create(
       "div",
       { id: "commandTopBar" },
-      this.runButton(),
+      ...buttons,
       create(
         "button",
         { 
