@@ -137,6 +137,7 @@ function buildAdd(opNode1, opNode2) {
       return buildAdd(opNode1.clone(), opNode2.clone());
     },
     toString: () => "buildAdd",
+    text: opNode1.text + " + " + opNode2.text,
   };
 }
 
@@ -149,6 +150,7 @@ function buildSub(opNode1, opNode2) {
       return buildSub(opNode1.clone(), opNode2.clone());
     },
     toString: () => "buildSub",
+    text: opNode1.text + " - " + opNode2.text,
   };
 }
 
@@ -182,6 +184,7 @@ function buildMult(opNode1, opNode2) {
       return buildMult(opNode1.clone(), opNode2.clone());
     },
     toString: () => "buildMult",
+    text: opNode1.text + " * " + opNode2.text,
   };
 }
 
@@ -197,6 +200,7 @@ function buildDiv(opNode1, opNode2) {
       return buildDiv(opNode1.clone(), opNode2.clone());
     },
     toString: () => "buildDiv",
+    text: opNode1.text + " / " + opNode2.text,
   };
 }
 
@@ -209,6 +213,7 @@ function buildMod(opNode1, opNode2) {
       return buildMod(opNode1.clone(), opNode2.clone());
     },
     toString: () => "buildMod",
+    text: opNode1.text + " % " + opNode2.text,
   }
 }
 
@@ -229,6 +234,7 @@ function buildExp(operands) {
       return buildExp(cloneOperands(operands));
     },
     toString: () => "buildExp",
+    text: opNode1.text + " ^ " + opNode2.text,
   };
 }
 
@@ -248,6 +254,7 @@ function buildNegate(operands) {
       return buildNegate(cloneOperands(operands));
     },
     toString: () => "buildNegate",
+    text: "- " + opNode.text,
   };
 }
 
@@ -278,11 +285,12 @@ function buildFunctionCall(operands) {
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    command: new FunctionCallCommand(functionName, functionNode, functionArgs),
     clone: function() {
       return buildFunctionCall(cloneOperands(operands));
     },
     toString: () => "buildFunctionCall",
+    text: operands[0].text + "( " + functionArgs.map(x => x.text).join(", ") + " )",
   };
 }
 
@@ -300,11 +308,12 @@ function buildBuckGet(operands) {
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    command: new FunctionCallCommand(functionName, functionNode, functionArgs),
     clone: function() {
       return buildBuckGet(cloneOperands(operands));
     },
     toString: () => "buildBuckGet",
+    text: "$" + operands[1].text,
   };
 }
 
@@ -319,11 +328,12 @@ function buildBuckSet(operands) {
   return {
     isLiteral: false,
     opNodes: functionArgs,
-    command: createFunctionCommand(functionName, functionNode, functionArgs),
+    command: new FunctionCallCommand(functionName, functionNode, functionArgs),
     clone: function() {
       return buildBuckSet(cloneOperands(operands));
     },
     toString: () => "buildBuckSet",
+    text: "$" + operands[1].text + " = " + operands[5].text,
   };
 }
 
@@ -342,34 +352,6 @@ function buildFunctionArguments(operands) {
   return argNodes;
 }
 
-/** buildMethodCall 
- *    build command node using 
- *    factory method for method Command
- *    objects
- *
- *    isLiteral false by definition
- *
- *  pattern:
- *    method -> %methodName "(" _ args _ ")" 
- *            | %methodName "(" ")"      
- */
-function buildMethodCall(operands) {
-  var methodName = operands[0].text;
-  var methodArgs = []; // default (no args method)
-  if (operands.length == 6) 
-    methodArgs = operands[3];
-
-  return {
-    isLiteral: false,
-    opNodes: methodArgs,
-    command: createMethodCommand(methodName, methodArgs),
-    clone: function() {
-      return buildMethodCall(cloneOperands(operands));
-    },
-    toString: () => "buildMethodCall",
-  };
-}
-
 function wrapNumber(operands) {
   return {
     isLiteral: true,
@@ -382,6 +364,7 @@ function wrapNumber(operands) {
       return this;
     },
     toString: () => "wrapNumber",
+    text: operands[0].text,
   }
 }
 
@@ -404,6 +387,7 @@ function wrapString(operands) {
       return this;
     },
     toString: () => "wrapString",
+    text: operands[1].join(""),
   };
 }
 
@@ -421,6 +405,7 @@ function wrapUnquotedString(operands) {
       return this;
     },
     toString: () => "wrapUnquotedString",
+    text: operands[0].text,
   };
 }
 
@@ -440,6 +425,7 @@ function wrapBool(operands) {
       return this;
     },
     toString: () => "wrapBool",
+    text: operands[0].text,
   };
 }
 
@@ -459,6 +445,7 @@ function wrapNull(operands) {
       return this;
     },
     toString: () => "wrapNull",
+    text: operands[0].text,
   }
 }
 
@@ -479,6 +466,7 @@ function buildVariable(operands) {
       return buildVariable(cloneOperands(operands));
     },
     toString: () => "buildVariable",
+    text: operands[0].text,
   }
 }
 
@@ -499,6 +487,7 @@ function buildAssignment(operands) {
       return buildAssignment(cloneOperands(operands));
     },
     toString: () => "buildAssignment",
+    text: lValue + " = " + rValue.text,
   };
 }
 
@@ -519,6 +508,7 @@ function buildRangePropertyAssignment(operands) {
       return buildRangePropertyAssignment(cloneOperands(operands));
     },
     toString: () => "buildRangePropertyAssignment",
+    text: operands[0].text + "." + propName + " = " + operands[6].text,
   };
 }
 
@@ -551,6 +541,7 @@ function buildComparison(operands) {
       return buildComparison(cloneOperands(operands));
     },
     toString: () => "buildComparison",
+    text: opNode1.text + " " + comp + " " + opNode2.text,
   }
 }
 
@@ -591,7 +582,7 @@ function buildBlock(operands) {
  */
 function buildForPars(operands) {
   var initStatements = operands[2] ? operands[2][0] : [];
-  var condition = operands[5] ? operands[5][0] : null;
+  var condition = operands[5] ? operands[5][0] : wrapBool(["true"]); // empty condition always evaluates to true
   var incrStatements = operands[8] ? operands[8][0] : [];
   return [initStatements, condition, incrStatements];
 }
@@ -620,6 +611,8 @@ function buildForLoop(operands) {
       return buildForLoop(cloneOperands(operands));
     },
     toString: () => "buildForLoop",
+    text: `for (${initStatements.map(x => x.text).join(", ")} ; ${condition.text} ; ${incrStatements.map(x => x.text).join(", ")}) { `
+      + loopStatements.map(x => x.text).join(";\n") + "\n}",
   };
 }
 
@@ -642,6 +635,8 @@ function buildWhileLoop(operands) {
       return buildWhileLoop(cloneOperands(operands));
     },
     toString: () => "buildWhileLoop",
+    text: `while ( ${condition.text} ) { `
+      + loopStatements.map(x => x.text).join(";\n") + "\n}",
   };
 }
 
@@ -661,6 +656,7 @@ function buildSingleAccess(operands) {
       return buildSingleAccess(cloneOperands(operands));
     },
     toString: () => "buildSingleAccess",
+    text: receiver.text + "[ " + keyNode.text + " ]",
   };
 }
 
@@ -679,8 +675,8 @@ function buildSingleAccess(operands) {
  */
 function buildRangeAccess(operands) {
   var receiver = operands[0];
-  var low = operands[3] ? operands[3][0] : null;
-  var high = operands[6] ? operands[6][0] : null;
+  var low = operands[3] ? operands[3][0] : wrapNull();
+  var high = operands[6] ? operands[6][0] : wrapNull();
 
   return {
     isLiteral: false,
@@ -690,6 +686,7 @@ function buildRangeAccess(operands) {
       return buildRangeAccess(cloneOperands(operands));
     },
     toString: () => "buildRangeAccess",
+    text: operands[0].text + "[ " + operands[3].text + ":" + operands[6].text + " ]",
   };
 }
 
@@ -722,6 +719,7 @@ function buildList(operands) {
       return buildList(cloneOperands(operands));
     },
     toString: () => "buildList",
+    text: "[" + element.map(x => x.text).join(", ") + "]",
   };
 }
 
@@ -745,6 +743,7 @@ function buildListAssignment(operands) {
       return buildListAssignment(cloneOperands(operands));
     },
     toString: () => "buildListAssignment",
+    text: operands[0].text + "[" + operands[3].text + "] = " + operands[9].text, 
   };
 }
 
@@ -765,6 +764,7 @@ function buildChildPropGet(operands) {
       return buildChildPropGet(cloneOperands(operands));
     },
     toString: () => "buildChildPropGet",
+    text: operands[0].text + "." + propName,
   };
 }
 
@@ -786,35 +786,10 @@ function buildPropGet(operands) {
       return buildPropGet(cloneOperands(operands));
     },
     toString: () => "buildPropGet",
+    text: operands[0].text + "." + propName,
   };
 }
 
-
-/** buildParentPropGet
- *    create node to fetch property from
- *    parent canvas object special case of
- *    list.length 
- *
- *    pattern: 
- *    mathTerminal -> %methodName
- *                    
- *    note: methodName just happens to match
- *    the same pattern as "obj.property"
- */
-function buildParentPropGet(operands) {
-  var spl = operands[0].text.split(".");
-  var varName = spl[0];
-  var propName = spl[1];
-  return {
-    isLiteral: false,
-    opNodes: [],
-    command: new GetParentPropertyCommand(spl[0], spl[1]),
-    clone: function() {
-      return buildParentPropGet(cloneOperands(operands));
-    },
-    toString: () => "buildParentPropGet",
-  };
-}
 
 /** buildConjunction
  *  pattern: 
@@ -831,6 +806,7 @@ function buildConjunction(operands) {
       return buildConjunction(cloneOperands(operands));
     },
     toString: () => "buildConjunction",
+    text: opNode1.text + " && " + opNode2.text,
   };
 }
 
@@ -849,6 +825,7 @@ function buildDisjunction(operands) {
       return buildDisjunction(cloneOperands(operands));
     },
     toString: () => "buildDisjunction",
+    text: opNode1.text + " || " + opNode2.text,
   };
 }
 
@@ -866,6 +843,7 @@ function buildLogicalNot(operands) {
       return buildLogicalNot(cloneOperands(operands));
     },
     toString: () => "buildLogicalNot",
+    text: "! " + opNode1.text,
   };
 }
 
@@ -884,6 +862,7 @@ function buildEquals(operands) {
       return buildEquals(cloneOperands(operands));
     },
     toString: () => "buildEquals",
+    text: opNode1.text + " == " + opNode2.text,
   };
 }
 
@@ -902,6 +881,7 @@ function buildNotEquals(operands) {
       return buildNotEquals(cloneOperands(operands));
     },
     toString: () => "buildNotEquals",
+    text: opNode1.text + " != " + opNode2.text,
   };
 }
 
@@ -956,6 +936,9 @@ function buildDict(operands) {
       return buildDict(cloneOperands(operands));
     },
     toString: () => "buildDict",
+    text: "{ " 
+      + keys.map((x, i) => x.text + " : " + values[i].text).join(", ")
+      + " }",
   };
 }
 
@@ -986,7 +969,7 @@ function buildFunctionDefinition(operands) {
         this.defined = true;
       },
       undo: function() {
-        if (this.defined)
+        if (this.defined) // don't undo unless it was successfully defined
           undoFunctionDefinition(funcName);
       }
     },
@@ -994,6 +977,7 @@ function buildFunctionDefinition(operands) {
       return buildFunctionDefinition(cloneOperands(operands));
     },
     toString: () => "buildFunctionDefinition",
+    text: `define ${funcName}(${argNames.join(", ")}) {\n ${funcStatements.map(x => x.text).join(";\n")} \n}`,
   };
 }
 
@@ -1012,6 +996,7 @@ function buildReturn(operands) {
       return buildReturn(cloneOperands(operands));
     },
     toString: () => "buildReturn",
+    text: "return " + exprNode.text,
   };
 }
 
@@ -1035,8 +1020,11 @@ function buildIf(operands) {
     condBlockPairs.push(operands[elseIfIdx][idx][1]);
   
   // if final else block
-  if (operands[operands.length - 1])
+  var finalElse = false; // just for text
+  if (operands[operands.length - 1]) {
     condBlockPairs.push(operands[operands.length - 1][1]);
+    finalElse = true;
+  }
 
   return {
     isLiteral: false,
@@ -1046,6 +1034,7 @@ function buildIf(operands) {
       return buildIf(cloneOperands(operands));
     },
     toString: () => "buildIf",
+    text: `if ( ${condBlockPairs[0][0].text} ) {\n ${condBlockPairs[0][1].text} }\n`
   };
 }
 
@@ -1089,6 +1078,7 @@ function buildCodeBlock(operands) {
       return buildCodeBlock(cloneOperands(operands));
     },
     toString: () => "buildCodeBlock",
+    text: lines.map(x => x.text).join(";\n"),
   }
 }
 
