@@ -1,116 +1,134 @@
+// construct function call AST nodes at runtime 
+// to make recursion possible (for a function f 
+// which calls itself, the binding for f is unknown
+// at parse time)
+function createFunctionAtRuntime(functionNode, args) {
+  if (functionNode == null)
+    throw "Cannot invoke function on null";
+
+  // need to return a promise because callee 
+  // may do async action before returning a 
+  // reference to a function or method
+
+  // e.g. 
+  // define t() { wait(1000); return f; }
+  // t()()
+
+  return liftCommand(functionNode.command)
+  .then(functionClass => createFunctionFromCallee(functionClass, args))
+  .catch(e => {
+    console.log("Unknown function");
+    throw e;
+  })
+}
+
+function createFunctionFromCallee(functionClass, args) {
+  if (functionClass !== undefined) {
+    // e.g. 
+    // b = bst();
+    // b.remove(5); -- b evaluates to BSTCanvasObject
+    if (functionClass.methodClass !== undefined)
+      return createMethodCommand(functionClass, args);
+
+    // callee could still be a builtin structure that 
+    // was wrapped in a variable that needed to be evaluated first
+    // e.g. 
+    // f = bst
+    // f()
+    if (builtinFunctionClasses.has(functionClass))
+      return new functionClass(CanvasState.getInstance(), ...args);
+        
+    if (functionClass instanceof FunctionDefinition) 
+      return new UserFunctionCommand(functionClass, ...args);
+  }
+
+  throw `Invalid function name: '${functionClass}'.`;
+}
+
+
+
 /** createFunctionCommand 
+ */   
+// function createFunctionCommand(functionName, functionNode, args) {
+//   if (functionNode == null)
+//     throw "Cannot invoke function on null";
+// 
+// 
+//   // builtin functions can be defined at parse time -- 
+//   // check name and interpret immediately
+//   if (builtinFunctions.has(functionName)) {
+//     var functionClass = mainCommands[functionName] || constructors[functionName];
+//     return new functionClass(CanvasState.getInstance(), ...args);
+//   }
+//   else {
+//     // otherwise callee is an object or a user defined function
+//     // -- must evaluate this ast node to get reference
+//     // -- to callee
+//     return {
+//       execute: function() {
+//         if (this.command == undefined)
+//           return createFunctionAtRuntime(functionNode, args)
+//             .then(command => {
+//               this.command = command;
+//               return liftCommand(this.command);
+//             });
+//         return liftCommand(this.command);
+//       },
+//       undo: function() {
+//         if (this.command)
+//           return this.command.undo();
+//       }
+//     }  
+//   }
+// }
+
+/*
  *    check properties of provided opNode
  *    object and create method or function
  *    from result
  * 
- *    runtimeOverride param is used to indicate the function node
- *    is being created at runtime 
- * 
- *    if functionNode is a literal, go ahead and construct
- *    this AST node, otherwise it must be constructed dynamically
+ *    if function is being called is built-in and 
+ *    is being called by its built-in name, then 
+ *    it can be interpreted immediately. otherwise
+ *    it must be interpreted at runtime.
  *    
  *    examples:
  *      1: randn() -- fine because 'randn' is built-in
  *      2: x.method() -- cannot construct method node yet 
  *                       because 'x' is defined at runtime
- *      3: func1().method1() -- same reasoning as example 2
- */   
-function createFunctionCommand(functionName, functionNode, args, runtimeOverride) {
-  if (functionNode == null)
-    throw "Cannot invoke function on null";
+ *      3: z = bst; z(); -- same reasoning as above
+ */
+class FunctionCallCommand {
+  constructor(functionName, functionNode, args) {
+    if (functionNode == null)
+      throw "Cannot invoke function on null";
 
-  // construct function call AST nodes at runtime 
-  // to make recursion possible (for a function f 
-  // which calls itself, the binding for f is unknown
-  // at parse time)
+    // builtin functions can be defined at parse time -- 
+    // check name and interpret immediately
+    if (builtinFunctions.has(functionName)) {
+      var functionClass = mainCommands[functionName] || constructors[functionName];
+      return new functionClass(CanvasState.getInstance(), ...args);
+    }
 
-  if (runtimeOverride) {
+    this.functionNode = functionNode;
+    this.args = args;
 
-    // // get mapped value from variable name
-    // // -- error thrown if function name undefined
-    // try {
-    //   var functionClass = functionNode.command.execute(); 
-    // }
-    // catch (e) {
-    //   // try catch just to show where exception originates 
-    //   // -- propagate back up to CommandRecorder.execute
-    //   // -- so this command is ignored in history
-    //   console.log("Unknown function");
-    //   throw e;
-    // }
-
-    // if (functionClass.methodClass !== undefined)
-    //   return createMethodCommand(functionClass, args);
-
-    // // built-in commands and constructors get cState reference
-    // if (Object.values(mainCommands).includes(functionClass)
-    //     || Object.values(constructors).includes(functionClass))
-    //   return new functionClass(CanvasState.getInstance(), ...args);
-    //     
-    // if (functionClass instanceof FunctionDefinition) {
-    //   return new UserFunctionCommand(functionClass, ...args);
-    // }
-
-    // need to return a promise because callee 
-    // may do async action before returning a 
-    // reference to a function or method
-
-    // e.g. 
-    // define t() { wait(1000); return f; }
-    // t()()
-    return liftCommand(functionNode.command)
-    .then(functionClass => {
-      if (functionClass !== undefined) {
-        // e.g. 
-        // b = bst();
-        // b.remove(5); -- b evaluates to BSTCanvasObject
-        if (functionClass.methodClass !== undefined)
-          return createMethodCommand(functionClass, args);
-
-        // callee could still be a builtin structure that 
-        // was wrapped in a variable that needed to be evaluated first
-        // e.g. 
-        // f = bst
-        // f()
-        if (builtinFunctionClasses.has(functionClass))
-          return new functionClass(CanvasState.getInstance(), ...args);
-            
-        if (functionClass instanceof FunctionDefinition) 
-          return new UserFunctionCommand(functionClass, ...args);
-      }
-
-      throw `Invalid function name: '${functionClass}'.`;
-    })
-    .catch(e => {
-      console.log("Unknown function");
-      throw e;
-    })
+    // reference to function body command
+    this.command = undefined;
   }
-  // only exception is builtin functions -- 
-  // check name and interpret immediately
-  else if (builtinFunctions.has(functionName)) {
-    var functionClass = mainCommands[functionName] || constructors[functionName];
-    return new functionClass(CanvasState.getInstance(), ...args);
+
+  execute() {
+    if (this.command == undefined)
+      return createFunctionAtRuntime(this.functionNode, this.args)
+        .then(command => {
+          this.command = command;
+          return liftCommand(this.command);
+        });
+    return liftCommand(this.command);
   }
-  else {
-    // callee is an object or a user defined function
-    // -- must evaluate this ast node to get reference
-    // -- to callee
-    return {
-      execute: function() {
-        if (this.command == undefined)
-          return createFunctionCommand(functionName, functionNode, args, true)
-            .then(command => {
-              this.command = command;
-              return liftCommand(this.command);
-            });
-        return liftCommand(this.command);
-      },
-      undo: function() {
-        if (this.command)
-          return this.command.undo();
-      }
-    }  
+
+  undo() {
+    if (this.command) return this.command.undo();
   }
 }
 
