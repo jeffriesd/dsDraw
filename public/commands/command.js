@@ -1,4 +1,3 @@
-
 /*  Command classes encapsulate actions on the canvas
  *  through either mouse clicks or commands entered in the
  *  user console. These classes allow for simple 
@@ -147,11 +146,6 @@ class ConsoleCommand {
 
     // save state before execution
     this.prevState = null;
-
-    // save childnodes which
-    // successfully get executed on first execute
-    this.executedChildren = false;
-    this.savedChildren = [];
   }
 
   numArguments() {
@@ -235,14 +229,18 @@ class ConsoleCommand {
    */
   execute() {
     return this.executeChildren()
-    .then(() => this.executedChildren = true)
-    .then(() => {
+    .then(() => this.executeSelfPromise());
+  }
+
+  // just wrap up getChildValues, checkArguments, and executeSelf
+  executeSelfPromise() {
+    return new Promise(resolve => {
       this.getChildValues();
       this.checkArguments();
       if (this.prevState == undefined) this.prevState = this.saveState();
 
-      return this.executeSelf();
-    })
+      resolve(this.executeSelf());
+    });
   }
   
   /** ConsoleCommand.undo
@@ -373,19 +371,8 @@ class AssignVariableCommand extends ConsoleCommand {
     //     this.value.label = this.variableName;
     // }
 
-    // CBHERE
     VariableEnvironment.setVar(this.variableName, this.value); 
   }
-
-  /** AssignVariableCommand.undoSelf
-   *    restore previous value
-   */
-  // undoSelf() {
-  //   if (this.previousValue === undefined)
-  //     VariableEnvironment.deleteVar(this.variableName);
-  //   else
-  //     VariableEnvironment.setVar(this.variableName, this.previousValue)
-  // }
 
   /** AssignVariableCommand.saveState
    *    save current binding of this.variableName
@@ -487,10 +474,6 @@ class ConfigCommand extends ConsoleCommand {
   executeSelf() {
     this.receiver[this.property] = this.value;
   }
-
-  // undoSelf() {
-  //   this.receiver[this.property] = this.oldValue;
-  // }
 
   saveState() {
     return {
@@ -766,10 +749,6 @@ class RangeConfigCommand extends ConsoleCommand {
   restoreState(state) {
     state.stateMap.forEach(([cmd, cmdState]) => cmd.restoreState(cmdState));
   }
-
-  // undoSelf() {
-  //   this.configCommands.forEach(cmd => cmd.undo());
-  // }
 }
 
 class AssignListElementCommand extends ConsoleCommand {
