@@ -82,8 +82,8 @@
 @builtin "number.ne"
 @builtin "whitespace.ne"
 
-codeblock -> (code _ ):* {% buildCodeBlock %} 
-          | statement    {% id %}
+codeblock -> statement    {% d => buildCodeBlock([d.map(x => [x, null])]) %}
+      | (code _ ):+ {% buildCodeBlock %} 
 
 code -> line {% id %} 
       | funcdef   {% id %}
@@ -259,6 +259,12 @@ return -> %RET " " expr {% buildReturn %}
 
 @{%
 
+// overloaded + for str-like objects
+// including react <span> elements 
+function combineStrings(...strings) {
+  return makeSpan(strings);
+}
+
 /** Postprocessors build a tree of function/operator calls
  *  where each node is an object with the following properties:
  *
@@ -315,6 +321,7 @@ function buildAdd(opNode1, opNode2) {
     },
     toString: () => "buildAdd",
     text: opNode1.text + " + " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1," + ", o2),
   };
 }
 
@@ -328,6 +335,7 @@ function buildSub(opNode1, opNode2) {
     },
     toString: () => "buildSub",
     text: opNode1.text + " - " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " - ",  o2),
   };
 }
 
@@ -362,6 +370,7 @@ function buildMult(opNode1, opNode2) {
     },
     toString: () => "buildMult",
     text: opNode1.text + " * " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " * ",  o2),
   };
 }
 
@@ -378,6 +387,7 @@ function buildDiv(opNode1, opNode2) {
     },
     toString: () => "buildDiv",
     text: opNode1.text + " / " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " / ",  o2),
   };
 }
 
@@ -391,6 +401,7 @@ function buildMod(opNode1, opNode2) {
     },
     toString: () => "buildMod",
     text: opNode1.text + " % " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " % ",  o2),
   }
 }
 
@@ -412,6 +423,7 @@ function buildExp(operands) {
     },
     toString: () => "buildExp",
     text: opNode1.text + " ^ " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " ^ ",  o2),
   };
 }
 
@@ -432,6 +444,7 @@ function buildNegate(operands) {
     },
     toString: () => "buildNegate",
     text: "- " + opNode.text,
+    formatTrace: (o1) => combineStrings(" - ",  o1),
   };
 }
 
@@ -461,6 +474,7 @@ function buildFunctionCall(operands) {
 
   return {
     isLiteral: false,
+    functionName: operands[0].text,
     opNodes: functionArgs,
     command: new FunctionCallCommand(functionName, functionNode, functionArgs),
     clone: function() {
@@ -468,6 +482,7 @@ function buildFunctionCall(operands) {
     },
     toString: () => "buildFunctionCall",
     text: operands[0].text + "( " + functionArgs.map(x => x.text).join(", ") + " )",
+    formatTrace: (o1, ...args) => combineStrings(o1, "(", joinStrings(args, ", "), ")"),
   };
 }
 
@@ -491,6 +506,7 @@ function buildBuckGet(operands) {
     },
     toString: () => "buildBuckGet",
     text: "$" + operands[1].text,
+    formatTrace: (op) => combineStrings("$", op),
   };
 }
 
@@ -511,6 +527,7 @@ function buildBuckSet(operands) {
     },
     toString: () => "buildBuckSet",
     text: "$" + operands[1].text + " = " + operands[5].text,
+    formatTrace: (o1, o2) => combineStrings("$", o1, " = ", o2),
   };
 }
 
@@ -564,7 +581,7 @@ function wrapString(operands) {
       return this;
     },
     toString: () => "wrapString",
-    text: operands[1].join(""),
+    text: '"' + operands[1].join("") + '"',
   };
 }
 
@@ -665,6 +682,7 @@ function buildAssignment(operands) {
     },
     toString: () => "buildAssignment",
     text: lValue + " = " + rValue.text,
+    formatTrace: (op) => combineStrings(lValue, " = ", op),
   };
 }
 
@@ -686,6 +704,7 @@ function buildRangePropertyAssignment(operands) {
     },
     toString: () => "buildRangePropertyAssignment",
     text: operands[0].text + "." + propName + " = " + operands[6].text,
+    formatTrace: (o1, o2) => combineStrings(o1, ".", propName, " = ", o2),
   };
 }
 
@@ -710,6 +729,12 @@ function buildComparison(operands) {
   else if (comp == ">=")
     compCommand = GreaterEqualThanCommand;
 
+  // wrap comp for react to avoid
+  //Error: Invariant Violation: Objects are not valid as a React child (found: <). 
+  // If you meant to render a collection of children, use an array instead or wrap the object 
+  // using createFragment(object) from the React add-ons. 
+  var wrappedComp = " " + comp + " "  
+
   return {
     isLiteral: opNode1.isLiteral && opNode2.isLiteral,
     opNodes: [opNode1, opNode2],
@@ -719,6 +744,7 @@ function buildComparison(operands) {
     },
     toString: () => "buildComparison",
     text: opNode1.text + " " + comp + " " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, wrappedComp, o2),
   }
 }
 
@@ -834,6 +860,7 @@ function buildSingleAccess(operands) {
     },
     toString: () => "buildSingleAccess",
     text: receiver.text + "[ " + keyNode.text + " ]",
+    formatTrace: (o1, o2) => combineStrings(o1, "[", o2, "]"),
   };
 }
 
@@ -864,6 +891,7 @@ function buildRangeAccess(operands) {
     },
     toString: () => "buildRangeAccess",
     text: operands[0].text + "[ " + operands[3].text + ":" + operands[6].text + " ]",
+    formatTrace: (o1, o2) => combineStrings(operands[0].text, "[", o1, ":", o2, "]"),
   };
 }
 
@@ -896,7 +924,8 @@ function buildList(operands) {
       return buildList(cloneOperands(operands));
     },
     toString: () => "buildList",
-    text: "[" + element.map(x => x.text).join(", ") + "]",
+    text: "[" + elements.map(x => x.text).join(", ") + "]",
+    formatTrace: (...xs) => combineStrings("[", joinStrings(xs, ", "), "]"),
   };
 }
 
@@ -921,27 +950,7 @@ function buildListAssignment(operands) {
     },
     toString: () => "buildListAssignment",
     text: operands[0].text + "[" + operands[3].text + "] = " + operands[9].text, 
-  };
-}
-
-/** buildChildPropGet
- *    create node to fetch a property from a
- *    canvas child object e.g. 'array[0].bg'
- *
- *    mathTerminal -> accessor "." [a-zA-Z]:+  
- */
-function buildChildPropGet(operands) {
-  var accessorNode = operands[0];
-  var propName = operands[2][0].text;
-  return {
-    isLiteral: false,
-    opNodes: [],
-    command: new GetChildPropertyCommand(accessorNode, propName),
-    clone: function() {
-      return buildChildPropGet(cloneOperands(operands));
-    },
-    toString: () => "buildChildPropGet",
-    text: operands[0].text + "." + propName,
+    formatTrace: (o1, o2, o3) => combineStrings(o1, "[", o2, "] = ", o),
   };
 }
 
@@ -964,6 +973,7 @@ function buildPropGet(operands) {
     },
     toString: () => "buildPropGet",
     text: operands[0].text + "." + propName,
+    formatTrace: (op) => combineStrings(op, ".", propName),
   };
 }
 
@@ -984,6 +994,7 @@ function buildConjunction(operands) {
     },
     toString: () => "buildConjunction",
     text: opNode1.text + " && " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " && ", o2),
   };
 }
 
@@ -1003,6 +1014,7 @@ function buildDisjunction(operands) {
     },
     toString: () => "buildDisjunction",
     text: opNode1.text + " || " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " || ", o2),
   };
 }
 
@@ -1021,6 +1033,7 @@ function buildLogicalNot(operands) {
     },
     toString: () => "buildLogicalNot",
     text: "! " + opNode1.text,
+    formatTrace: op => combineStrings("! ", op),
   };
 }
 
@@ -1040,6 +1053,7 @@ function buildEquals(operands) {
     },
     toString: () => "buildEquals",
     text: opNode1.text + " == " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " == ", o2),
   };
 }
 
@@ -1059,6 +1073,7 @@ function buildNotEquals(operands) {
     },
     toString: () => "buildNotEquals",
     text: opNode1.text + " != " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " != ", o2),
   };
 }
 
@@ -1116,6 +1131,7 @@ function buildDict(operands) {
     text: "{ " 
       + keys.map((x, i) => x.text + " : " + values[i].text).join(", ")
       + " }",
+    formatTrace: (...vs) => combineStrings("{ ", joinStrings(keys.map((x, i) => x.text, " : ", vs[i]), ", "), "}"),
   };
 }
 
@@ -1174,6 +1190,7 @@ function buildReturn(operands) {
     },
     toString: () => "buildReturn",
     text: "return " + exprNode.text,
+    formatTrace: op => combineStrings("return ", op),
   };
 }
 
@@ -1247,6 +1264,8 @@ function buildCodeBlock(operands) {
   for (var idx in operands[0])
     lines.push(operands[0][idx][0]);
 
+    console.log("building cb", operands)
+
   return { 
     isLiteral: false,
     opNodes: lines,
@@ -1258,7 +1277,5 @@ function buildCodeBlock(operands) {
     text: lines.map(x => x.text).join(";\n"),
   }
 }
-
-
 
 %}
