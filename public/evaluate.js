@@ -82,7 +82,7 @@ class ExponentCommand extends MathCommand {
 
 class UnaryMathCommand extends MathCommand {
   getChildValues() {
-    this.op1 = this.argNodes[0].command.execute();
+    this.op1 = this.args[0];
   }
   checkArguments() {
     if (isNaN(Number(this.op1)))
@@ -97,20 +97,37 @@ class NegateNumberCommand extends UnaryMathCommand {
 /** Boolean commands
  */
 class ConjunctionCommand extends MathCommand {
-  getChildValues() {}
+  getChildValues() {
+  }
+  executeChildren() { return new Promise(resolve => resolve()); }
   checkArguments() {}
   executeSelf() { 
+    this.precheckArguments();
+    var lNode = this.argNodes[0];
+    var rNode = this.argNodes[1];
     // do short circuiting
-    return this.argNodes[0].command.execute() && this.argNodes[1].command.execute();
+    return liftCommand(lNode.command)
+      .then(res => {
+        if (! res) return res; // short circuit on falsy
+        return liftCommand(rNode.command);
+      });
   }
 }
 
 class DisjunctionCommand extends MathCommand {
   getChildValues() {}
+  executeChildren() { return new Promise(resolve => resolve()); }
   checkArguments() {}
   executeSelf() { 
+    this.precheckArguments();
     // do short circuiting
-    return this.argNodes[0].command.execute() || this.argNodes[1].command.execute();
+    var lNode = this.argNodes[0];
+    var rNode = this.argNodes[1];
+    return liftCommand(lNode.command)
+      .then(res => {
+        if (res) return res; // short circuit on truthy
+        return liftCommand(rNode.command);
+      });
   }
 }
 
