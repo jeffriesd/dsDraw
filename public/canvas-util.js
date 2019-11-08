@@ -125,7 +125,7 @@ class CanvasState {
     if (CanvasState.instance) return CanvasState.instance;
     this.recCanvas = recCanvas;
     this.editCanvas = editCanvas;
-    this.ctx = new CtxProxy(this, recCanvas.getContext("2d"), editCanvas.getContext("2d"));
+    this.ctx = new CtxProxy(this, recCanvas.getContext("2d", { alpha : false }), editCanvas.getContext("2d", { alpha : false }));
 
     // event handling and event state
     this.eventHandler = new CanvasEventHandler(this);
@@ -148,7 +148,8 @@ class CanvasState {
 
     // hit detection with hidden canvas
     this.hitCanvas = hitCanvas;
-    this.hitCtx = hitCanvas.getContext("2d");
+    // optimize painting with alpha : false
+    this.hitCtx = hitCanvas.getContext("2d", { alpha : false });
     this.uniqueColors = new Set();
     this.colorHash = {};
 
