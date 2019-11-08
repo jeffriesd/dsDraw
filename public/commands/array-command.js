@@ -23,6 +23,10 @@ class Array1DCommand extends CanvasObjectMethod {
 }
 
 class Array1DLengthCommand extends Array1DCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.array.length; 
   }
@@ -44,6 +48,10 @@ class Array1DResizeCommand extends Array1DCommand {
     this.prevArrows = new Map();
 
     this.newValues = null;
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
   }
   
   getChildValues() {
@@ -85,6 +93,9 @@ class Array1DResizeCommand extends Array1DCommand {
 
 class Array1DSwapCommand extends Array1DCommand {
 
+  precheckArguments() {
+    this.checkArgsLength(2);
+  }
   getChildValues() {
     this.i1 = this.args[0];
     this.i2 = this.args[1]; 
@@ -124,6 +135,10 @@ class Array1DCopyCommand extends Array1DCommand {
     super(receiver, destArr, numCopy, srcIndex, destIndex);
     // save values for undo
     this.savedValues = null;
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1, 4);
   }
   
   getChildValues() {
@@ -194,6 +209,10 @@ class Array1DSortCommand extends Array1DCommand {
     super(receiver);
     // save state for undo 
     this.savedArray = this.receiver.array.slice(); 
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(0);
   }
 
   executeSelf() {
