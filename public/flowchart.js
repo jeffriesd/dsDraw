@@ -11,6 +11,7 @@ class FlowchartBox extends CanvasObject {
 
     this.fill = "#fff";
     this.strokeColor =  "#000";
+    this.textColor = "#000";
     this.fontStyle = null;
     this.fontFamily = "Monospace";
     this.fontSize = 20;
@@ -46,7 +47,7 @@ class FlowchartBox extends CanvasObject {
       "verticalAlign": ["top", "middle"],
       "horizontalAlign": ["left", "right", "center"],
       "fill": "color",
-      "fg": "color",
+      "textColor": "color",
     };
   }
 
@@ -61,7 +62,15 @@ class FlowchartBox extends CanvasObject {
         "ha": "horizontalAlign",
         "bg": "fill",
         "fill": "fill",
+        "textColor": "textColor",
+        "fg": "textColor",
     };
+  }
+
+  methodNames() {
+    return {
+      "append": FlowchartBoxAppendCommand,
+    }
   }
 
   /** FlowchartBox.config
@@ -77,7 +86,7 @@ class FlowchartBox extends CanvasObject {
       horizontalAlign: this.horizontalAlign,
       verticalAlign: this.verticalAlign,
       fill: this.fill,
-      strokeColor: this.strokeColor,
+      textColor: this.textColor,
     };
   }
 
@@ -228,7 +237,7 @@ class FlowchartBox extends CanvasObject {
   drawText() {
     this.textEntered();
     this.ctx.textBaseline = "alphabetic";
-    this.ctx.fillStyle = "#000";
+    this.ctx.fillStyle = this.textColor;
 
     // when editing, let HTML display
     // the text. 
@@ -754,37 +763,6 @@ class TextBox extends FlowchartBox {
     this.lineDash = [1, 2];
   }
 
-  propTypes() {
-    return {
-      "fontFamily": "font",
-      "fontSize": "int",
-      "verticalAlign": ["top", "middle"],
-      "horizontalAlign": ["left", "right", "center"],
-    };
-  }
-
-  propNames() {
-    return {
-      "ff": "fontFamily",
-      "fontFamily": "fontFamily",
-      "font": "fontSize",
-      "fontSize": "fontSize",
-      "fs": "fontSize",
-      "va": "verticalAlign",
-      "ha": "horizontalAlign",
-    }
-  }
-
-  config() {
-    return {
-      fontStyle: this.fontStyle,
-      fontFamily: this.fontFamily,
-      fontSize: this.fontSize,
-      horizontalAlign: this.horizontalAlign,
-      verticalAlign: this.verticalAlign,
-    }
-  }
-
   configureOptions() {
     super.configureOptions();
     this.ctx.setLineDash(this.lineDash);
@@ -829,11 +807,18 @@ class MathBox extends TextBox {
     // apply text render
     this.editor.onkeydown = (event) => {
       if (event.keyCode == ENTER) {
-        this.deactivate();
-        var body = { text: this.editor.value, label: this.label };
-        ClientSocket.sendServer("renderMath", body);
+        this.requestMath();
       }
     };
+  }
+
+  requestMath() {
+    this.deactivate();
+    var body = { text: this.editor.value, label: this.label };
+    ClientSocket.sendServer("renderMath", body);
+
+    // save text to detect changes
+    this.lastMathText = this.editor.value;
   }
 
   config() {
@@ -860,6 +845,13 @@ class MathBox extends TextBox {
   /** MathBox.drawText
    */
   drawText() {
+    // check if text has been updated
+    if (this.editor.value !== this.lastMathText && this.editor.hidden) {
+      // and not currently editing
+      this.requestMath();
+      return;
+    }
+
     this.textEntered();
     if (! this.editor.hidden) // if currently editing, don't draw image
       return super.drawText();
