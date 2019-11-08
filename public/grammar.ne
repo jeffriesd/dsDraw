@@ -152,11 +152,12 @@ exp -> unaryNeg _ "^" _ exp {% buildExp %} # right associative
 unaryNeg -> "-" mathTerminal {% buildNegate %}
           | mathTerminal     {% id %}
 
-nonQuote -> " " | "\t" | "-" | "+" | "*" | "/" | "^" | %LESSEQ | %GREATEQ | %EQEQ 
+nonQuote -> " " | "\t" | "\n" | "-" | "+" | "*" | "/" | "^" | %MOD | %LESSEQ | %GREATEQ | %EQEQ 
           | %DOT | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "=" | "{" 
+          | %OR | %AND | %NOT 
           | "}" | "[" | "]" | ";" | ":" | "$"
+          | %FOR | %WHILE | %IF | %ELSE | %ELIF | %DEF | %RET | %NULL 
           | %number 
-          | %methodName 
           | %varName 
           | %character
 
@@ -639,7 +640,7 @@ function wrapNull(operands) {
       return this;
     },
     toString: () => "wrapNull",
-    text: operands[0].text,
+    text: "null",
   }
 }
 
@@ -814,8 +815,7 @@ function buildForLoop(operands) {
       return buildForLoop(cloneOperands(operands));
     },
     toString: () => "buildForLoop",
-    text: `for (${initStatements.map(x => x.text).join(", ")} ; ${condition.text} ; ${incrStatements.map(x => x.text).join(", ")}) { `
-      + loopStatements.map(x => x.text).join(";\n") + "\n}",
+    text: forLoopText(initStatements, condition, incrStatements, loopStatements),
   };
 }
 
@@ -838,8 +838,9 @@ function buildWhileLoop(operands) {
       return buildWhileLoop(cloneOperands(operands));
     },
     toString: () => "buildWhileLoop",
-    text: `while ( ${condition.text} ) { `
-      + loopStatements.map(x => x.text).join(";\n") + "\n}",
+    // text: `while ( ${condition.text} ) { `
+    //   + loopStatements.map(x => x.text).join(";\n") + "\n}",
+    text: whileLoopText(condition, loopStatements),
   };
 }
 
@@ -890,7 +891,7 @@ function buildRangeAccess(operands) {
       return buildRangeAccess(cloneOperands(operands));
     },
     toString: () => "buildRangeAccess",
-    text: operands[0].text + "[ " + operands[3].text + ":" + operands[6].text + " ]",
+    text: operands[0].text + "[ " + low.text + ":" + high.text + " ]",
     formatTrace: (o1, o2) => combineStrings(operands[0].text, "[", o1, ":", o2, "]"),
   };
 }
@@ -1120,7 +1121,6 @@ function buildDict(operands) {
     values = operands[2][1];
   }
   return {
-    // isLiteral: pairs.every(x => x[0].isLiteral && x[1].isLiteral),
     isLiteral: values.every(x => x.isLiteral),
     opNodes: values,
     command: new BuildDictCommand(keys, ...values),
@@ -1129,9 +1129,13 @@ function buildDict(operands) {
     },
     toString: () => "buildDict",
     text: "{ " 
-      + keys.map((x, i) => x.text + " : " + values[i].text).join(", ")
+      + keys.map((x, i) => stringify(x) + " : " + values[i].text).join(", ")
       + " }",
-    formatTrace: (...vs) => combineStrings("{ ", joinStrings(keys.map((x, i) => x.text, " : ", vs[i]), ", "), "}"),
+    formatTrace: (...vs) => { 
+      return combineStrings("{ ", 
+        ...joinStrings(keys.map((k, i) => combineStrings(...joinStrings([k, " : ", vs[i]]))), ", "),
+      "}");
+    },
   };
 }
 
@@ -1214,7 +1218,7 @@ function buildIf(operands) {
     condBlockPairs.push(operands[elseIfIdx][idx][1]);
   
   // if final else block
-  var finalElse = false; // just for text
+  var finalElse = false; 
   if (operands[operands.length - 1]) {
     condBlockPairs.push(operands[operands.length - 1][1]);
     finalElse = true;
@@ -1223,12 +1227,12 @@ function buildIf(operands) {
   return {
     isLiteral: false,
     opNodes: condBlockPairs,
-    command: new IfBlockCommand(condBlockPairs),
+    command: new IfBlockCommand(condBlockPairs, finalElse),
     clone: function() {
       return buildIf(cloneOperands(operands));
     },
     toString: () => "buildIf",
-    text: `if ( ${condBlockPairs[0][0].text} ) {\n ${condBlockPairs[0][1].text} }\n`
+    text: breakLines(...ifBlockText(condBlockPairs, finalElse)),
   };
 }
 
@@ -1263,8 +1267,6 @@ function buildCodeBlock(operands) {
   var lines = [];
   for (var idx in operands[0])
     lines.push(operands[0][idx][0]);
-
-    console.log("building cb", operands)
 
   return { 
     isLiteral: false,
