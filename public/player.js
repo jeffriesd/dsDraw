@@ -5,8 +5,8 @@ class MediaController {
     if (MediaController.instance) return MediaController.instance;
     this.cState = canvasState;
 
-    // update at 60fps (about 16ms per frame)
-    this.framerate = 60;
+    // update at 30fps
+    this.framerate = 30;
 
     // map from clipId -> obj with keys: {"recorded", "url", "thumbnail"}
     this.clips = new Map();
@@ -168,8 +168,8 @@ class MediaController {
      *  MediaRecorder bindings
      */
     this.recorder.ondataavailable = (event) => {
-      // annotate with time for truncating 
-      event.data.ttime = this.cmdRecorder.getTime();
+      // // annotate with time for truncating 
+      // event.data.ttime = this.cmdRecorder.getTime();
       this.chunks.push(event.data)
     };
 
@@ -308,6 +308,7 @@ class MediaController {
    */
   setVideoURL(id, url) {
     this.player.video.src = url;
+    console.log("video  =" , this.player.video.src)
 
     // set url in map (used by thumbnail.onclick)
     this.clips.get(id).url = url;
@@ -727,10 +728,6 @@ class PauseState extends MediaState {
         context.setState(context.recordState);
       }
     }
-    else if (! context.hasRecorded()) { 
-      // current clip has nothing to wait on
-      context.waiting = false;
-    }
     else
       alert("waiting...");
   }
@@ -745,7 +742,7 @@ class PauseState extends MediaState {
       context.setState(context.playState);
     }
     else
-      alert("Exporting clips...");
+      alert("Processing video...");
   }
 }
 
@@ -865,23 +862,30 @@ class CommandRecorder {
     .then(() => liftCommand(cmdObj))
     .then(cmdRet => {
       this.mc.updateThumbnail();
-      if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
-        this.undoStack.push(cmdObj);
-        if (! redo) this.redoStack = [];
 
-        // TODO maybe record when animation begins 
-
-        // recording hasnt begun yet
-        if (! this.mc.hasRecorded() && this.mc.isPaused()) {
-          this.initCmds.push({ type: "execute", command: cmdObj });
-          console.log("init cmd")
-        }
-        else
-          this.recordCommand(cmdObj, "execute");
-      }
+      this.maybeRecordCommand(cmdObj, "execute", redo);
 
       return cmdRet;
     })
+  }
+
+  static maybeRecordCommand(cmdObj, cmdType, redo) {
+    var activeRec = MediaController.getInstance().cmdRecorder;
+    activeRec.maybeRecordCommand(cmdObj, cmdType, redo);
+  }
+
+  maybeRecordCommand(cmdObj, cmdType, redo) {
+    if (! cmdObj._astNode || ! cmdObj._astNode.isLiteral) {
+      this.undoStack.push(cmdObj);
+      if (! redo) this.redoStack = [];
+
+      // recording hasnt begun yet
+      if (! this.mc.hasRecorded() && this.mc.isPaused()) {
+        this.initCmds.push({ type: cmdType, command: cmdObj });
+      }
+      else
+        this.recordCommand(cmdObj, cmdType);
+    }
   }
 
   /** static wrapper -- grabs and dispatches call to
