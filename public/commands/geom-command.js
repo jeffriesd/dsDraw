@@ -1,6 +1,14 @@
 
 class GeomCommand extends ConsoleCommand {
 
+  checkArguments() {
+    if (! (this.receiver instanceof CanvasObject))
+      throw "Only canvas objects can be translated";
+    if (! (typeof this.dx) === "number" 
+        && (typeof this.dy) === "number")
+      this.argsError("Please user integer dx, dy")
+  }
+
 }
 
 /** TranslateCommand
@@ -25,14 +33,6 @@ class TranslateCommand extends GeomCommand {
     this.receiver = this.args[0];
     this.dx = this.args[1];
     this.dy = this.args[2];
-  }
-
-  checkArguments() {
-    if (! (this.receiver instanceof CanvasObject))
-      throw "Only canvas objects can be translated";
-    if (! (typeof this.dx) === "number" 
-        && (typeof this.dy) === "number")
-      this.argsError("Please user integer dx, dy")
   }
 
   executeSelf() {
@@ -72,14 +72,6 @@ class MoveToCommand extends GeomCommand {
     this.dy = this.args[2];
   }
 
-  checkArguments() {
-    if (! (this.receiver instanceof CanvasObject))
-      throw "Only canvas objects can be translated";
-    if (! (typeof this.dx) === "number" 
-        && (typeof this.dy) === "number")
-      this.argsError("Please user integer dx, dy")
-  }
-
   executeSelf() {
     this.receiver.moveTo(this.dx, this.dy);
   }
@@ -93,5 +85,48 @@ class MoveToCommand extends GeomCommand {
 
   restoreState(state) {
     this.receiver.moveTo(state.x, state.y);
+  }
+}
+
+class ResizeCommand extends GeomCommand {
+  constructor(cState, ...args) {
+    super(...args);
+  }
+
+  usage() {
+    "resize(canvasObj, w, h)";
+  }
+
+  checkArguments() {
+    super.checkArguments();
+
+    // also check that width and height are non-negative
+    if (this.newWidth < 0 || this.newHeight < 0) 
+      this.argsError("Width and height must be > 0");
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(3);
+  }
+
+  getChildValues() {
+    this.receiver = this.args[0];
+    this.newWidth = this.args[1];
+    this.newHeight = this.args[2];
+  }
+
+  executeSelf() {
+    this.receiver.resizeTo(this.newWidth, this.newHeight);
+  }
+
+  saveState() {
+    return {
+      width: this.receiver.width,
+      height: this.receiver.height,
+    };
+  }
+
+  restoreState(state) {
+    this.receiver.resizeTo(state.width, state.height);
   }
 }
