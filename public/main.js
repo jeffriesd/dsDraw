@@ -164,9 +164,21 @@ const hotkeyRedo = () => {
 
 };
 
+
+var lastRep = new Date().getTime();
 const repaint = () => { 
-  cState.repaint();
+  cState.repaint(); 
+  // var curTime = new Date().getTime();
+  // // only repaint as fast as frames are recorded
+  // if (curTime - lastRep < mc.msPerFrame) return;
+  // lastRep = new Date().getTime();
+  // // add short delay to see effects of
+  // // mouse events etc.
+  // setTimeout(() => cState.repaint(), mc.msPerFrame);
 }
+
+// repaint on load
+window.onload = () => repaint();
 
 // async commands can be canceled by the click of a button
 var commandCanceled = false;
@@ -175,6 +187,9 @@ const cancelAsync = () => {
 };
 const asyncCanceled = () => commandCanceled;
 
+
+
+const isDebugging = () => window.reactConsole.state.debugMode;
 
 /** lockContext
  *    prevent any interaction with canvas/editor state
@@ -213,11 +228,17 @@ const unlockContext = () => {
 const canvasLocked = () => {
   return contextLocked 
     || (mc.isPlaying())
-    || (mc.hasRecorded() && mc.isPaused() && ! mc.atEndOfClip());
+    || (mc.waiting)
+    // recorded, paused, but not at end of clip -- canvas not mutable
+    || (mc.hasRecorded() && mc.isPaused() && ! mc.atEndOfClip())
 };
 
 const clipMenuLocked = () => {
-  return contextLocked || mc.isRecording() || mc.isPlaying();
+  return contextLocked 
+  || isDebugging()
+  || mc.isPlaying()
+  || mc.waiting
+  || mc.isRecording();
 };
 
 // if canvas is locked 
