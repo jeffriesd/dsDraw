@@ -22,12 +22,17 @@
 class UserFunctionCommand extends ConsoleCommand {
   constructor(funcDef, ...args) {
     super(...args);
+    this.funcDef = funcDef;
     this.funcName = funcDef.funcName;
     this.statements = funcDef.statements.map(x => x.clone());
     this.argNames = funcDef.argNames;
     // flag to ensure command stack is only created once
     this.storedStack = false; 
     this.executed = [];
+  }
+
+  numStatements() {
+    return this.statements.length;
   }
 
   precheckArguments() {
@@ -97,7 +102,6 @@ class UserFunctionCommand extends ConsoleCommand {
 
           // quick easy way to return value from any nested call
           if (e instanceof FunctionReturn) {
-            console.log("fr = ",e.value)
             return e.value; 
           }
           else // some other error
