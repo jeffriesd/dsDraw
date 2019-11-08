@@ -6,18 +6,27 @@ class DictionaryCommand extends ConsoleCommand {
 }
 
 class DictionaryKeysCommand extends DictionaryCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return Array.from(this.receiver.keys());
   }
 }
 
 class DictionaryValuesCommand extends DictionaryCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return Array.from(this.receiver.values());
   }
 }
 
 class DictionaryDeleteCommand extends DictionaryCommand {
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
   getChildValues() {
     this.deleteKey = this.args[0];
   }

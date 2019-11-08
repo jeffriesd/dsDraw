@@ -47,6 +47,10 @@ class BSTInsertCommand extends BSTCommand {
     this.value = this.args[0];
   }
 
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
   checkArguments() {
     if (typeof this.value !== "number")
       throw "BST only supports numeric values";
@@ -69,6 +73,10 @@ class BSTInsertCommand extends BSTCommand {
 }
 
 class BSTRemoveCommand extends BSTCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
 
   getChildValues() {
     this.value = this.args[0];
@@ -94,6 +102,10 @@ class BSTRemoveCommand extends BSTCommand {
 
 
 class BSTFindCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
   getChildValues() {
     this.value = this.args[0];
   }
@@ -115,6 +127,10 @@ class BSTFindCommand extends BSTCommand {
 }
 
 class BSTRangeCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0, 2);
+  }
+
   getChildValues() {
     this.low = this.args[0];
     this.high = this.args[1];
@@ -140,6 +156,9 @@ class BSTRangeCommand extends BSTCommand {
  * returns list of BSTNodeCanvasObjects
  */
 class BSTInorderCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.inorder();
   }
@@ -151,6 +170,9 @@ class BSTInorderCommand extends BSTCommand {
  * returns list of BSTNodeCanvasObjects
  */
 class BSTPreorderCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.preorder();
   }
@@ -163,6 +185,9 @@ class BSTPreorderCommand extends BSTCommand {
  * returns list of BSTNodeCanvasObjects
  */
 class BSTPostorderCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.postorder();
   }
@@ -174,6 +199,9 @@ class BSTPostorderCommand extends BSTCommand {
  *    returns reference to min value node
  */
 class BSTMinCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.getMin();
   }
@@ -185,6 +213,9 @@ class BSTMinCommand extends BSTCommand {
  *    returns reference to max value node
  */
 class BSTMaxCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.getMax();
   }
@@ -197,6 +228,9 @@ class BSTMaxCommand extends BSTCommand {
  *    returns reference to root node
  */
 class BSTRootCommand extends BSTCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.getRoot();
   }
@@ -218,6 +252,9 @@ class BSTNodeCanvasObjectCommand extends CanvasObjectMethod {
 }
 
 class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   // rotate self with parent
   executeSelf() {
     if (this.newState) return this.restoreState(this.newState);
@@ -263,36 +300,54 @@ class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
 }
 
 class BSTNodeCanvasObjectLeftCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.leftChild();
   }
 }
 
 class BSTNodeCanvasObjectRightCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.rightChild();
   }
 }
 
 class BSTNodeCanvasObjectParentCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.getParNode();
   }
 }
 
 class BSTNodeCanvasObjectPredecessorCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.pred();
   }
 }
 
 class BSTNodeCanvasObjectSuccessorCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.succ();
   }
 }
 
 class BSTNodeCanvasObjectValueCommand extends BSTNodeCanvasObjectCommand {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
   executeSelf() {
     return this.receiver.value;
   }

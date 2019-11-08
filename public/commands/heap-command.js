@@ -1,3 +1,10 @@
+/**
+ * Heap methods
+ */
+
+class BinaryHeapCommand extends CanvasObjectMethod {
+}
+
 class BinaryHeapInsertCommand extends BinaryHeapCommand {
   constructor(receiver, valueNode) {
     super(receiver, valueNode);
@@ -8,6 +15,11 @@ class BinaryHeapInsertCommand extends BinaryHeapCommand {
       return node;
     });
   }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
 
   getChildValues() {
      
@@ -53,6 +65,11 @@ class BinaryHeapPopCommand extends BinaryHeapCommand {
     });
   }
 
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
+
   executeSelf() {
     if (this.newHeap == undefined) {
       this.popped = this.receiver.removeRoot();
@@ -61,10 +78,6 @@ class BinaryHeapPopCommand extends BinaryHeapCommand {
     this.receiver.heapArray = this.newHeap.slice();
     return this.popped;
   }
-
-  // undoSelf() {
-  //   this.receiver.heapArray = this.oldHeap.slice();
-  // }
 
   saveState() {
     return {
@@ -79,21 +92,35 @@ class BinaryHeapPopCommand extends BinaryHeapCommand {
 
 class BinaryHeapFindCommand extends BinaryHeapCommand {
   getChildValues() {
-     
     this.value = this.args[0];
   }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
   executeSelf() {
     return this.receiver.find(this.value);
   }
 }
 
 class BinaryHeapRootCommand extends BinaryHeapCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.root;
   }
 }
 
 class BinaryHeapRangeCommand extends BinaryHeapCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0, 2);
+  }
+
   getChildValues() {
      
     this.low = this.args[0];
@@ -125,6 +152,11 @@ class BinaryHeapDecreaseKeyCommand extends BinaryHeapCommand {
     });
   }
 
+  precheckArguments() {
+    this.checkArgsLength(2);
+  }
+
+
   getChildValues() {
     this.receiverIndex = this.args[0];
     this.newKey = this.args[1];
@@ -153,6 +185,11 @@ class BinaryHeapNodeCommand extends CanvasObjectMethod {
 }
 
 class BinaryHeapNodeValueCommand extends BinaryHeapNodeCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.value;
   }

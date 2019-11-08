@@ -18,6 +18,11 @@ class ListCommand extends ConsoleCommand {
 }
 
 class ListLengthCommand extends ListCommand { 
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.length;
   }
@@ -27,6 +32,11 @@ class ListLengthCommand extends ListCommand {
 }
 
 class ListPushCommand extends ListCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
   getChildValues() {
     this.element = this.args[0];
   }
@@ -39,12 +49,22 @@ class ListPushCommand extends ListCommand {
 
 
 class ListPopCommand extends ListCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.pop();
   }
 }
 
 class ListEmptyCommand extends ListCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     return this.receiver.length == 0;
   }

@@ -25,6 +25,11 @@ class LinkedListCommand extends CanvasObjectMethod {
 
 class LinkedListInsertCommand extends LinkedListCommand {
 
+  precheckArguments() {
+    this.checkArgsLength(2);
+  }
+
+
   getChildValues() {
      
     this.fromIndex = this.args[0];
@@ -52,6 +57,12 @@ class LinkedListInsertCommand extends LinkedListCommand {
 
 class LinkedListLinkCommand extends LinkedListCommand {
 
+
+  precheckArguments() {
+    this.checkArgsLength(2);
+  }
+
+
   getChildValues() {
      
     this.fromIndex = this.args[0];
@@ -78,6 +89,11 @@ class LinkedListLinkCommand extends LinkedListCommand {
 }
 
 class LinkedListCutCommand extends LinkedListCommand {
+
+
+  precheckArguments() {
+    this.checkArgsLength(2);
+  }
 
   getChildValues() {
      
@@ -108,6 +124,11 @@ class LinkedListRemoveCommand extends LinkedListCommand {
     super(receiver, removeIdx);
     this.node = null;
   }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
 
   getChildValues() {
      

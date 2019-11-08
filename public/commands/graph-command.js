@@ -297,6 +297,11 @@ class GraphNodeCommand extends CanvasObjectMethod {
 }
 
 class GraphNodeIncomingCommand extends GraphNodeCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     var graphCO = this.receiver.getParent();
     if (graphCO instanceof DiGraphCanvasObject)
@@ -306,6 +311,11 @@ class GraphNodeIncomingCommand extends GraphNodeCommand {
 }
 
 class GraphNodeOutgoingCommand extends GraphNodeCommand {
+
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+
   executeSelf() {
     var graphCO = this.receiver.getParent();
     if (graphCO instanceof DiGraphCanvasObject)
