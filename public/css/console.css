@@ -92,6 +92,35 @@
   background-image: url("../images/play.png");
 }
 
+#commandConsoleStepIntoButton {
+  float: left;
+  background: none;
+  background-size: 50% 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/step-into.png");
+}
+
+#commandConsoleStepOverButton {
+  float: left;
+  background: none;
+  background-size: 50% 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/step-over.png");
+}
+
+#commandConsoleDebugCancelButton {
+  float: left;
+  background: none;
+  background-size: 50% 50%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/cancel.png");
+}
+
+
+
 #commandTopBar button:hover {
   opacity: .8;
 }
