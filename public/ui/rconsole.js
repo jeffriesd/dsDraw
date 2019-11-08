@@ -25,6 +25,7 @@ class ReactConsole extends React.Component {
       bgColor: "rgba(0, 0, 0, .7)",
       fgColor: "white",
       debugMode: false, 
+      traceText: "",
     }
 
     this.size = { width: this.props.width, height: this.props.height };
@@ -61,7 +62,7 @@ class ReactConsole extends React.Component {
   }
 
   // history doesn't need non-commands for cycling
-  push(line, lineType) {
+  addLine(line, lineType) {
     if (lineType == "command") {
       this.state.historyStack.push(line);
       this.state.printStack.push(consolePromptStr + line);
@@ -117,9 +118,9 @@ class ReactConsole extends React.Component {
 
     // add entered line to command history 
     if (line && line.trim())
-      this.push(line, "command");
+      this.addLine(line, "command");
     if (parseErr)
-      this.push(parseErr, "error");
+      this.addLine(parseErr, "error");
     else if (cmdObj) {
       lockContext();
       executeCommand(cmdObj, false, true) // redo = false, overrideLock = true
@@ -127,11 +128,11 @@ class ReactConsole extends React.Component {
         if (cmdObj instanceof UtilCommand) return;
         var cmdRetStr = stringify(cmdRet);
         if (cmdRet !== undefined && cmdRetStr != line)
-          this.push(cmdRetStr, "result");
+          this.addLine(cmdRetStr, "result");
       })
       .catch(error => {
         console.log("EXEC ERROR: " + error.stack);
-        this.push("[EXEC ERROR]: " + error.toString(), "error");
+        this.addLine("[EXEC ERROR]: " + error.toString(), "error");
       })
       .finally(() => {
         unlockContext();
@@ -152,13 +153,16 @@ class ReactConsole extends React.Component {
         cmdObj = parseLine(line);
       }
       catch (error) {
-        alert(parseErr);
+        var perr = "[PARSE ERROR]: " + error;
+        this.addLine(perr, "error");
+        this.cancelDebug();
       }
     }
 
     if (cmdObj !== undefined) 
-      this.programTrace = getCommandIterator(cmdObj);
+      this.programTrace = getCommandIterator(cmdObj._astNode);
     else this.programTrace = undefined;
+
   }
 
   scrollToBottom() {
@@ -173,7 +177,7 @@ class ReactConsole extends React.Component {
 
   renderSettingsPane() {
     // TODO implement settings
-    if (! this.state.showSettings) return null;
+    if (this.state.debugMode || ! this.state.showSettings) return null;
     return create(
       "div",
       { 
@@ -184,16 +188,6 @@ class ReactConsole extends React.Component {
           left: this.size.width,
         },
       },
-      // create(
-      //   "div",
-      //   { 
-      //     id: "commandSettingsClose",
-      //     onClick: e => { 
-      //       this.setState({ showSettings: false });
-      //     },
-      //   },
-      //   create("div", { id: "commandSettingsCloseButton" }),
-      // ),
       create(
         CommandSettings,
         { 
@@ -268,6 +262,16 @@ class ReactConsole extends React.Component {
       );
     }
 
+    cancelDebug() {
+      // undo effects of program trace up to the current point 
+      if (this.programTrace)
+        this.programTrace.command.undo();
+      repaint();
+      updateInspectPane();
+
+      this.setState({ debugMode: false });
+    }
+
     renderConsole() {
       if (this.state.consoleMode == CLINE_MODE)
         return [
@@ -309,54 +313,71 @@ class ReactConsole extends React.Component {
         ];
 
       // otherwise in text mode
-      const runCodeCallback = () => this.commandEntered(this.commandTextBox.value);
 
-      const cancelDebug = () => { 
-        // undo effects of program trace up to the current point 
-        if (this.programTrace)
-          this.programTrace.command.undo();
-        repaint();
-        updateInspectPane();
+      const cancelDebug = () => this.cancelDebug();
 
-        this.setState({ debugMode: false });
-      };
 
       const startDebug = () => { 
+        if (canvasLocked()) return canvasLockedAlert();
+
         if (this.commandTextBox.value) {
-          this.setState({ debugMode: true });
           this.createProgramTrace(this.commandTextBox.value);
+          if (this.programTrace)
+            this.setState({ debugMode: true, traceText : this.programTrace.traceText });
         }
       };
 
+      const maybeFinishDebug = () => {
+        // update ui with trace 
+        var tr = this.programTrace.trace();
+        this.setState({traceText: tr });
+
+        if (this.programTrace.finishedExecuting) {
+          // TODO record command here (without executing again, obviously)
+          CommandRecorder.maybeRecordCommand(this.programTrace.command, "execute");
+
+          this.programTrace = null;
+
+          cancelDebug();
+        }
+      }
+
+
       const stepInto = () => { 
-        this.programTrace.stepInto()
+        // TODO check if context locked 
+        if (canvasLocked()) return canvasLockedAlert();
+
+        
+        return new Promise(resolve => 
+          resolve(lockContext()))
+          .then(() => this.programTrace.stepInto())
           .then(() => {
-            if (this.programTrace.finishedExecuting) {
-              this.programTrace = null;
-
-              // TODO record command here (without executing again, obviously)
-
-              cancelDebug();
-            }
+            // maybe step again
+            // if (this.programTrace.currentIter == null)
+            //   this.programTrace.stepInto();
           })
+          .then(() => maybeFinishDebug())
           .catch(err => {
+            // TODO show error in console
+
             console.warn("Error stepping into: ", err)
             cancelDebug();
-          });
+          })
+          .finally(() => unlockContext());
       };
 
       const stepOver = () => { 
-        this.programTrace.stepOver()
-          .then(() => {
-            if (this.programTrace.finishedExecuting) {
-              this.programTrace = null;
-              cancelDebug();
-            }
-          })
+        if (canvasLocked()) return canvasLockedAlert();
+
+        return new Promise(resolve => 
+          resolve(lockContext()))
+          .then(() => this.programTrace.stepOver())
+          .then(() => maybeFinishDebug())
           .catch(err => {
             console.warn("Error stepping over: ", err)
             cancelDebug();
-          });
+          })
+          .finally(() => unlockContext());
       };
 
 
@@ -366,7 +387,7 @@ class ReactConsole extends React.Component {
           { 
             showSettingsCallback: () => this.toggleSettingsPane(),
             consoleMode: this.state.consoleMode,
-            runCodeCallback: runCodeCallback,
+            runCodeCallback: () => this.runCodeCallback(),
             startDebugCb: startDebug,
             cancelDebugCb: cancelDebug,
             stepIntoCb: stepInto,
@@ -376,40 +397,7 @@ class ReactConsole extends React.Component {
         ),
 
         // text editor
-        create(
-          "textarea",
-          {
-            spellCheck: false,
-            ref: r => this.commandTextBox = r,
-            id: "commandTextBox",
-            onKeyDown: e => { 
-              // CTRL+Enter executes code
-              var kc = e.keyCode;
-              if (hotkeys[CTRL]) {
-                if (kc == Z) {
-                  e.preventDefault(); // dont undo typing
-                  hotkeyUndo();
-                }
-                if (kc == Y) {
-                  if (hotkeys[ALT])
-                    hotkeyRedoAtomic();
-                  else
-                    hotkeyRedo();
-                }
-                if (kc == ENTER)
-                  runCodeCallback();
-              }
-
-              // lift state up
-              if (kc == ESC)
-                this.toggleVisible(false);
-            },
-            // save text if going back and forth between modes
-            onChange: e => { this.setState({ text: e.target.value }) },
-            style: { color: this.state.fgColor, fontSize: this.state.fontSize, fontFamily : this.state.fontFamily },
-            defaultValue: this.state.text,
-          }
-        ),
+        this.renderTextEditor(),
 
         // console output
         (this.state.consoleOutput !== "" 
@@ -429,7 +417,63 @@ class ReactConsole extends React.Component {
 
       ]
   }
+
+  runCodeCallback() {
+    this.commandEntered(this.commandTextBox.value);
+  }
+
+  renderTextEditor() {
+    var props = 
+      {
+        spellCheck: false,
+        ref: r => this.commandTextBox = r,
+        id: "commandTextBox",
+        onKeyDown: e => { 
+          // CTRL+Enter executes code
+          var kc = e.keyCode;
+          if (hotkeys[CTRL]) {
+            if (kc == Z) {
+              e.preventDefault(); // dont undo typing
+              hotkeyUndo();
+            }
+            if (kc == Y) {
+              if (hotkeys[ALT]) {
+                hotkeyRedoAtomic();
+              }
+              else
+                hotkeyRedo();
+            }
+            if (kc == ENTER)
+              this.runCodeCallback();
+          }
+
+          // lift state up
+          if (kc == ESC)
+            this.toggleVisible(false);
+        },
+        // save text if going back and forth between modes
+        onChange: e => { this.setState({ text: e.target.value }) },
+        style: { color: this.state.fgColor, fontSize: this.state.fontSize, fontFamily : this.state.fontFamily },
+        defaultValue: this.state.text,
+      };
+
+    // if doing code trace, just set the value 
+    if (this.state.debugMode && this.state.traceText) {
+      props.value = "";
+      //children.push(create("p",{}, this.state.traceText));
+
+      return this.state.traceText;
+    }
+
+    return create(
+      "textarea", props,     );
+  }
+
 }
+
+
+
+
 
 class CommandTopBar extends React.Component {
   runButton() {
