@@ -1,10 +1,12 @@
 const mainCommands = {
   // "relabel": RelabelCommand,
   // "snap": ExportToImageCommand, TODO move to button
+  "dbg": DebugPrint,
   "translate": TranslateCommand,
   "tr": TranslateCommand,
   "mt": MoveToCommand,
   "moveTo": MoveToCommand,
+  "resize": ResizeCommand,
   "repaint": RepaintCommand,
   "wait": WaitCommand,
   "help": HelpCommand,
