@@ -41,6 +41,10 @@ class ControlFlowCommand {
     this.steps = 0;
   }
 
+  numStatements() {
+    return this.loopStatements.length;
+  }
+
   /** ControlFlowCommand.pushCmd
    *    execute command and push it onto stack for undo
    *    if this is first call to execute
@@ -114,7 +118,12 @@ class CodeBlockCommand extends ControlFlowCommand {
 
   executeSelf() {
     return this.doBody()
-      .then(() => { this.storedStack = true } );
+      .then(cmdRet => { 
+        this.storedStack = true 
+        // if this was a one-liner, print the result
+        if (this.loopStatements.length == 1)
+          return cmdRet;
+      } );
   }
 }
 
@@ -204,16 +213,24 @@ class ForLoopCommand extends ControlFlowCommand {
 }
 
 class IfBlockCommand extends ControlFlowCommand {
-  constructor(condBlockPairs) {
+  constructor(condBlockPairs, finalElse) {
     super();
     this.condBlockPairs = condBlockPairs;
+
+    // finalElse is a flag indicating whether the last
+    // block is an else or not
+    this.finalElse = finalElse;
+  }
+
+  numStatements() {
+    throw "numStatements undefined for IfBlock"
   }
 
   untilFirstTrue() {
-    var cond, lines;
     return this.condBlockPairs.reduce((prev, cur) => {
-      cond = cur[0];
-      lines = cur[1];
+      // capture local values
+      var cond = cur[0];
+      var lines = cur[1];
       // if previous block evaluated to true, 
       // then subsequent else ifs should fall through
       return prev.then(prevCondRet => {
