@@ -141,7 +141,8 @@ class CloneEnvCommand {
  */
 class ConsoleCommand {
   constructor(...argNodes) {
-    this.argNodes = argNodes; // astNodes 
+    // this.argNodes = argNodes; // astNodes 
+    this.argNodes = argNodes.filter(n => n !== undefined);
     this.args = []; // evaluated argNodes
 
     // save state before execution
@@ -806,17 +807,10 @@ class CanvasObjectMethod extends ConsoleCommand {
   constructor(receiver, ...argNodes) {
     super();
     this.receiver = receiver;
-    this.argNodes = argNodes;
+    this.argNodes = argNodes.filter(n => n !== undefined);
   }
 
 }
-/**
- * Heap methods
- */
-
-class BinaryHeapCommand extends CanvasObjectMethod {
-}
-
 
 /**
  * Built-in math (rand, randn), util (range)
@@ -827,6 +821,10 @@ class RandomIntCommand extends ConsoleCommand {
     super(min, max);
     this.value = null;
   }
+  precheckArguments() {
+    this.checkArgsLength(0, 2);
+  }
+
   getChildValues() {
      
     this.min = this.args[0];
@@ -871,6 +869,10 @@ class RangeCommand extends ConsoleCommand {
   constructor(cState, start, end, step) {
     super(start, end, step);
     this.value = null;
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(2, 3);
   }
 
   getChildValues() {
@@ -1072,15 +1074,6 @@ class HideCommand extends ConsoleCommand {
   }
 }
 
-class ClearCanvasCommand extends ConsoleCommand {
-  constructor(cState) {
-    super();
-  }
-
-  executeSelf() {
-  }
-}
-
 /** BuckCommand
  *    the buck command comes in two forms:
  * 
@@ -1221,6 +1214,10 @@ class StringCommand extends ConsoleCommand {
     super(...args);
   }
 
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
   getChildValues() {
     this.receiver = this.args[0];
   }
@@ -1229,4 +1226,53 @@ class StringCommand extends ConsoleCommand {
     return stringify(this.receiver);
   }
 
+}
+
+
+
+class FlowchartBoxAppendCommand extends CanvasObjectMethod {
+  constructor(receiver, textNode) {
+    super(receiver, textNode);
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
+  getChildValues() {
+    this.newText = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.newText !== "string")
+      this.argsError("Argument must have string type")
+  } 
+
+  saveState() {
+    return { 
+      prevText: this.receiver.editor.value,
+    }
+  }
+
+  restoreState(state) {
+    this.receiver.editor.value = state.prevText;
+  }
+  executeSelf() {
+    this.receiver.editor.value += this.newText;
+  }
+}
+
+class DebugPrint extends ConsoleCommand {
+  constructor(cState, ...args) {
+    super(...args);
+  }
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+  getChildValues() {
+    this.printStr = this.args[0];
+  }
+  executeSelf() {
+    console.log("DEBUG PRINT: ", this.printStr);
+  }
 }
