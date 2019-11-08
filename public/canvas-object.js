@@ -250,6 +250,11 @@ class CanvasObject {
     }
   }
 
+  resizeTo(x, y) {
+    if (x < 0 || y < 0) return;
+    this.resize(x - this.width, y - this.height);
+  }
+
 
   /** CanvasObject.hover
    *    default behavior to reset hover action over resize point
