@@ -581,10 +581,14 @@ class BSTCanvasObject extends LinearCanvasObject {
     this.ctx.font = font;
   }
 
+  renderSelf() {
+    renderBST(this, this.bst);
+  }
+
   draw() {
     // TODO only render when needed
     // TODO move ancestor collapsed to render
-    renderBST(this, this.bst);
+    this.renderSelf();
 
     // TODO make this a recursive preorder 
     // so collapsed subtrees can be skipped
