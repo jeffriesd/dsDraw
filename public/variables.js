@@ -1,10 +1,16 @@
 const mainCommands = {
   // "relabel": RelabelCommand,
   // "snap": ExportToImageCommand, TODO move to button
+  "canvasWidth" : CanvasWidthCommand,
+  "canvasHeight" : CanvasHeightCommand, 
+  "cw" : CanvasWidthCommand,
+  "ch" : CanvasHeightCommand, 
   "dbg": DebugPrint,
   "translate": TranslateCommand,
   "tr": TranslateCommand,
   "mt": MoveToCommand,
+  "floor": FloorCommand,
+  "ceil": CeilCommand,
   "moveTo": MoveToCommand,
   "resize": ResizeCommand,
   "repaint": RepaintCommand,
@@ -250,6 +256,9 @@ class VariableEnvironment {
   }
 
   defineFunction(funcName, funcDef) {
+    if (keywords.has(funcName))
+      throw `Cannot use keyword '${funcName}'.`;
+
     if ((this.canvasObjects.has(funcName) 
        || this.variables.has(funcName))
           || 
