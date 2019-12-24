@@ -95,25 +95,43 @@
 #commandConsoleStepIntoButton {
   float: left;
   background: none;
-  background-size: 50% 50%;
+  background-size: 75% 75%;
   background-position: center;
   background-repeat: no-repeat;
-  background-image: url("../images/step-into.png");
+  background-image: url("../images/step-into-white.png");
 }
 
 #commandConsoleStepOverButton {
   float: left;
   background: none;
+  background-size: 75% 75%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/step-over-white.png");
+}
+
+#commandConsoleContinueButton {
+  float: left;
+  background: none;
   background-size: 50% 50%;
   background-position: center;
   background-repeat: no-repeat;
-  background-image: url("../images/step-over.png");
+  background-image: url("../images/continue-white.png");
+}
+
+#commandConsoleDebugButton {
+  float: left;
+  background: none;
+  background-size: 75% 75%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("../images/bug-white.png");
 }
 
 #commandConsoleDebugCancelButton {
   float: left;
   background: none;
-  background-size: 50% 50%;
+  background-size: 75% 75%;
   background-position: center;
   background-repeat: no-repeat;
   background-image: url("../images/cancel.png");
