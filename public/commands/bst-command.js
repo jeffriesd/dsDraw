@@ -15,6 +15,8 @@ class BSTCommand extends CanvasObjectMethod {
   /** BSTCommand.restoreState
    *    restore the state/shape of the BST
    * 
+   *    ALSO REDRAW TREE at end
+   * 
    * @param bstRoot previous state to restore to
    */
   restoreState(state) {
@@ -38,6 +40,20 @@ class BSTCommand extends CanvasObjectMethod {
     // the bst doesn't get updated properly
     // when redoing the remove command. 
     this.receiver.inorder();
+
+    this.receiver.renderSelf();
+  }
+
+  /**
+   * Override executeSelfPromise to also render BST after each command
+   * to set coordinates
+   */
+  executeSelfPromise() {
+    return super.executeSelfPromise()
+      .then(ret => { 
+        this.receiver.renderSelf();
+        return ret;
+      });
   }
 }
 
@@ -249,6 +265,13 @@ class BSTNodeCanvasObjectCommand extends CanvasObjectMethod {
     super(...args);
     this.receiverNode = this.receiver.internalNode();
   }
+  executeSelfPromise() {
+    return super.executeSelfPromise()
+      .then(ret => { 
+        this.receiver.getParent().renderSelf();
+        return ret;
+      });
+  }
 }
 
 class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
@@ -289,6 +312,8 @@ class BSTNodeCanvasObjectRotateCommand extends BSTNodeCanvasObjectCommand {
     // the cloned BST
     for (var node of this.receiver.getParent().bst.root.inorder()) 
       this.receiver.getParent().bst.ids.set(node.index, node);
+
+    this.receiver.getParent().renderSelf();
   }
 
   // undoSelf() {
