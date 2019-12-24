@@ -49,6 +49,8 @@ class LinearCanvasObject extends CanvasObject {
       "cellSize": "cellSize",
       "cs": "cellSize",
       "indp": "indexPlacement",
+      "showIndices": "showIndices",
+      "showValues": "showValues",
       "ind": "showIndices",
       "val": "showValues",
     };
@@ -168,10 +170,12 @@ class NodeObject extends CanvasChildObject {
         "background": "fill",
         "fill": "fill",
         "value": "value",
-        "showVal": "showValues",
+        "showIndices": "showIndices",
+        "showValues": "showValues",
+        "ind": "showIndices",
+        "val": "showValues",
         "border": "borderThickness",
         "fg": "textColor",
-        "ind": "showIndices",
         "strokeColor": "strokeColor",
     };
   }
