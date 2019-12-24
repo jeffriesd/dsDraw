@@ -40,6 +40,7 @@ function id(x) { return x[0]; }
     "-": "-",
     "+": "+",
     "*": "*",
+    "//": "//",
     "/": "/",
     "^": "^",
     MOD: "%",
@@ -175,6 +176,8 @@ function buildMultDiv(operands) {
     return buildMult(operands[0], operands[4]);
   else if (operator == "/")
     return buildDiv(operands[0], operands[4]);
+  else if (operator == "//")
+    return buildFloorDiv(operands[0], operands[4]);
   else 
     return buildMod(operands[0], operands[4]);
 }
@@ -211,6 +214,19 @@ function buildDiv(opNode1, opNode2) {
     toString: () => "buildDiv",
     text: opNode1.text + " / " + opNode2.text,
     formatTrace: (o1, o2) => combineStrings(o1, " / ",  o2),
+  };
+}
+function buildFloorDiv(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new FloorDivCommand(opNode1, opNode2),
+    clone: function() {
+      return buildFloorDiv(opNode1.clone(), opNode2.clone());
+    },
+    toString: () => "buildFloorDiv",
+    text: opNode1.text + " // " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " // ",  o2),
   };
 }
 
@@ -1254,6 +1270,7 @@ var grammar = {
     {"name": "math", "symbols": ["product"], "postprocess": id},
     {"name": "product$subexpression$1", "symbols": [{"literal":"*"}]},
     {"name": "product$subexpression$1", "symbols": [{"literal":"/"}]},
+    {"name": "product$subexpression$1", "symbols": [{"literal":"//"}]},
     {"name": "product$subexpression$1", "symbols": [(lexer.has("MOD") ? {type: "MOD"} : MOD)]},
     {"name": "product", "symbols": ["product", "_", "product$subexpression$1", "_", "exp"], "postprocess": buildMultDiv},
     {"name": "product", "symbols": ["exp"], "postprocess": id},
@@ -1268,6 +1285,7 @@ var grammar = {
     {"name": "nonQuote", "symbols": [{"literal":"+"}]},
     {"name": "nonQuote", "symbols": [{"literal":"*"}]},
     {"name": "nonQuote", "symbols": [{"literal":"/"}]},
+    {"name": "nonQuote", "symbols": [{"literal":"//"}]},
     {"name": "nonQuote", "symbols": [{"literal":"^"}]},
     {"name": "nonQuote", "symbols": [(lexer.has("MOD") ? {type: "MOD"} : MOD)]},
     {"name": "nonQuote", "symbols": [(lexer.has("LESSEQ") ? {type: "LESSEQ"} : LESSEQ)]},

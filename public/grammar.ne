@@ -36,6 +36,7 @@
     "-": "-",
     "+": "+",
     "*": "*",
+    "//": "//",
     "/": "/",
     "^": "^",
     MOD: "%",
@@ -144,7 +145,7 @@ comp -> bool _ comparator _ bool  {% buildComparison %}
 
 math -> math _ ("+"|"-") _ product {% buildAddSub %} | product {% id %}
 
-product -> product _ ("*"|"/"|%MOD) _ exp  {% buildMultDiv %} | exp {% id %}
+product -> product _ ("*"|"/"|"//"|%MOD) _ exp  {% buildMultDiv %} | exp {% id %}
 
 exp -> unaryNeg _ "^" _ exp {% buildExp %} # right associative
      | unaryNeg             {% id %}
@@ -152,7 +153,7 @@ exp -> unaryNeg _ "^" _ exp {% buildExp %} # right associative
 unaryNeg -> "-" mathTerminal {% buildNegate %}
           | mathTerminal     {% id %}
 
-nonQuote -> " " | "\t" | "\n" | "-" | "+" | "*" | "/" | "^" | %MOD | %LESSEQ | %GREATEQ | %EQEQ 
+nonQuote -> " " | "\t" | "\n" | "-" | "+" | "*" | "/" | "//" | "^" | %MOD | %LESSEQ | %GREATEQ | %EQEQ 
           | %DOT | %NOTEQ | %TRUE | %FALSE | ">" | "<" | "," | "(" | ")" | "=" | "{" 
           | %OR | %AND | %NOT 
           | "}" | "[" | "]" | ";" | ":" | "$"
@@ -353,6 +354,8 @@ function buildMultDiv(operands) {
     return buildMult(operands[0], operands[4]);
   else if (operator == "/")
     return buildDiv(operands[0], operands[4]);
+  else if (operator == "//")
+    return buildFloorDiv(operands[0], operands[4]);
   else 
     return buildMod(operands[0], operands[4]);
 }
@@ -389,6 +392,19 @@ function buildDiv(opNode1, opNode2) {
     toString: () => "buildDiv",
     text: opNode1.text + " / " + opNode2.text,
     formatTrace: (o1, o2) => combineStrings(o1, " / ",  o2),
+  };
+}
+function buildFloorDiv(opNode1, opNode2) {
+  return {
+    isLiteral: opNode1.isLiteral && opNode2.isLiteral,
+    opNodes: [opNode1, opNode2],
+    command: new FloorDivCommand(opNode1, opNode2),
+    clone: function() {
+      return buildFloorDiv(opNode1.clone(), opNode2.clone());
+    },
+    toString: () => "buildFloorDiv",
+    text: opNode1.text + " // " + opNode2.text,
+    formatTrace: (o1, o2) => combineStrings(o1, " // ",  o2),
   };
 }
 
