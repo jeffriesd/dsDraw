@@ -70,6 +70,7 @@ class FlowchartBox extends CanvasObject {
   methodNames() {
     return {
       "append": FlowchartBoxAppendCommand,
+      "setText": FlowchartBoxSetTextCommand,
     }
   }
 
@@ -251,11 +252,12 @@ class FlowchartBox extends CanvasObject {
 
     for (var i = 0; i < this.wrappedText.length; i++) {
       var text = this.wrappedText[i];
-      // don't fill past container
+      // don't fill past container (but if it's first line then don't at all)
       if (lineY + ht > this.y2) {
-        ctx.fillText("...", this.textX, lineY);
-        ctx.stroke();
         return;
+        // ctx.fillText("...", this.textX, lineY);
+        // ctx.stroke();
+        // return;
       }
 
       ctx.fillText(text, this.textX, lineY);
