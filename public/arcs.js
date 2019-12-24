@@ -84,6 +84,16 @@ class Arrow {
     };
   }
 
+  static methodNames() {
+    return {
+      "setTail" : ArrowSetTailCommand,
+      "setHead":  ArrowSetHeadCommand,
+      "straighten": ArrowStraightenCommand,
+      "setCtrl1": ArrowSetCtrl1Command,
+      "setCtrl2": ArrowSetCtrl2Command
+    };
+  }
+
   static getx1(self) {
     return self._x1;
   }
@@ -275,6 +285,10 @@ class CurvedArrow extends CanvasObject {
     };
   }
 
+  methodNames() {
+    return Arrow.methodNames();
+  }
+
   propNames() {
     return {
       ...Arrow.propNames(),
@@ -435,6 +449,10 @@ class ChildArrow extends CanvasChildObject {
 
   propTypes() {
     return Arrow.propTypes();
+  }
+
+  methodNames() {
+    return Arrow.methodNames();
   }
 
   propNames() {
