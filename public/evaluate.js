@@ -10,7 +10,7 @@ class MathCommand extends ConsoleCommand {
 
   checkArguments() {
     if (isNaN(Number(this.op1)) || isNaN(Number(this.op2)))
-      throw `Invalid operands for operator '${this.constructor.name}': ${this.op1}, ${this.op2}`;
+      throw `Invalid operands for operator '${this.constructor.name}': ${stringify(this.op1)}, ${stringify(this.op2)}`;
   }
 }
 
@@ -70,6 +70,16 @@ class DivCommand extends MathCommand {
   }
   executeSelf() { return this.op1 / this.op2; };
 }
+
+class FloorDivCommand extends MathCommand {
+  checkArguments() {
+    super.checkArguments();
+    if (this.op2 == 0)
+      throw "Divide by zero error";
+  }
+  executeSelf() { return Math.floor(this.op1 / this.op2); };
+}
+
 
 // extend div for zero check
 class ModCommand extends DivCommand {
