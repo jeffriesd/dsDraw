@@ -171,11 +171,30 @@ class CanvasObject {
     return {};
   }
 
+  /** CanvasObject.propMethodNames
+   *    Called in GetPropertyCommand to check for
+   *    canvas object properties and methods
+   *    Globally shared canvas object properties are
+   *    listed separately here. 
+   */
   propMethodNames() {
     return {
       ...this.propNames(),
       ...this.methodNames(),
+      // include universal methods like x(), y()
+      ...this.universalCanvasObjectMethods(),
     };
+  }
+
+  // all objects have x() and y()
+  universalCanvasObjectMethods() {
+    return { 
+      "x" : CanvasObjectGetXCommand,
+      "y" : CanvasObjectGetYCommand,
+      "width" : CanvasObjectGetWidthCommand,
+      "height" : CanvasObjectGetHeightCommand,
+      "label" : CanvasObjectGetLabelCommand,
+    }
   }
 
   getParent() {
@@ -455,7 +474,9 @@ class CanvasChildObject {
   propMethodNames() {
     return {
       ...this.propNames(),
-      ...this.methodNames()
+      ...this.methodNames(),
+      "x" : CanvasObjectGetXCommand,
+      "y" : CanvasObjectGetYCommand,
     };
   }
 
