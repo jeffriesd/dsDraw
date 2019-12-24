@@ -157,7 +157,7 @@ class ReactEditor extends React.Component {
       showOptionMenu: false,
 
       // for inspect pane
-      showCommandHistory: true,
+      showCommandHistory: false,
       showEnvironment: true,
       commandStack: [],
     };
