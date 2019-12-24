@@ -812,6 +812,85 @@ class CanvasObjectMethod extends ConsoleCommand {
 
 }
 
+class CanvasObjectGetXCommand extends CanvasObjectMethod {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+  executeSelf() {
+    return this.receiver.x;
+  }
+  saveState() {}
+  restoreState() {}
+}
+
+class CanvasObjectGetYCommand extends CanvasObjectMethod {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+  executeSelf() {
+    return this.receiver.y;
+  }
+  saveState() {}
+  restoreState() {}
+}
+
+class CanvasObjectGetWidthCommand extends CanvasObjectMethod {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+  executeSelf() {
+    return this.receiver.width;
+  }
+  saveState() {}
+  restoreState() {}
+}
+
+class CanvasObjectGetHeightCommand extends CanvasObjectMethod {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+  executeSelf() {
+    return this.receiver.height;
+  }
+  saveState() {}
+  restoreState() {}
+}
+
+class CanvasObjectGetLabelCommand extends CanvasObjectMethod {
+  precheckArguments() {
+    this.checkArgsLength(0);
+  }
+  executeSelf() {
+    return this.receiver.label;
+  }
+  saveState() {}
+  restoreState() {}
+}
+
+
+class CanvasWidthCommand extends ConsoleCommand {
+  constructor(cState) {
+    super();
+    this.cState = cState;
+  }
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() { 
+    return this.cState.width;
+  }
+}
+
+
+class CanvasHeightCommand extends ConsoleCommand {
+  constructor(cState) {
+    super();
+    this.cState = cState;
+  }
+  precheckArguments() { this.checkArgsLength(0); }
+  executeSelf() { 
+    return this.cState.height;
+  }
+}
+
 /**
  * Built-in math (rand, randn), util (range)
  */
@@ -865,6 +944,44 @@ class RandomFloatCommand extends ConsoleCommand {
   }
 }
 
+class FloorCommand extends ConsoleCommand {
+  constructor(cState, num) {
+    super(num);
+  }
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+  getChildValues() {
+    this.value = this.args[0];
+  }
+  checkArguments() {
+    if (typeof this.value !== "number") 
+      this.argsError("Argument must be numeric");
+  }
+  executeSelf() {
+    return Math.floor(this.value);
+  }
+}
+
+
+class CeilCommand extends ConsoleCommand {
+  constructor(cState, num) {
+    super(num);
+  }
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+  getChildValues() {
+    this.value = this.args[0];
+  }
+  checkArguments() {
+    if (typeof this.value !== "number") 
+      this.argsError("Argument must be numeric");
+  }
+  executeSelf() {
+    return Math.ceil(this.value);
+  }
+}
 class RangeCommand extends ConsoleCommand {
   constructor(cState, start, end, step) {
     super(start, end, step);
@@ -989,6 +1106,11 @@ class HelpCommand extends ConsoleCommand {
       var propNames = keys(this.canvasObject.propNames());
       var methNames = keys(this.canvasObject.methodNames());
     }
+    // add 'universal' canvas object methods
+    if (this.canvasObject instanceof CanvasObject) {
+      methNames = methNames.concat(keys(this.canvasObject.universalCanvasObjectMethods()))
+    }
+
     methNames = methNames.map(s => `${s}()`);
 
     return (propNames.concat(methNames));
@@ -1261,6 +1383,40 @@ class FlowchartBoxAppendCommand extends CanvasObjectMethod {
     this.receiver.editor.value += this.newText;
   }
 }
+
+
+class FlowchartBoxSetTextCommand extends CanvasObjectMethod {
+  constructor(receiver, textNode) {
+    super(receiver, textNode);
+  }
+
+  precheckArguments() {
+    this.checkArgsLength(1);
+  }
+
+  getChildValues() {
+    this.newText = this.args[0];
+  }
+
+  checkArguments() {
+    if (typeof this.newText !== "string")
+      this.argsError("Argument must have string type")
+  } 
+
+  saveState() {
+    return { 
+      prevText: this.receiver.editor.value,
+    }
+  }
+
+  restoreState(state) {
+    this.receiver.editor.value = state.prevText;
+  }
+  executeSelf() {
+    this.receiver.editor.value = this.newText;
+  }
+}
+
 
 class DebugPrint extends ConsoleCommand {
   constructor(cState, ...args) {
