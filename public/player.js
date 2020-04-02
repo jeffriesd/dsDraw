@@ -1,4 +1,4 @@
-const MIMETYPE = "video/webm; codecs=vp8";
+const MIMETYPE = "video/webm";
 
 class MediaController {
   constructor(canvasState) {
