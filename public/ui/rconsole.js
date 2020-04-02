@@ -21,7 +21,7 @@ class ReactConsole extends React.Component {
       fontFamily: this.props.style.fontFamily,
       commandLineValue: "",
       showSettings: false,
-      consoleMode: TEXT_MODE,
+      consoleMode: CLINE_MODE,
       bgColor: "rgba(0, 0, 0, .7)",
       fgColor: "white",
       debugMode: false, 
@@ -264,8 +264,10 @@ class ReactConsole extends React.Component {
 
     cancelDebug() {
       // undo effects of program trace up to the current point 
-      if (this.programTrace)
+      if (this.programTrace) {
         this.programTrace.command.undo();
+        console.log("undo cmd")
+      }
       repaint();
       updateInspectPane();
 
@@ -327,10 +329,12 @@ class ReactConsole extends React.Component {
         }
       };
 
-      const maybeFinishDebug = () => {
+      const maybeFinishDebug = (showTrace) => {
         // update ui with trace 
-        var tr = this.programTrace.trace();
-        this.setState({traceText: tr });
+        if (showTrace) {
+          var tr = this.programTrace.trace();
+          this.setState({traceText: tr });
+        }
 
         if (this.programTrace.finishedExecuting) {
           // TODO record command here (without executing again, obviously)
@@ -338,6 +342,7 @@ class ReactConsole extends React.Component {
 
           this.programTrace = null;
 
+          // only undoes command if programTrace is defined
           cancelDebug();
         }
       }
@@ -356,7 +361,7 @@ class ReactConsole extends React.Component {
             // if (this.programTrace.currentIter == null)
             //   this.programTrace.stepInto();
           })
-          .then(() => maybeFinishDebug())
+          .then(() => maybeFinishDebug(true))
           .catch(err => {
             // TODO show error in console
 
@@ -372,12 +377,35 @@ class ReactConsole extends React.Component {
         return new Promise(resolve => 
           resolve(lockContext()))
           .then(() => this.programTrace.stepOver())
-          .then(() => maybeFinishDebug())
+          .then(() => maybeFinishDebug(true))
           .catch(err => {
             console.warn("Error stepping over: ", err)
             cancelDebug();
           })
           .finally(() => unlockContext());
+      };
+
+      // wrapper version
+      const continueTrace = () => {
+        if (canvasLocked()) return canvasLockedAlert();
+        return new Promise(resolve => 
+          resolve(lockContext()))
+        .then(() => _continueTrace())
+        .finally(() => unlockContext());
+      }
+
+      const _continueTrace = () => {
+        return this.programTrace.stepOver()
+          .then(() => {
+            if (! this.programTrace.finishedExecuting) {
+              return _continueTrace();
+            }
+            else  // record command and end debugging session
+              maybeFinishDebug(false);
+          })
+          .catch(_err => {
+            cancelDebug();
+          })
       };
 
 
@@ -392,6 +420,7 @@ class ReactConsole extends React.Component {
             cancelDebugCb: cancelDebug,
             stepIntoCb: stepInto,
             stepOverCb: stepOver,
+            continueCb: continueTrace,
             debugMode: this.state.debugMode, 
           },
         ),
@@ -508,6 +537,11 @@ class CommandTopBar extends React.Component {
       { id : "commandConsoleStepOverButton", onClick: e => this.props.stepOverCb() });
   }
 
+  continueTrace() {
+    return create("button",
+      { id : "commandConsoleContinueButton", onClick: e => this.props.continueCb() });
+  }
+
   cancelDebug() {
     return create("button", 
       { id : "commandConsoleDebugCancelButton", onClick: e => this.props.cancelDebugCb() });
@@ -517,7 +551,7 @@ class CommandTopBar extends React.Component {
     var buttons = [];
     if (this.props.consoleMode === TEXT_MODE) {
       if (this.props.debugMode) 
-        buttons = [this.stepInto(), this.stepOver(), this.cancelDebug()];
+        buttons = [this.stepInto(), this.stepOver(), this.continueTrace(), this.cancelDebug()];
       else 
         buttons = [this.runButton(), this.startDebug()];
     }
