@@ -10,7 +10,7 @@
     "fs": "~0.0.1-security",
     "mathjax-node": "~2.1.1",
     "reactjs-dropdown-component": "^1.0.6",
-    "ws": "~6.1.2"
+    "ws": "~6.2.2"
   },
   "devDependencies": {
     "jest": "^27.0.6"
