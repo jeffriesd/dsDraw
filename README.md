@@ -27,3 +27,40 @@ __Control-Z:__ Undo
 __Control-Y:__ Redo  
 __T:__ Show console   
 __Escape:__ Hide console   
+
+
+## Gallery
+
+Convex hull construction: 
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull-color.png)
+
+Convex hull completed:
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull-outline.png)
+
+
+Constructing a BST and accessing its nodes: 
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/bstnode-ind-sm.png)
+
+
+Create a graph and have the nodes arranged automatically by dsDraw's graph layout algorithm: 
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/graph1.png)
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/graphloop.png)
+
+
+Editing the properties of linked list nodes using a menu: 
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/linked-node-props.png)
+
+Highlight nodes of a BST and add extra edges to illustrate BST layout algorithm: 
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/reingoldthreads.png)
+
+Use the program trace feature to run code line-by-line:
+
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/prog-trace-fin.gif)
+
