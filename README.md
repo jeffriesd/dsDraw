@@ -33,6 +33,10 @@ See the wiki for more details.
 
 ## Gallery
 
+Convex hull animation:
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull97.gif)
+
+
 Convex hull construction: 
 
 ![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull-color.png)
