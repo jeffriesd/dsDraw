@@ -1,6 +1,7 @@
 # dsDraw
 
-dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. The user can interact with the canvas by point-and-click or by entering command via the console. These interactions can be recorded along with audio from the user's microphone to create dynamic content. 
+dsDraw is an interactive tool for creating videos with flowcharts and data structures, with an emphasis on programmatic drawing. 
+The web application consists of a canvas, some toolbar buttons, and a console. The user can interact with the canvas by point-and-click or by entering commands via the console. These interactions produce animations that can be recorded along with audio from the user's microphone to create dynamic content. 
 
 ![gif cannot be loaded](https://github.com/danjeffries96/dsDraw/blob/master/docs/screenshots/menu.gif "Logo Title Text 1")
 
@@ -28,8 +29,13 @@ __Control-Y:__ Redo
 __T:__ Show console   
 __Escape:__ Hide console   
 
+See the wiki for more details. 
 
 ## Gallery
+
+Convex hull animation:
+![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull97.gif)
+
 
 Convex hull construction: 
 
