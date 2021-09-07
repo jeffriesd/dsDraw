@@ -1,0 +1,200 @@
+define merge(xs, left, mid, right, leq) {
+  n1 = mid - left + 1;
+  n2 = right - mid;
+
+  L = [];
+  R = [];
+
+  L = xs[left:mid+1];
+
+  R = xs[mid+1:right+1];
+
+  i = 0; j = 0; k = left;
+  while (i < n1 && j < n2) {
+    if (leq(L[i], R[j])) {
+      xs[k] = L[i];
+      i = i + 1;
+    }
+    else {
+      xs[k] = R[j];
+      j = j + 1;
+    }
+    k = k + 1;
+  }
+
+  while (i < n1) {
+    xs[k] = L[i];
+    i = i + 1;
+    k = k + 1;
+  }
+
+  while (j < n2) {
+    xs[k] = R[j];
+    j = j + 1;
+    k = k + 1; 
+  }
+}
+
+define mergesort(xs, l, r, leq) {
+  if (l < r) {
+    m = l + (r - l) // 2; 
+    mergesort(xs, l, m, leq);
+    mergesort(xs, m+1, r, leq);
+
+    merge(xs, l, m, r, leq);
+  }
+}
+
+define lq (x, y) {
+  return x <= y;
+}
+define sort(xs) {
+  mergesort(xs, 0, xs.length() - 1, lq);
+}
+
+define byxy(p1, p2) {
+  return p1.x() < p2.x() || (p1.x() == p2.x() && p1.y() < p2.y());
+}
+
+define sortby(xs, by) {
+  mergesort(xs, 0, xs.length() - 1, by);
+}
+
+define mkpt(x, y) {
+  c = conn();  
+  resize(c, 20, 20);
+  moveTo(c, x, y);
+  return c;
+}
+
+define gen_pts(n, x, y, d) {
+  pts = [];
+  
+  for (i = 0; i < n ; i = i + 1) {
+    pts.push(
+        mkpt(x + randn(1, d), y + randn(1, d))
+    );
+  }
+  return pts;
+}
+
+define crossProd(p, q, r) {
+  return (q.x() - p.x()) * (r.y() - p.y()) 
+    - (q.y() - p.y()) * (r.x() - p.x());
+}
+
+define cws(p, q, r) {
+  return crossProd(p, q, r) < 0;
+}
+
+define ccws(p, q, r) {
+  return crossProd(p, q, r) > 0;
+}
+
+define inUpper(i, pts) {
+  A = pts[0]; 
+  B = pts[pts.length() - 1];
+  return i == pts.length() - 1 || cws(A, pts[i], B);
+}
+
+define inLower(i, pts) {
+  A = pts[0]; 
+  B = pts[pts.length() - 1];
+  return i == pts.length() - 1 || ccws(A, pts[i], B);
+}
+
+define checkAngle(p, q, r, ms) {
+  a1 = arrow(p, q);  
+  a2 = arrow(q, r);
+  repaint();
+  wait(ms);
+  hide(a1);
+  hide(a2);
+}
+
+define leftTurn(i, pts, up, ms) {
+  if (up.length() < 2) { return false; }
+  p2 = up[up.length() - 2];
+  p1 = up[up.length() - 1];
+  checkAngle(p2, p1, pts[i], ms);
+  return ! cws(p2, p1, pts[i]);
+}
+
+define rightTurn(i, pts, down, ms) {
+  if (down.length() < 2) { return false; }
+  p2 = down[down.length() - 2];
+  p1 = down[down.length() - 1];
+  checkAngle(p2, p1, pts[i], ms);
+  return ! ccws(p2, p1, pts[i]);
+}
+
+define addPoint(p, color, hull, ms) {
+  hull.push(p);
+  p.bg = color;
+  repaint(); 
+  wait(ms);
+  return p;
+}
+
+define removePoint(color, hull, ms) {
+  p = hull.pop();
+  p.bg = color;
+  repaint();
+  wait(ms);
+}
+
+define outlineHull(hull, ms) {
+  for (i = 0; i < hull.length() - 1; i = i + 1) {
+    arrow(hull[i], hull[i+1], { head : false });
+    repaint();
+    wait(ms);
+  }
+  arrow(hull[hull.length() - 1], hull[0], { head : false });
+}
+
+define hull(pts) {
+  if (pts.length() == 1) {
+    return pts;
+  }
+
+  ms = 300;
+
+  remColor = "green";
+  upperColor = "red";
+  lowerColor = "blue";
+
+  A = pts[0];
+  A.bg = "red";
+  B = pts[pts.length() - 1];
+  AB = arrow(A, B, { dash : true });
+
+  upper = [A];
+  lower = [A];
+
+  for (i = 1; i < pts.length(); i = i + 1) {
+    if (inUpper(i, pts)) {
+      while (leftTurn(i, pts, upper, ms)) {
+        removePoint(remColor, upper, ms);
+      }
+      addPoint(pts[i], upperColor, upper, ms);
+    }
+    if (inLower(i, pts)) {
+      while (rightTurn(i, pts, lower, ms)) {
+        removePoint(remColor, lower, ms);
+      }
+      addPoint(pts[i], lowerColor, lower, ms);
+    }
+  }
+
+  for (i = lower.length() - 2; i > 0; i = i - 1) {
+    addPoint(lower[i], lowerColor, upper, ms);
+  }
+
+  hide(AB);
+  outlineHull(upper, ms);
+  return upper;
+}
+
+pts = gen_pts(35, 550, 180, 800);
+sortby(pts, byxy);
+hull(pts);
