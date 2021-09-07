@@ -1,10 +1,22 @@
 define f() { 
-  b = bst();
+  b = bst([8, 5, 13, 4, 1, 0, 22, 19]);
 
-  node = b[8];
+  node = b[5];
   while (node != null) {
     node.bg = "red";
-    wait(1000); 
+    repaint();
+    wait(100); 
+    node = node.parent();
+  }
+}
+
+define colorPath() {
+  b = bst([8, 6, 13, 4, 1, 0, 22, 19]);
+  repaint();
+  wait(1000);
+  node = b[5];
+  while (node != null) {
+    node.bg = "red";
     node = node.parent();
   }
 }

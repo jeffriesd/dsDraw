@@ -1,0 +1,137 @@
+define marker(A) {
+  a = arrow();
+  x = A.x();
+  y1 = A.y() - 50;
+  y2 = A.y();
+  a.setTail(x, y1);
+  a.setHead(x, y2);
+  a.straighten();
+  return a;
+}
+
+define colorArray(A, i, mkr) {
+  A[:i].bg = "pink";
+  for (j = 0; j < i; j = j + 1) {
+    if (A[j].value >= A[i].value) { 
+      A[j].bg = "gray"; 
+    }
+  }
+  A[i].bg = "red";
+  moveTo(mkr, A.x() + i * A.cs, mkr.y());
+}
+
+define updateL(L, i, Li) {
+  L[i].showValues = true;
+  L[i].bg = "lightblue";
+  L[i].value = Li;
+}
+
+define highlightTree(tnode, color) {
+  if (tnode == null) { return null; }
+  tnode.bg = color;
+  highlightTree(tnode.left(), color);
+  highlightTree(tnode.right(), color);
+}
+
+define update() {
+  repaint();
+  wait(1500);
+}
+
+define max(a, b) {
+  if (a > b) { return a; }
+  return b;
+}
+
+define drawAug(tnode, aug) {
+  x = tnode.x() + 20;
+  y = tnode.y() - 40;
+  t = augText[tnode.value()];
+  if (t == null) {
+    t = text({fs : 12});
+    augText[tnode.value()] = t;
+  }
+  t.setText(str(aug));
+  moveTo(t, x, y);
+}
+
+define updateTnodeAug(tnode, aug) {
+  if (tnode == null) { return 1; }
+  l = updateTnodeAug(tnode.left(), aug);
+  r = updateTnodeAug(tnode.right(), aug);
+  curaug = max(aug[tnode.value()], max(l, r));
+  drawAug(tnode, curaug);
+  return curaug;
+}
+
+define updateAug(T, aug) {
+  updateTnodeAug(T.root(), aug);
+  update();
+}
+
+define splay(T, x, aug) {
+  T[:].bg = "white";
+  tnode = T.find(x);
+  tnode.bg = "red";
+  while (tnode != T.root()) {
+    tnode.rotate();
+    updateAug(T, aug);
+  }
+  highlightTree(tnode.left(), "pink");
+  highlightTree(tnode.right(), "gray");
+}
+
+define treeSubSeq(A) {
+  arr = array(A);
+  translate(arr, -100, -100);
+  n = A.length();
+  Alabel = text();
+  Alabel.setText("A");
+  moveTo(Alabel, arr.x() - 50, arr.y() + 15);
+
+  L = array([0] * n);
+  translate(L, -100, -100);
+  L.showValues = true;
+  L[:].showValues = false;
+  updateL(L, 0, 1);
+  
+  translate(L, 0, 50);
+  Llabel = text();
+  Llabel.setText("L");
+  moveTo(Llabel, L.x() - 50, L.y() + 15);
+  T = bst([A[0]]);
+  translate(T, -100, -100);
+  translate(T, 140, 150);
+  update();
+
+
+  mkr = marker(arr);
+
+  aug = {};
+  augText = {};
+  for (i = 0; i < n; i = i + 1) {
+    aug[A[i]] = 1;
+  }
+
+  for (i = 1; i < n; i = i + 1) {
+    colorArray(arr, i, mkr);
+    update();
+
+    T.insert(A[i]);
+    splay(T, A[i], aug);
+    l = T.root().left();
+    if (l == null) {
+      l = 0;
+    }
+    else {
+      l = aug[l.value()];
+    }
+    aug[A[i]] = l + 1;
+    updateAug(T, aug);
+    updateL(L, i, aug[A[i]]);
+  }
+} 
+
+treeSubSeq([10, 22, 9, 33, 21, 50, 41, 60]);
+
+

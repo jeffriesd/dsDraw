@@ -1,0 +1,76 @@
+define makeHydrogen(n) {
+  Hcirc = conn();
+  H = math();
+  H.append("^" + str(n) + "H");
+  return [Hcirc, H];
+}
+
+define moveGroup(cs, x, y) {
+  for (i = 0; i < cs.length(); i = i + 1) {
+    moveTo(cs[i], x, y);
+  }
+}
+
+define map(xs, f) {
+  for (i = 0; i < xs.length(); i = i + 1) {
+    f(xs[i]);
+  }
+}
+
+define fusion() {
+  h11 = makeHydrogen(1);
+  h12 = makeHydrogen(1);
+  h2 = makeHydrogen(2);  
+  h11[:].bg = "lightblue";
+  h12[:].bg = "lightblue";
+  h2[:].bg = "pink";
+
+  x1 = 100;
+  x2 = 400;
+  y = 400;
+
+  center = (x1 + x2) // 2;
+  moveGroup(h11, x1, y);
+  moveGroup(h12, x2, y);
+  moveGroup(h2, center, y);
+
+  map(h2, hide);
+
+  $atom1 = h11[0];
+  $math1= h11[1];
+  $atom2 = h12[0];
+  $math2 = h12[1];
+
+  pd1 = { startPos : { x : x1, y : y },
+          endPos : { x : center, y : y }, 
+          endTime : 2 };
+  pd2 = { startPos : { x : x2, y: y }, 
+          endPos : { x : center, y : y }, 
+          endTime : 2 };
+
+  msPerFrame = 100;
+  interpolate({
+    atom1 : pd1,
+    math1 : pd1,
+    atom2 : pd2,
+    math2 : pd2
+  }, msPerFrame);
+
+  map(h2, show);
+
+  $atom3 = h2[0];
+  a1 = arrow($atom3, null);
+  a1.setHead(center + 200, y + 100 + $atom3.height());
+  a1.straighten();
+  a2 = arrow($atom3, null);
+  a2.setHead(center + 200, y - 100);
+  a2.straighten();
+
+  m1 = math();
+  m1.append("e^+");
+  moveTo(m1, center + 200, y + 100 + $atom3.height());
+  m2 = math();
+  m2.append("v");
+  moveTo(m2, center + 200, y - 100 - m2.height());
+}
+

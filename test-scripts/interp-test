@@ -67,20 +67,22 @@ define test2() {
 
 // all collapse to one point 
 // with delays
-define test() {
+
+
+define collapsePoints() {
   n = 10;
   xs = [0] * 10;
   ids = [0] * n;
-  x_space = 200;
+  x_space = 50;
   y_space = 200;
 
   for (i = 0; i < n; i = i + 1) {
     ids[i] = "c" + str(i);
     xs[i] = $(ids[i], conn());
+    resize(xs[i], 30, 30);
     tr(xs[i], -x_space*i, 0);
   }
   repaint();
-
 
   ps = [0] * n;
   pds = {};
@@ -96,3 +98,68 @@ define test() {
   interpolate(pds);
   return ids;
 }
+
+
+define collapsePointswithArrow() {
+  n = 10;
+  circles = [0] * 10;
+  ids = [0] * n;
+  x_space = 50;
+  y_space = 200;
+  for (i = 0; i < n; i = i + 1) {
+    ids[i] = "c" + str(i);
+    circles[i] = $(ids[i], conn());
+    resize(circles[i], 30, 30);
+    tr(circles[i], -x_space*i, 0);
+  }
+  repaint();
+  ps = [0] * n;
+  pds = {};
+  for (i = 0; i < n; i = i + 1) {
+    pathDict = {
+      startTime : i / 10,
+      endTime : 0.5 + i / 10,
+      ctrl1 : { x : circles[i].x() - 150 , y : 300 },
+      ctrl2 : { x : circles[i].x() + 150 , y : 300 },
+      endPos : { x : circles[i].x(), y : circles[i].y() }
+    };
+    pds[ids[i]] = pathDict;
+    if (i == 4) {
+      a = arrow(circles[i], circles[i], { dash : true });
+      a.setCtrl1(pathDict["ctrl1"]["x"], pathDict["ctrl1"]["y"]);
+      a.setCtrl2(pathDict["ctrl2"]["x"], pathDict["ctrl2"]["y"]);
+    }
+  }
+  interpolate(pds);
+  return ids;
+}
+
+define collapsePoints() {
+  n = 10;
+  circles = [0] * 10;
+  ids = [0] * n;
+  x_space = 50;
+  y_space = 200;
+  for (i = 0; i < n; i = i + 1) {
+    ids[i] = "c" + str(i);
+    circles[i] = $(ids[i], conn());
+    resize(circles[i], 30, 30);
+    tr(circles[i], -x_space*i, 0);
+  }
+  repaint();
+  ps = [0] * n;
+  pds = {};
+  for (i = 0; i < n; i = i + 1) {
+    pathDict = {
+      startTime : i / 10,
+      endTime : 0.5 + i / 10,
+      ctrl1 : { x : circles[i].x() - 150 , y : 300 },
+      ctrl2 : { x : circles[i].x() + 150 , y : 300 },
+      endPos : { x : circles[i].x(), y : circles[i].y() }
+    };
+    pds[circles[i].label()] = pathDict;
+  }
+  interpolate(pds, 100);
+  return ids;
+}
+collapsePoints();

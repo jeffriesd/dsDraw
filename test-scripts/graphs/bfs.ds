@@ -1,0 +1,49 @@
+define bfs(graph) {
+
+  nodes = graph[:];
+  n = nodes.length();
+  s = nodes[0]; 
+  q = [s];
+  nv = 1;
+  visited = [true] + [false] * (n - 1);
+
+  while (nv < n && q.length() > 0) { 
+    u = q.pop();   
+    u.bg = "blue";
+    repaint();
+    wait(500);
+
+    neighbors = u.outgoing();
+    ui = u.value;
+    for (i = 0; i < neighbors.length(); i = i + 1) {
+      v = neighbors[i];
+      vi = v.value;
+      if (! visited[vi]) {
+        visited[vi] = true;
+        q.push(v);
+        nv = nv + 1;
+        v.bg = "red";
+        repaint();
+        wait(500);
+      }
+    }
+  }
+}
+
+g = digraph({
+  0: [1, 6],
+  1: [8, 9],
+  2: [9, 4, 3],
+  3: [9, 7],
+  4: [8],
+  5: [8, 6],
+  6: [10],
+  7: [10],
+  8: [],
+  9: [],
+  10: []
+});
+g.render();
+g.render();
+
+bfs(g);

@@ -1,0 +1,82 @@
+Given an array $a$ of $n$ distinct numbers, 
+compute the sum of the minimums of all contiguous subarrays. 
+
+
+first frame 
+```
+
+ts = { fontSize : 64, fontFamily : "monospace", va: "middle" , ha :"center" };
+title = text(ts);
+moveTo(title, 560, 100);
+resize(title, 800, 400);
+title.append("Sum of All Subarray Minimums");
+
+ss = { fontSize : 32, fontFamily : "monospace", va: "middle" , ha :"center" };
+subtitle = text(ss);
+subtitle.append("Given an array A of n distict numberes, compute the sum of the minimums of all contiguous subarrays");
+moveTo(subtitle, 460, 240);
+resize(subtitle, 1000, 400);
+
+eq = math();
+moveTo(eq, 560, 450);
+resize(eq, 800, 400);
+eq.append("\sum_{i=1}^{n} \sum_{j=i}^{n} min(A_i, A_{i+1}, ..., A_j)");
+
+```
+
+
+part 2 - naive solution 
+```
+
+ss = { fontSize : 48, fontFamily : "monospace", va: "middle" , ha :"center" };
+subtitle = text(ss);
+subtitle.append("Naive Solution");
+moveTo(subtitle, 460, 10);
+resize(subtitle, 1000, 200);
+as = { cs: 100, fs : 32, ind : true };
+arr = array([8, 1, 3, 4, -1, 6], as);
+moveTo(arr, (1920 - (arr.length() * arr.cs)) / 2, 300);
+$sum = text(ss);
+moveTo($sum, 460, 400);
+resize($sum, 1000, 400); 
+$sum.append("sum = ");
+define amin(xs, i, j) {
+  m = xs[i].value;
+  for (k = i; k <= j; k = k + 1) {
+    if (xs[k].value < m) {
+      m = xs[k].value;
+    }
+  }
+  return m;
+}
+define next(a, i, j, s) {
+  n = a.length();
+  if (i == n -1 && j == n -1) {
+    return null;
+  }
+  if (j == n -1) {
+    i = i + 1;
+    j = i;
+  }
+  else {
+    j = j + 1;
+  }
+  a[:].bg = "white";
+  a[i:j+1].bg = "red";
+  pre = " + ";
+  if (i == 0 && j == 1) {
+    pre = "";
+  }
+  s.append(pre + "(" + str(amin(a, i, j)) + ")");
+  return [i, j];
+}
+
+x = 0;
+y = 0;
+xs = next(arr, x, y, $sum);
+if (xs) {
+x = xs[0];
+y = xs[1];
+}
+
+```

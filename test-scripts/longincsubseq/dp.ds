@@ -1,0 +1,69 @@
+define marker(A, down) {
+  a = arrow();
+  x = A.x();
+  if (down) {
+    y2 = A.y() + 2 * A.cs;
+    y1 = y2 + 50;
+  } else {
+    y1 = A.y() - 50;
+    y2 = A.y();
+  }
+  a.setTail(x, y1);
+  a.setHead(x, y2);
+  a.straighten();
+  return a;
+}
+
+define setOuter(A, i, mkr) {
+  A[:i].bg = "pink";
+  for (j = 0; j < i; j = j + 1) {
+    if (A[j].value >= A[i].value) { 
+      A[j].bg = "gray"; 
+    }
+  }
+  A[i].bg = "red";
+  moveTo(mkr, A.x() + i * A.cs, mkr.y());
+  repaint();
+  wait(500);
+}
+
+define setInner(A, j, mkr) {
+  A[j].bg = "lightblue";  
+  moveTo(mkr, A.x() + j * A.cs, mkr.y());
+  repaint();
+  wait(500);
+}
+
+define setMax(A, j) {
+  A[:j].bg = "lightblue";
+  A[j].bg = "lightgreen";
+  repaint();
+  wait(500);
+}
+
+define dp(A) {
+  n = A.length();
+  L = array([1] * n);
+  moveTo(L, A.x(), A.y() + 100);
+
+  topmkr = marker(A, false);
+  botmkr = marker(L, true);
+
+  for (i = 1; i < n; i = i + 1) {
+    setOuter(A, i, topmkr);
+    for (j = 0; j < i; j = j + 1) {
+      if (A[j].value < A[i].value) {
+        setInner(L, j, botmkr);
+        if (L[i].value <= L[j].value + 1) {
+          L[i].value = L[j].value + 1;
+          setMax(L, j);
+        }
+      }
+    }
+    L[:].bg = "white";
+  }
+
+  return L;
+} 
+
+dp(array([10, 22, 9, 33, 21, 50, 41, 60]));

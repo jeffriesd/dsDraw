@@ -1,0 +1,162 @@
+define merge(xs, left, mid, right, leq) {
+  n1 = mid - left + 1;
+  n2 = right - mid;
+
+  L = [];
+  R = [];
+
+  for (i = 0; i < n1; i = i + 1) {
+    L.push(xs[left+i]);
+  }
+  for (j = 0; j < n2; j = j + 1) {
+    R.push(xs[mid + 1 + j]);
+  }
+
+  i = 0; j = 0; k = left;
+  while (i < n1 && j < n2) {
+    if (leq(L[i], R[j])) {
+      xs[k] = L[i];
+      i = i + 1;
+    }
+    else {
+      xs[k] = R[j];
+      j = j + 1;
+    }
+    k = k + 1;
+  }
+
+  while (i < n1) {
+    xs[k] = L[i];
+    i = i + 1;
+    k = k + 1;
+  }
+
+  while (j < n2) {
+    xs[k] = R[j];
+    j = j + 1;
+    k = k + 1; 
+  }
+}
+
+define mergesort(xs, l, r, leq) {
+  if (l < r) {
+    m = l + (r - l) // 2; 
+    mergesort(xs, l, m, leq);
+    mergesort(xs, m+1, r, leq);
+
+    merge(xs, l, m, r, leq);
+  }
+}
+
+define lq (x, y) {
+  return x <= y;
+}
+define sort(xs) {
+  mergesort(xs, 0, xs.length() - 1, lq);
+}
+
+define byxy(p1, p2) {
+  return p1.x() < p2.x() || (p1.x() == p2.x() && p1.y() < p2.y());
+}
+
+define sortby(xs, by) {
+  mergesort(xs, 0, xs.length() - 1, by);
+}
+
+define mkpt(x, y) {
+  c = conn();  
+  resize(c, 10, 10);
+  moveTo(c, x, y);
+  return c;
+}
+
+define gen_pts(n, x, y, d) {
+  pts = [];
+  
+  for (i = 0; i < n ; i = i + 1) {
+    pts.push(
+      $("P" + str(i), 
+        mkpt(x + randn(1, d), y + randn(1, d)))
+    );
+  }
+  return pts;
+}
+
+
+/** crossprod
+ *    (bx - ax)(cy - ay) - (by - ay)(cx - ax)
+ *
+ *    (bx * cy - bx * ay - ax * cy + ax * ay)
+ *    - (by * cx - by * ax - ay * cx + ay * ax)
+ *
+ *    222222222222222222 - 1111111 + ax * ay)
+ *    - (3333333 - 1111111 - 3333333 + ay * ax)
+ *    =
+ *    bx(cy - ay) + ax(by - cy)
+ */
+
+define crossProd(p, q, r) {
+  return (q.x() - p.x()) * (r.y() - p.y()) 
+    - (q.y() - p.y()) * (r.x() - p.x());
+}
+
+define cws(a, b, c) {
+  return (a.x() * (b.y() - c.y()) 
+     + b.x() * (c.y() - a.y())
+     + c.x() * (a.y() - b.y())) < 0;
+}
+
+define ccws(a, b, c) {
+  return a.x() * (b.y() - c.y()) 
+     + b.x() * (c.y() - a.y())
+     + c.x() * (a.y() - b.y()) > 0;
+}
+
+define hull(pts) {
+  if (pts.length() == 1) {
+    return pts;
+  }
+
+  s = 100;
+
+  sortby(pts, byxy);
+
+  p1 = pts[0];
+  p2 = pts[pts.length() - 1];
+
+  up = [p1];
+  down = [p1];
+
+  for (i = 1; i < pts.length(); i = i + 1) {
+    if (i == pts.length() - 1 || cws(p1, pts[i], p2)) {
+      while (up.length() >= 2 && ! cws(up[up.length() - 2], up[up.length() - 1], pts[i])) {
+        p = up.pop();
+        p.bg = "white";
+        repaint(); wait(s);
+      }
+      up.push(pts[i]);
+      pts[i].bg = "red";
+      repaint(); wait(s);
+    }
+    if (i == pts.length() - 1 || ccws(p1, pts[i], p2)) {
+      while (down.length() >= 2 && ! ccws(down[down.length() - 2], down[down.length() - 1], pts[i])) {
+        p = down.pop();
+        p.bg = "white";
+        repaint(); wait(s);
+      }
+      down.push(pts[i]);
+      pts[i].bg = "blue";
+      repaint(); wait(s);
+    }
+  }
+
+  for (i = down.length() - 2; i > 0; i = i - 1) {
+    up.push(down[i]); 
+  }
+  return up;
+}
+
+define r(a) { a.bg = "red"; }
+
+pts = gen_pts(55, 400, 400, 400);
+h = hull(pts);
