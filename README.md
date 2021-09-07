@@ -35,6 +35,7 @@ See the wiki for more details.
 
 Convex hull animation:
 ![image cannot be loaded](https://github.com/jeffriesd/dsDraw/blob/master/docs/figures/hull/hull97.gif)
+The above animation is created by executing the code in test-scripts/hull/hull.ds in the dsDraw console.  
 
 
 Convex hull construction: 
